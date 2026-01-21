@@ -23,7 +23,10 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 GOOGLE_CLIENT_ID="382119089928-1jj9i247ccga761fkcbr4pq7m42kqhdg.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI="http://localhost:8000/api/google_callback/"
+
+# Динамический выбор хоста для Google OAuth redirect URI
+SERVER_HOST = os.getenv("SERVER_HOST", "localhost")  # localhost для разработки, или IP для сервера
+GOOGLE_REDIRECT_URI=f"http://{SERVER_HOST}:3001/api/google_callback/"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -54,6 +57,7 @@ ACCOUNT_AUTHENTICATION_METHOD = "email"
 INSTALLED_APPS = [
     #google auth
     #'ads',
+    'article',
     'listings',
     'users',
     'allauth',

@@ -12,6 +12,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # OAuth backend
     #path('accounts/', include('allauth.urls')),
+    # Article API
+    path('', include('article.urls')),
     path("api/me/", views.me, name="me"),
     path("api/logout/", views.logout_view, name="logout"),
     path("api/contact/", views.contact_view, name="contact_view"),
@@ -30,10 +32,8 @@ urlpatterns = [
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),
 
     # SPA — ТОЛЬКО для страниц
-    #re_path(r'^(?!static/|assets/|fonts/|media/|api/"}").*$', 
-    #    TemplateView.as_view(template_name="index.html")),
     re_path(
-        r'^(?!static/|assets/|fonts/|media/|api/).*$', 
+        r'^(?!static/|assets/|fonts/|media/|api/|admin)(?!admin/)', 
         TemplateView.as_view(template_name="index.html")
     ),
 
