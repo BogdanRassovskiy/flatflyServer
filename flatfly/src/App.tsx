@@ -12,6 +12,7 @@ import ScrollToTop from "./components/ScrollToTop/ScrollToTop";
 import ProfilePage from "./pages/ProfilePage/ProfilePage";
 import AuthPage from "./pages/AuthPage/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
+import FavoritesPage from "./pages/FavoritesPage/FavoritesPage";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
 // import другие страницы при необходимости
 
@@ -45,6 +46,15 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <ProfilePage />
+                            </ProtectedRoute>
+                        } 
+                    />
+                    
+                    <Route 
+                        path="/favorites" 
+                        element={
+                            <ProtectedRoute>
+                                <FavoritesPage />
                             </ProtectedRoute>
                         } 
                     />

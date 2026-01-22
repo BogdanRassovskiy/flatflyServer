@@ -65,6 +65,14 @@ class Profile(models.Model):
     preferred_gender = models.CharField(max_length=10, blank=True)
     preferred_age_range = models.CharField(max_length=50, blank=True)
 
+    # === FAVORITES ===
+    favorite_listings = models.ManyToManyField(
+        'listings.Listing',
+        related_name='favorited_by',
+        blank=True,
+        help_text="Избранные объявления"
+    )
+
     # === STATUS ===
     verified = models.BooleanField(default=False)
     looking_for_housing = models.BooleanField(default=True)

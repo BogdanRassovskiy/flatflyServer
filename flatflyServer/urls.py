@@ -30,6 +30,10 @@ urlpatterns = [
     path("api/listings/list", views.listings_view, name="listings_view"),
     path("api/listings/<int:listing_id>/", views.listing_detail, name="listing_detail"),
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),
+    path("api/favorites/add/", views.add_to_favorites, name="add_to_favorites"),
+    path("api/favorites/remove/", views.remove_from_favorites, name="remove_from_favorites"),
+    path("api/favorites/", views.get_favorites, name="get_favorites"),
+    path("api/favorites/is-favorite/", views.is_favorite, name="is_favorite"),
 
     # SPA — ТОЛЬКО для страниц
     re_path(

@@ -150,14 +150,14 @@ export default function ApartmentsPage({ listingType }: Props) {
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}
-                  id={String(listing.id)}
+                  id={listing.id}
                   price={Number(listing.price)}
                   address={listing.address || ""}
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}
-                  badges={[]}
+                  amenities={listing.amenities || []}
                   image={listing.image || "/placeholder-image.jpg"}
-                  type={listing.type as SaleCardTypes}
+                  type={listing.type as any}
                 />
               ))}
             </div>

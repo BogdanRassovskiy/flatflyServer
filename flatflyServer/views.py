@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 import jwt
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
+from django.db.models import Q
 from users.models import Profile
 from listings.models import Listing, ListingImage
 from django.core.paginator import Paginator
@@ -769,6 +770,118 @@ def google_callback(request):
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
     return redirect("/apartments")
+
+
+# FAVORITES ENDPOINTS
+
+@login_required
+@require_http_methods(["POST"])
+def add_to_favorites(request):
+    """Добавить объявление в избранное"""
+    try:
+        data = json.loads(request.body)
+        listing_id = data.get('listing_id')
+        
+        if not listing_id:
+            return JsonResponse({"error": "listing_id is required"}, status=400)
+        
+        listing = get_object_or_404(Listing, id=listing_id)
+        profile = request.user.profile
+        profile.favorite_listings.add(listing)
+        
+        return JsonResponse({
+            "success": True,
+            "message": "Добавлено в избранное",
+            "is_favorite": True
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def remove_from_favorites(request):
+    """Удалить объявление из избранного"""
+    try:
+        data = json.loads(request.body)
+        listing_id = data.get('listing_id')
+        
+        if not listing_id:
+            return JsonResponse({"error": "listing_id is required"}, status=400)
+        
+        listing = get_object_or_404(Listing, id=listing_id)
+        profile = request.user.profile
+        profile.favorite_listings.remove(listing)
+        
+        return JsonResponse({
+            "success": True,
+            "message": "Удалено из избранного",
+            "is_favorite": False
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_favorites(request):
+    """Получить все избранные объявления пользователя"""
+    try:
+        profile = request.user.profile
+        favorites = profile.favorite_listings.all()
+        
+        # Пагинация
+        page = request.GET.get('page', 1)
+        paginator = Paginator(favorites, 12)
+        favorites_page = paginator.get_page(page)
+        
+        listings_data = []
+        for listing in favorites_page:
+            images = ListingImage.objects.filter(listing=listing)
+            image_url = images.first().image.url if images.exists() else None
+            
+            listings_data.append({
+                "id": listing.id,
+                "title": listing.title,
+                "description": listing.description,
+                "price": str(listing.price),
+                "room_type": listing.room_type,
+                "city": listing.city,
+                "region": listing.region,
+                "area": listing.area,
+                "image_url": image_url,
+                "amenities": listing.amenities.split(',') if listing.amenities else [],
+            })
+        
+        return JsonResponse({
+            "success": True,
+            "count": paginator.count,
+            "page": page,
+            "total_pages": paginator.num_pages,
+            "listings": listings_data
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def is_favorite(request):
+    """Проверить, находится ли объявление в избранном"""
+    try:
+        listing_id = request.GET.get('listing_id')
+        if not listing_id:
+            return JsonResponse({"error": "listing_id is required"}, status=400)
+        
+        profile = request.user.profile
+        is_fav = profile.favorite_listings.filter(id=listing_id).exists()
+        
+        return JsonResponse({
+            "listing_id": listing_id,
+            "is_favorite": is_fav
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 

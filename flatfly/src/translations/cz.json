@@ -362,5 +362,14 @@
     "saved": "Uloženo!",
     "errorUploadingAvatar": "Chyba při nahrávání avatara",
     "errorSavingProfile": "Chyba při ukládání profilu"
-  }
+  },
+  "favorites": "Oblíbené",
+  "view_all_favorites": "Prohlížejte a spravujte všechny uložené inzeráty na jednom místě.",
+  "open_favorites": "Otevřít oblíbené",
+  "no_favorites_yet": "Zatím žádné oblíbené. Začněte přidávat inzeráty do oblíbených!",
+  "explore_listings": "Prohlížet inzeráty",
+  "previous": "Předchozí",
+  "next": "Další",
+  "please_login": "Prosím přihlaste se do svého účtu.",
+  "listings": "inzeráty"
 }

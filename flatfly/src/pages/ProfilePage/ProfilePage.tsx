@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileData {
     // Основная информация
@@ -38,9 +39,10 @@ interface ProfileData {
 export default function ProfilePage() {
     const { t } = useLanguage();
     const { user } = useAuth();
+    const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status">("basic");
+    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites">("basic");
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     
@@ -110,10 +112,11 @@ export default function ProfilePage() {
         { code: "sk", label: t("profile.languages.sk") || "Slovenčina" },
     ];
 
-    const sections: Array<{ key: "basic" | "social" | "status"; label: string }> = [
+    const sections: Array<{ key: "basic" | "social" | "status" | "favorites"; label: string }> = [
         { key: "basic", label: t("profile.sections.basic") },
         { key: "social", label: t("profile.sections.social") },
         { key: "status", label: t("profile.sections.status") },
+        { key: "favorites", label: t("favorites") },
     ];
 
     const currentSectionIndex = sections.findIndex(s => s.key === activeSection);
@@ -703,27 +706,51 @@ export default function ProfilePage() {
                         </div>
                     )}
 
+                    {/* Favorites Section */}
+                    {activeSection === "favorites" && (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {t("favorites")}
+                                </h2>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                {t("view_all_favorites")}
+                            </p>
+                            <button
+                                onClick={() => navigate("/favorites")}
+                                className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-lg hover:from-red-600 hover:to-pink-600 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                            >
+                                <Heart size={20} className="fill-white" />
+                                {t("open_favorites")}
+                            </button>
+                        </div>
+                    )}
+
                     {/* Save Button */}
-                    <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className={`px-8 max-[770px]:px-6 py-4 max-[770px]:py-3 rounded-full text-white text-lg max-[770px]:text-base font-semibold bg-gradient-to-r from-[#C505EB] to-[#BA00F8] hover:from-[#BA00F8] hover:to-[#C505EB] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-full max-[770px]:w-full min-[771px]:w-auto`}
-                        >
-                            {saveSuccess ? (
-                                <>
-                                    <CheckCircle size={20} className={`max-[770px]:w-5 max-[770px]:h-5`} />
-                                    {t("profile.saved")}
-                                </>
-                            ) : (
-                                <>
-                                    <Save size={20} className={`max-[770px]:w-5 max-[770px]:h-5`} />
-                                    {isSaving ? t("profile.saving") : t("profile.save")}
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {activeSection !== "favorites" && (
+                        <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className={`px-8 max-[770px]:px-6 py-4 max-[770px]:py-3 rounded-full text-white text-lg max-[770px]:text-base font-semibold bg-gradient-to-r from-[#C505EB] to-[#BA00F8] hover:from-[#BA00F8] hover:to-[#C505EB] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-full max-[770px]:w-full min-[771px]:w-auto`}
+                            >
+                                {saveSuccess ? (
+                                    <>
+                                        <CheckCircle size={20} className={`max-[770px]:w-5 max-[770px]:h-5`} />
+                                        {t("profile.saved")}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={20} className={`max-[770px]:w-5 max-[770px]:h-5`} />
+                                        {isSaving ? t("profile.saving") : t("profile.save")}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

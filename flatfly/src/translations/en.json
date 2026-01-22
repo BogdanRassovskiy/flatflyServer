@@ -362,5 +362,14 @@
     "saved": "Saved!",
     "errorUploadingAvatar": "Error uploading avatar",
     "errorSavingProfile": "Error saving profile"
-  }
+  },
+  "favorites": "Favorites",
+  "view_all_favorites": "View and manage all your saved listings in one place.",
+  "open_favorites": "Open Favorites",
+  "no_favorites_yet": "No favorites yet. Start adding listings to your favorites!",
+  "explore_listings": "Explore Listings",
+  "previous": "Previous",
+  "next": "Next",
+  "please_login": "Please log in to view your favorites.",
+  "listings": "listings"
 }

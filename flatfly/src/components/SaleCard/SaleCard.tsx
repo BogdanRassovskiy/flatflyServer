@@ -4,27 +4,72 @@ import {useState} from "react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {Link} from "react-router-dom";
 
-export type SaleCardTypes = "APARTMENT" | "ROOM" | "NEIGHBOUR";
-
-interface SaleCardProps {
-    id?: string;
-    price?: number;
+export type SaleCardTypes = {
+    id?: string | number;
+    type: "APARTMENT" | "ROOM" | "NEIGHBOUR";
+    price?: number | string;
     address?: string;
-    size?: number;
+    size?: string | number;
     rooms?: string;
-    badges: string[];
+    amenities?: string[];
     image?: string;
-    type: SaleCardTypes;
-
-    // для NEIGHBOUR
     name?: string;
     age?: number;
-    from?: string;
+    region?: string;
+    title?: string;
+    description?: string;
+};
+
+interface SaleCardProps extends SaleCardTypes {
+    onRemoveFavorite?: (id: string | number) => void;
 }
 
-export default function SaleCard({id,price,address,size,badges,image,rooms,type,name,age,from}:SaleCardProps) {
+export default function SaleCard({
+    id,
+    price,
+    address,
+    size,
+    amenities = [],
+    image,
+    rooms,
+    type,
+    name,
+    age,
+    region,
+    title,
+    onRemoveFavorite
+}: SaleCardProps) {
     const { t } = useLanguage();
-    const [isLike,setLike] = useState(true);
+    const [isLike, setLike] = useState(false);
+
+    const toggleFavorite = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const newState = !isLike;
+        setLike(newState);
+        
+        if (!id) return;
+
+        try {
+            const endpoint = newState ? "/api/favorites/add/" : "/api/favorites/remove/";
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ listing_id: id }),
+            });
+
+            if (!response.ok && newState === false && onRemoveFavorite) {
+                onRemoveFavorite(id);
+            } else if (!response.ok) {
+                setLike(!newState); // Revert on error
+            }
+        } catch (err) {
+            console.error("Error toggling favorite:", err);
+            setLike(!newState); // Revert on error
+        }
+    };
     const getListingUrl = () => {
         if (!id) return null;
         switch (type) {
@@ -112,7 +157,7 @@ export default function SaleCard({id,price,address,size,badges,image,rooms,type,
                     <div className={`w-full flex items-start justify-between`}>
                         {(type==="ROOM" || type==="APARTMENT")?
                             <div className={`flex flex-col items-start gap-3 max-[1220px]:gap-1 `}>
-                                {badges.map((value, index)=>
+                                {amenities.map((value, index)=>
                                     <div key={index} className={`p-1 max-[1220px]:p-0.5 rounded bg-[#08E2BE] border border-[#06B396] text-black text-[10px] max-[1220px]:text-[6px] font-bold`}>
                                         {value}
                                     </div>
@@ -121,11 +166,7 @@ export default function SaleCard({id,price,address,size,badges,image,rooms,type,
                             : <div></div> }
                         <div 
                             className={`cursor-pointer z-10`} 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setLike(!isLike);
-                            }}
+                            onClick={toggleFavorite}
                         >
                             <Icon icon="line-md:heart" width="24" height="24"  style={{color: isLike? `#C505EB` : `#ffffff`,transitionDuration:`0.3s`}} />
                         </div>
