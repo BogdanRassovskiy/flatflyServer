@@ -1,8 +1,10 @@
 import {Icon} from "@iconify/react";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 
 import {useLanguage} from "../../contexts/LanguageContext";
 import {Link} from "react-router-dom";
+import { getCsrfToken } from "../../utils/csrf";
+import { getImageUrl } from "../../utils/defaultImage";
 
 export type SaleCardTypes = {
     id?: string | number;
@@ -15,6 +17,12 @@ export type SaleCardTypes = {
     image?: string;
     name?: string;
     age?: number;
+    // Инициализация состояния избранного с бэкенда
+    is_favorite?: boolean;
+    // Доп. поля для NEIGHBOUR
+    from?: string;
+    badges?: string[];
+    // Возможные старые поля (сохраняем в типе, но не используем)
     region?: string;
     title?: string;
     description?: string;
@@ -35,39 +43,71 @@ export default function SaleCard({
     type,
     name,
     age,
-    region,
-    title,
+    from,
+    badges = [],
+    is_favorite,
     onRemoveFavorite
 }: SaleCardProps) {
     const { t } = useLanguage();
-    const [isLike, setLike] = useState(false);
+    const [isLike, setLike] = useState(!!is_favorite);
+    const [isProcessing, setProcessing] = useState(false);
+
+    // Поддерживать актуальность при изменении пропса
+    useEffect(() => {
+        setLike(!!is_favorite);
+    }, [is_favorite]);
+
+    // Обработать profile_id для соседей (если нужно отправить как сосед)
+    const favoritePayload = () => {
+        const payload: any = {};
+        if (type === "NEIGHBOUR") {
+            payload.profile_id = id;
+        } else {
+            payload.listing_id = id;
+        }
+        return payload;
+    };
 
     const toggleFavorite = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        if (isProcessing) return;
         
         const newState = !isLike;
         setLike(newState);
+        setProcessing(true);
         
         if (!id) return;
 
         try {
             const endpoint = newState ? "/api/favorites/add/" : "/api/favorites/remove/";
+            const payload = favoritePayload();
+            
             const response = await fetch(endpoint, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
                 credentials: "include",
-                body: JSON.stringify({ listing_id: id }),
+                body: JSON.stringify(payload),
             });
-
-            if (!response.ok && newState === false && onRemoveFavorite) {
-                onRemoveFavorite(id);
-            } else if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            if (response.ok) {
+                if (typeof data.is_favorite === "boolean") {
+                    setLike(data.is_favorite);
+                }
+                if (newState === false && onRemoveFavorite) {
+                    onRemoveFavorite(id);
+                }
+            } else {
                 setLike(!newState); // Revert on error
             }
         } catch (err) {
             console.error("Error toggling favorite:", err);
             setLike(!newState); // Revert on error
+        } finally {
+            setProcessing(false);
         }
     };
     const getListingUrl = () => {
@@ -152,7 +192,7 @@ export default function SaleCard({
     const CardContent = (
         <div className={`flex flex-col items-center max-[1220px]:w-[254px] max-[1220px]:h-[290px] w-[384px] h-[420px] bg-white dark:bg-gray-800 rounded-xl shadow-md dark:shadow-gray-900/50 border border-[#E5E5E5] dark:border-gray-700 interFont overflow-hidden relative ${listingUrl ? 'cursor-pointer hover:shadow-xl dark:hover:shadow-gray-900/70 hover:scale-[1.02] duration-300' : ''}`}>
             <div className={`w-full h-[282px] max-[1220px]:h-[182px] flex-shrink-0 flex flex-col items-start overflow-hidden relative`}>
-                <img className={`w-full h-full object-cover absolute top-0 left-0`} src={image} alt={address}/>
+                <img className={`w-full h-full object-cover absolute top-0 left-0`} src={getImageUrl(image)} alt={address}/>
                 <div className={`w-full flex flex-col items-start p-3 absolute top-0 left-0`}>
                     <div className={`w-full flex items-start justify-between`}>
                         {(type==="ROOM" || type==="APARTMENT")?
@@ -165,7 +205,7 @@ export default function SaleCard({
                             </div>
                             : <div></div> }
                         <div 
-                            className={`cursor-pointer z-10`} 
+                            className={`cursor-pointer z-10 ${isProcessing ? 'pointer-events-none opacity-70' : ''}`} 
                             onClick={toggleFavorite}
                         >
                             <Icon icon="line-md:heart" width="24" height="24"  style={{color: isLike? `#C505EB` : `#ffffff`,transitionDuration:`0.3s`}} />

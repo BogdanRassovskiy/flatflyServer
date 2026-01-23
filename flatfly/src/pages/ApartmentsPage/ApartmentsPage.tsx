@@ -3,7 +3,7 @@ import SaleCard from "../../components/SaleCard/SaleCard";
 import { useState, useEffect } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
-import type { SaleCardTypes } from "../../components/SaleCard/SaleCard";
+import { getImageUrl } from "../../utils/defaultImage";
 
 
 type ListingType = "APARTMENT" | "ROOM";
@@ -32,6 +32,7 @@ interface Listing {
   moveInDate?: string | null;
 
   image?: string | null;
+  is_favorite?: boolean;
 }
 interface Props {
   listingType: ListingType;
@@ -156,8 +157,9 @@ export default function ApartmentsPage({ listingType }: Props) {
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}
                   amenities={listing.amenities || []}
-                  image={listing.image || "/placeholder-image.jpg"}
+                  image={getImageUrl(listing.image)}
                   type={listing.type as any}
+                  is_favorite={listing.is_favorite}
                 />
               ))}
             </div>

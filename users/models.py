@@ -72,6 +72,13 @@ class Profile(models.Model):
         blank=True,
         help_text="Избранные объявления"
     )
+    favorite_profiles = models.ManyToManyField(
+        'self',
+        related_name='favorited_neighbors',
+        blank=True,
+        symmetrical=False,
+        help_text="Избранные соседи"
+    )
 
     # === STATUS ===
     verified = models.BooleanField(default=False)

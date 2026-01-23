@@ -31,7 +31,7 @@ export default function ListingDetailPage() {
         address?: string;
         size?: number;
         rooms?: string;
-        image: string;
+        image?: string | null;
         images: string[];
         badges: string[];
         name?: string;
@@ -42,6 +42,15 @@ export default function ListingDetailPage() {
         beds?: number;
         contactPhone?: string;
         contactEmail?: string;
+        smoking?: string;
+        alcohol?: string;
+        pets?: string;
+        sleep_schedule?: string;
+        gamer?: string;
+        work_from_home?: string;
+        verified?: boolean;
+        looking_for_housing?: boolean;
+        languages?: string[];
     }>({
         image: "/placeholder-image.jpg",
         images: [],
@@ -127,48 +136,85 @@ export default function ListingDetailPage() {
     useEffect(() => {
   if (!id) return;
 
-  const loadListing = async () => {
-    try {
-      const res = await fetch(`/api/listings/${id}/`, {
-        credentials: "include",
-      });
+    const loadListing = async () => {
+        try {
+            const isNeighbour = type === "NEIGHBOUR";
+            const endpoint = isNeighbour ? `/api/neighbours/${id}/` : `/api/listings/${id}/`;
+            const res = await fetch(endpoint, {
+                credentials: "include",
+            });
 
-      if (!res.ok) {
-        throw new Error("Listing not found");
-      }
+            if (!res.ok) {
+                throw new Error("Listing not found");
+            }
 
-      const data = await res.json();
+            const data = await res.json();
 
-      // Универсальное заполнение
-      setListingData({
-        price: data.price,
-        address: data.address,
-        size: data.size,
-        rooms: data.rooms,
-        image: data.images?.[0] || null,
-        images: data.images || [],
-        badges: data.badges || [],
-        title: data.title,
-        description: data.description,
-        beds: data.beds,
-        name: data.name,
-        age: data.age,
-        from: data.from,
-        contactPhone: data.contact_phone,
-        contactEmail: data.contact_email,
-      });
+            if (isNeighbour) {
+                const neighbourBadges: string[] = [];
+                if (data.verified) neighbourBadges.push("Verified");
+                if (data.looking_for_housing) neighbourBadges.push("Looking for housing");
+                if (data.gender) neighbourBadges.push(`Gender: ${data.gender}`);
+                if (data.smoking) neighbourBadges.push(`Smoking: ${data.smoking}`);
+                if (data.alcohol) neighbourBadges.push(`Alcohol: ${data.alcohol}`);
+                if (data.pets) neighbourBadges.push(`Pets: ${data.pets}`);
+                if (data.sleep_schedule) neighbourBadges.push(`Sleep: ${data.sleep_schedule}`);
+                if (data.gamer) neighbourBadges.push(`Gamer: ${data.gamer}`);
+                if (data.work_from_home) neighbourBadges.push(`Work from home: ${data.work_from_home}`);
 
-    } catch (err) {
-      console.error("Listing loading failed:", err);
-      const redirectPath =
-        type === "APARTMENT"
-          ? "/apartments"
-          : type === "ROOM"
-          ? "/rooms"
-          : "/neighbours";
-      router(redirectPath);
-    }
-  };
+                setListingData({
+                    image: data.avatar || null,
+                    images: data.avatar ? [data.avatar] : [],
+                    badges: neighbourBadges,
+                    name: data.name,
+                    age: data.age,
+                    from: data.city,
+                    address: data.city,
+                    title: data.name,
+                    description: data.about,
+                    smoking: data.smoking,
+                    alcohol: data.alcohol,
+                    pets: data.pets,
+                    sleep_schedule: data.sleep_schedule,
+                    gamer: data.gamer,
+                    work_from_home: data.work_from_home,
+                    verified: data.verified,
+                    looking_for_housing: data.looking_for_housing,
+                    languages: data.languages,
+                });
+                return;
+            }
+
+            // Объявления
+            setListingData({
+                price: data.price,
+                address: data.address,
+                size: data.size,
+                rooms: data.rooms,
+                image: data.images?.[0] || null,
+                images: data.images || [],
+                badges: data.badges || [],
+                title: data.title,
+                description: data.description,
+                beds: data.beds,
+                name: data.name,
+                age: data.age,
+                from: data.from,
+                contactPhone: data.contact_phone,
+                contactEmail: data.contact_email,
+            });
+
+        } catch (err) {
+            console.error("Listing loading failed:", err);
+            const redirectPath =
+                type === "APARTMENT"
+                    ? "/apartments"
+                    : type === "ROOM"
+                    ? "/rooms"
+                    : "/neighbours";
+            router(redirectPath);
+        }
+    };
 
   loadListing();
 }, [id, type, router]);
@@ -187,13 +233,28 @@ export default function ListingDetailPage() {
         description,
         beds,
         contactPhone,
-        contactEmail
+        contactEmail,
+        smoking,
+        alcohol,
+        pets,
+        sleep_schedule,
+        gamer,
+        work_from_home,
+        verified,
+        looking_for_housing,
+        languages,
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLike, setIsLike] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const allImages = images.length > 0 ? images : [image];
+    const safeImages = (images || []).filter((img): img is string => Boolean(img));
+    const fallbackImage = image || undefined;
+    const allImages = safeImages.length > 0
+        ? safeImages
+        : fallbackImage
+            ? [fallbackImage]
+            : ["/placeholder-image.jpg"];
 
     // Если id отсутствует, перенаправляем на список
     useEffect(() => {
@@ -479,6 +540,81 @@ export default function ListingDetailPage() {
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.origin")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{from}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && languages && languages.length > 0 && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <MapPin size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.languages.title") || "Languages"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{languages.join(", ")}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && smoking && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Smoking</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{smoking}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && alcohol && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Alcohol</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{alcohol}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && pets && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Pets</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{pets}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && sleep_schedule && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Sleep schedule</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{sleep_schedule}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && gamer && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Gamer</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{gamer}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && work_from_home && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Work from home</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{work_from_home}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && (verified !== undefined || looking_for_housing !== undefined) && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Status</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{[
+                                                verified ? "Verified" : null,
+                                                looking_for_housing ? "Looking for housing" : null
+                                            ].filter(Boolean).join(" · ")}</span>
                                         </div>
                                     </div>
                                 )}

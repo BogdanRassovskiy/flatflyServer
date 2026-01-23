@@ -3,7 +3,7 @@ import SaleCard from "../../components/SaleCard/SaleCard";
 import { useState, useEffect } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
-import type { SaleCardTypes } from "../../components/SaleCard/SaleCard";
+import { getImageUrl } from "../../utils/defaultImage";
 
 interface Listing {
   id: number;
@@ -29,6 +29,7 @@ interface Listing {
   moveInDate?: string | null;
 
   image?: string | null;
+  is_favorite?: boolean;
 }
 
 export default function RoomsPage() {
@@ -149,8 +150,9 @@ export default function RoomsPage() {
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}
                   badges={[]}
-                  image={listing.image || "/placeholder-image.jpg"}
-                  type={listing.type as SaleCardTypes}
+                  image={getImageUrl(listing.image)}
+                  type={listing.type as "APARTMENT" | "ROOM" | "NEIGHBOUR"}
+                  is_favorite={listing.is_favorite}
                 />
               ))}
             </div>

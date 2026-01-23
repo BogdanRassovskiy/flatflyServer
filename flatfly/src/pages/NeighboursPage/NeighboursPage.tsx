@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
+import { getImageUrl } from "../../utils/defaultImage";
 
 interface Neighbour {
   id: number;
@@ -22,6 +23,7 @@ interface Neighbour {
 
   verified: boolean;
   looking_for_housing: boolean;
+  is_favorite?: boolean;
 }
 interface NeighbourFilterState {
   city: string;
@@ -131,8 +133,24 @@ export default function NeighboursPage() {
               {neighbours.map((n) => {
                 const badges: string[] = [];
 
-                if (n.verified) badges.push("Verified");
-                if (n.looking_for_housing) badges.push("Looking for housing");
+                const addBadge = (value?: string | boolean, label?: string) => {
+                  if (value === null || value === undefined || value === "") return;
+                  if (typeof value === "boolean") {
+                    if (value) badges.push(label || "");
+                  } else {
+                    badges.push(label ? `${label}: ${value}` : value);
+                  }
+                };
+
+                addBadge(n.verified, "Verified");
+                addBadge(n.looking_for_housing, "Looking for housing");
+                addBadge(n.gender, "Gender");
+                addBadge(n.smoking, "Smoking");
+                addBadge(n.alcohol, "Alcohol");
+                addBadge(n.pets, "Pets");
+                addBadge(n.sleep_schedule, "Sleep");
+                addBadge(n.gamer, "Gamer");
+                addBadge(n.work_from_home, "Work from home");
 
                 return (
                   <SaleCard
@@ -141,9 +159,10 @@ export default function NeighboursPage() {
                     name={n.name}
                     age={n.age}
                     from={regionValueToLabel(n.city)}
-                    image={n.avatar || "/avatar-placeholder.jpg"}
+                    image={getImageUrl(n.avatar)}
                     badges={badges}
                     type="NEIGHBOUR"
+                    is_favorite={n.is_favorite}
                   />
                 );
               })}

@@ -4,6 +4,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import SaleCard from "../../components/SaleCard/SaleCard";
 import { Heart } from "lucide-react";
 import type { SaleCardTypes } from "../../components/SaleCard/SaleCard";
+import { getCsrfToken } from "../../utils/csrf";
+import { getImageUrl } from "../../utils/defaultImage";
 
 interface Listing {
   id: number;
@@ -16,6 +18,7 @@ interface Listing {
   area: string | number;
   image_url: string | null;
   amenities: string[];
+  is_favorite?: boolean;
 }
 
 export default function FavoritesPage() {
@@ -67,12 +70,13 @@ export default function FavoritesPage() {
       id: listing.id,
       type: type as "APARTMENT" | "ROOM" | "NEIGHBOUR",
       price: listing.price,
-      image: listing.image_url || undefined,
+      image: getImageUrl(listing.image_url),
       title: listing.title,
       region: listing.region,
       address: listing.city,
       size: listing.area?.toString() || "N/A",
       amenities: listing.amenities,
+      is_favorite: listing.is_favorite ?? true,
     };
   };
 
@@ -80,7 +84,10 @@ export default function FavoritesPage() {
     try {
       const response = await fetch("/api/favorites/remove/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
         credentials: "include",
         body: JSON.stringify({ listing_id: listingId }),
       });

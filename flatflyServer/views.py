@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect,get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
 from django.http import JsonResponse
 import requests
@@ -23,6 +23,7 @@ DEBUG_MODE=True;
 google_auth_url="https://accounts.google.com/o/oauth2/v2/auth?client_id={0}&redirect_uri={1}&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=consent".format(settings.GOOGLE_CLIENT_ID,settings.GOOGLE_REDIRECT_URI,)
 
 
+@ensure_csrf_cookie
 def index(request):
     return render(request, 'index.html')
 
@@ -109,6 +110,14 @@ def neighbours_list(request):
     paginator = Paginator(qs, 12)
     page_obj = paginator.get_page(page)
 
+    # Собираем избранные соседи текущего пользователя
+    favorite_profile_ids = set()
+    if request.user.is_authenticated:
+        try:
+            favorite_profile_ids = set(request.user.profile.favorite_profiles.values_list('id', flat=True))
+        except Exception:
+            favorite_profile_ids = set()
+
     results = []
     for p in page_obj:
         results.append({
@@ -129,12 +138,45 @@ def neighbours_list(request):
             "work_from_home": p.work_from_home,
             "verified": p.verified,
             "looking_for_housing": p.looking_for_housing,
+            "is_favorite": p.id in favorite_profile_ids,
         })
 
     return JsonResponse({
         "count": paginator.count,
         "pages": paginator.num_pages,
         "results": results,
+    })
+
+@require_http_methods(["GET"])
+def neighbour_detail(request, profile_id):
+    profile = get_object_or_404(Profile, id=profile_id)
+
+    is_favorite = False
+    if request.user.is_authenticated:
+        try:
+            is_favorite = request.user.profile.favorite_profiles.filter(id=profile.id).exists()
+        except Exception:
+            is_favorite = False
+
+    return JsonResponse({
+        "id": profile.id,
+        "name": profile.name,
+        "age": profile.age,
+        "gender": profile.gender,
+        "city": profile.city,
+        "languages": profile.languages.split(",") if profile.languages else [],
+        "profession": profile.profession,
+        "about": profile.about,
+        "smoking": profile.smoking,
+        "alcohol": profile.alcohol,
+        "pets": profile.pets,
+        "sleep_schedule": profile.sleep_schedule,
+        "gamer": profile.gamer,
+        "work_from_home": profile.work_from_home,
+        "verified": profile.verified,
+        "looking_for_housing": profile.looking_for_housing,
+        "avatar": request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
+        "is_favorite": is_favorite,
     })
 
 @csrf_exempt
@@ -336,6 +378,14 @@ def listing_detail(request, listing_id):
 
     main_image = listing.images.first()
 
+    # Признак избранного для текущего пользователя
+    is_favorite = False
+    if request.user.is_authenticated:
+        try:
+            is_favorite = request.user.profile.favorite_listings.filter(id=listing.id).exists()
+        except Exception:
+            is_favorite = False
+
     return JsonResponse({
         "id": listing.id,
         "type": listing.type,
@@ -352,6 +402,7 @@ def listing_detail(request, listing_id):
             request.build_absolute_uri(img.image.url)
             for img in listing.images.all()
         ],
+        "is_favorite": is_favorite,
     })
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
@@ -484,6 +535,14 @@ def listings_view(request):
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
 
+    # Собираем избранные id для текущего пользователя (если залогинен)
+    favorite_ids = set()
+    if request.user.is_authenticated:
+        try:
+            favorite_ids = set(request.user.profile.favorite_listings.values_list('id', flat=True))
+        except Exception:
+            favorite_ids = set()
+
     results = []
     for listing in page_obj:
         main_image = listing.images.first()
@@ -511,6 +570,7 @@ def listings_view(request):
             "moveInDate": listing.move_in_date,
 
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
+            "is_favorite": listing.id in favorite_ids,
         })
 
     return JsonResponse({
@@ -777,17 +837,22 @@ def google_callback(request):
 @login_required
 @require_http_methods(["POST"])
 def add_to_favorites(request):
-    """Добавить объявление в избранное"""
+    """Добавить объявление или соседа в избранное"""
     try:
         data = json.loads(request.body)
         listing_id = data.get('listing_id')
+        profile_id = data.get('profile_id')  # для соседей
         
-        if not listing_id:
-            return JsonResponse({"error": "listing_id is required"}, status=400)
-        
-        listing = get_object_or_404(Listing, id=listing_id)
-        profile = request.user.profile
-        profile.favorite_listings.add(listing)
+        if listing_id:
+            listing = get_object_or_404(Listing, id=listing_id)
+            profile = request.user.profile
+            profile.favorite_listings.add(listing)
+        elif profile_id:
+            fav_profile = get_object_or_404(Profile, id=profile_id)
+            profile = request.user.profile
+            profile.favorite_profiles.add(fav_profile)
+        else:
+            return JsonResponse({"error": "listing_id or profile_id is required"}, status=400)
         
         return JsonResponse({
             "success": True,
@@ -801,17 +866,22 @@ def add_to_favorites(request):
 @login_required
 @require_http_methods(["POST"])
 def remove_from_favorites(request):
-    """Удалить объявление из избранного"""
+    """Удалить объявление или соседа из избранного"""
     try:
         data = json.loads(request.body)
         listing_id = data.get('listing_id')
+        profile_id = data.get('profile_id')  # для соседей
         
-        if not listing_id:
-            return JsonResponse({"error": "listing_id is required"}, status=400)
-        
-        listing = get_object_or_404(Listing, id=listing_id)
-        profile = request.user.profile
-        profile.favorite_listings.remove(listing)
+        if listing_id:
+            listing = get_object_or_404(Listing, id=listing_id)
+            profile = request.user.profile
+            profile.favorite_listings.remove(listing)
+        elif profile_id:
+            fav_profile = get_object_or_404(Profile, id=profile_id)
+            profile = request.user.profile
+            profile.favorite_profiles.remove(fav_profile)
+        else:
+            return JsonResponse({"error": "listing_id or profile_id is required"}, status=400)
         
         return JsonResponse({
             "success": True,
@@ -825,40 +895,59 @@ def remove_from_favorites(request):
 @login_required
 @require_http_methods(["GET"])
 def get_favorites(request):
-    """Получить все избранные объявления пользователя"""
+    """Получить все избранные объявления и соседей пользователя"""
     try:
         profile = request.user.profile
-        favorites = profile.favorite_listings.all()
+        listings = list(profile.favorite_listings.all())
+        neighbors = list(profile.favorite_profiles.all())
         
-        # Пагинация
-        page = request.GET.get('page', 1)
-        paginator = Paginator(favorites, 12)
-        favorites_page = paginator.get_page(page)
+        # Объединяем оба типа в один список
+        all_favorites = []
         
-        listings_data = []
-        for listing in favorites_page:
+        # Добавляем объявления
+        for listing in listings:
             images = ListingImage.objects.filter(listing=listing)
             image_url = images.first().image.url if images.exists() else None
-            
-            listings_data.append({
+            all_favorites.append({
                 "id": listing.id,
+                "type": "LISTING",
                 "title": listing.title,
                 "description": listing.description,
                 "price": str(listing.price),
-                "room_type": listing.room_type,
-                "city": listing.city,
+                "room_type": listing.type,
+                "city": listing.address,
                 "region": listing.region,
-                "area": listing.area,
+                "area": listing.size,
                 "image_url": image_url,
-                "amenities": listing.amenities.split(',') if listing.amenities else [],
+                "amenities": listing.amenities or [],
+                "is_favorite": True,
             })
+        
+        # Добавляем соседей
+        for neighbor in neighbors:
+            all_favorites.append({
+                "id": neighbor.id,
+                "type": "NEIGHBOUR",
+                "name": neighbor.name,
+                "age": neighbor.age,
+                "city": neighbor.city,
+                "image_url": neighbor.avatar.url if neighbor.avatar else None,
+                "verified": neighbor.verified,
+                "looking_for_housing": neighbor.looking_for_housing,
+                "is_favorite": True,
+            })
+        
+        # Пагинация
+        page = int(request.GET.get('page', 1))
+        paginator = Paginator(all_favorites, 12)
+        favorites_page = paginator.get_page(page)
         
         return JsonResponse({
             "success": True,
             "count": paginator.count,
             "page": page,
             "total_pages": paginator.num_pages,
-            "listings": listings_data
+            "listings": list(favorites_page),
         })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -867,17 +956,22 @@ def get_favorites(request):
 @login_required
 @require_http_methods(["GET"])
 def is_favorite(request):
-    """Проверить, находится ли объявление в избранном"""
+    """Проверить, находится ли объявление или сосед в избранном"""
     try:
         listing_id = request.GET.get('listing_id')
-        if not listing_id:
-            return JsonResponse({"error": "listing_id is required"}, status=400)
+        profile_id = request.GET.get('profile_id')
         
         profile = request.user.profile
-        is_fav = profile.favorite_listings.filter(id=listing_id).exists()
+        is_fav = False
+        
+        if listing_id:
+            is_fav = profile.favorite_listings.filter(id=listing_id).exists()
+        elif profile_id:
+            is_fav = profile.favorite_profiles.filter(id=profile_id).exists()
+        else:
+            return JsonResponse({"error": "listing_id or profile_id is required"}, status=400)
         
         return JsonResponse({
-            "listing_id": listing_id,
             "is_favorite": is_fav
         })
     except Exception as e:

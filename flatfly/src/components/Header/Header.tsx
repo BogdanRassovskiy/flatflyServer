@@ -26,6 +26,7 @@ export default function Header() {
     const isListingPage = listingPages.includes(pathname);
     const navigate = useNavigate();
     const menuItemsColumn1 = [
+        { title: t("favorites"), path: "/profile?tab=favorites" },
         { title: t("header.home"), path: "/" },
         { title: t("header.blog"), path: "/blog" },
         { title: t("header.contact"), path: "/contact" },
@@ -201,6 +202,7 @@ export default function Header() {
 
                     {!isListingPage && (
                         <div className={`flex items-center gap-[30px] text-xl font-semibold max-[770px]:hidden text-black dark:text-white`}>
+                            <Link to="/profile?tab=favorites" className={`hover:text-[#C505EB] duration-300`}>{t("favorites")}</Link>
                             <Link to="/" className={`hover:text-[#C505EB] duration-300`}>{t("header.about")}</Link>
                             <Link to="/blog" className={`hover:text-[#C505EB] duration-300`}>{t("header.blog")}</Link>
                         </div>

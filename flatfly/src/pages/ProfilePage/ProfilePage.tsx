@@ -4,7 +4,10 @@ import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart } fro
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { getCsrfToken } from "../../utils/csrf";
+import SaleCard from "../../components/SaleCard/SaleCard";
+import { getImageUrl } from "../../utils/defaultImage";
 
 interface ProfileData {
     // Основная информация
@@ -40,6 +43,7 @@ export default function ProfilePage() {
     const { t } = useLanguage();
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites">("basic");
@@ -135,6 +139,154 @@ export default function ProfilePage() {
         }
     };
 
+    // Favorites state within profile
+    type FavoriteListing = {
+        id: number;
+        type: "LISTING" | "NEIGHBOUR";
+        // LISTING поля
+        title?: string;
+        description?: string;
+        price?: string | number;
+        room_type?: "APARTMENT" | "ROOM";
+        city?: string;
+        region?: string;
+        area?: string | number;
+        amenities?: string[];
+        // NEIGHBOUR поля
+        name?: string;
+        age?: number;
+        verified?: boolean;
+        looking_for_housing?: boolean;
+        // Общее
+        image_url?: string | null;
+        is_favorite?: boolean;
+    };
+    const [favListings, setFavListings] = useState<FavoriteListing[]>([]);
+    const [favLoading, setFavLoading] = useState(false);
+    const [favError, setFavError] = useState<string | null>(null);
+    const [favPage, setFavPage] = useState(1);
+    const [favTotalPages, setFavTotalPages] = useState(1);
+
+    // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
+    useEffect(() => {
+        const hash = (location.hash || "").replace('#', '').toLowerCase();
+        const params = new URLSearchParams(location.search);
+        const tab = (params.get("tab") || "").toLowerCase();
+        const target = hash || tab;
+        const normalizedTarget = target === "favourites" ? "favorites" : target;
+        const validSections: Array<"basic" | "social" | "status" | "favorites"> = ["basic", "social", "status", "favorites"];
+
+        if (validSections.includes(normalizedTarget as typeof validSections[number])) {
+            const sectionKey = normalizedTarget as typeof validSections[number];
+            setActiveSection(sectionKey);
+            if (sectionKey === "favorites") {
+                setFavPage(1);
+            }
+        }
+    }, [location.hash, location.search]);
+
+    // Нормализуем URL: сохраняем только ?tab=<section> и убираем хэш, чтобы повторные клики по «Избранное» работали
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const currentTab = (params.get("tab") || "").toLowerCase();
+        const normalizedCurrent = currentTab === "favourites" ? "favorites" : currentTab;
+        const desiredTab = activeSection === "basic" ? "" : activeSection;
+        const hasHash = Boolean(location.hash);
+        const needsUpdate = normalizedCurrent !== desiredTab || hasHash;
+
+        if (needsUpdate) {
+            const nextParams = new URLSearchParams(location.search);
+            if (desiredTab) {
+                nextParams.set("tab", desiredTab);
+            } else {
+                nextParams.delete("tab");
+            }
+
+            const search = nextParams.toString();
+            navigate({
+                pathname: location.pathname,
+                search: search ? `?${search}` : "",
+            }, { replace: true });
+        }
+    }, [activeSection, location.hash, location.pathname, location.search, navigate]);
+
+    const fetchFavorites = async (page = 1) => {
+        if (!user) return;
+        try {
+            setFavLoading(true);
+            const res = await fetch(`/api/favorites/?page=${page}`, { credentials: "include" });
+            if (!res.ok) throw new Error("Failed to load favorites");
+            const data = await res.json();
+            setFavListings(data.listings || []);
+            setFavTotalPages(data.total_pages || 1);
+            setFavError(null);
+        } catch (e) {
+            setFavError(e instanceof Error ? e.message : "Error loading favorites");
+            setFavListings([]);
+        } finally {
+            setFavLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeSection === "favorites") {
+            fetchFavorites(favPage);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeSection, favPage]);
+
+    const convertToSaleCardType = (favorite: FavoriteListing) => {
+        if (favorite.type === "NEIGHBOUR") {
+            return {
+                id: favorite.id,
+                type: "NEIGHBOUR" as const,
+                name: favorite.name,
+                age: favorite.age,
+                from: favorite.city,
+                image: getImageUrl(favorite.image_url),
+                badges: [
+                    ...(favorite.verified ? ["Verified"] : []),
+                    ...(favorite.looking_for_housing ? ["Looking for housing"] : []),
+                ],
+                is_favorite: true,
+            };
+        }
+        return {
+            id: favorite.id,
+            type: (favorite.room_type === "APARTMENT" ? "APARTMENT" : "ROOM") as "APARTMENT" | "ROOM" | "NEIGHBOUR",
+            price: favorite.price,
+            image: getImageUrl(favorite.image_url),
+            title: favorite.title,
+            region: favorite.region,
+            address: favorite.city,
+            size: favorite.area?.toString() || "N/A",
+            amenities: favorite.amenities,
+            is_favorite: true,
+        };
+    };
+
+    const handleRemoveFavorite = async (favoriteId: number, type?: string) => {
+        try {
+            const isNeighbor = type === "NEIGHBOUR";
+            const response = await fetch("/api/favorites/remove/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                credentials: "include",
+                body: JSON.stringify({ 
+                    ...(isNeighbor ? { profile_id: favoriteId } : { listing_id: favoriteId })
+                }),
+            });
+            if (response.ok) {
+                setFavListings(favListings.filter(l => l.id !== favoriteId));
+            }
+        } catch (err) {
+            console.error("Error removing favorite:", err);
+        }
+    };
+
     const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -151,10 +303,13 @@ export default function ProfilePage() {
       formData.append("avatar", file);
 
       try {
-        const response = await fetch("/api/profile/avatar/", {
+                const response = await fetch("/api/profile/avatar/", {
           method: "POST",
           credentials: "include",
-          body: formData,
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                    },
+                    body: formData,
         });
 
         if (!response.ok) {
@@ -186,11 +341,12 @@ export default function ProfilePage() {
       try {
         setIsSaving(true);
 
-        const response = await fetch("/api/profile/", {
+                const response = await fetch("/api/profile/", {
           method: "POST",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+                        "X-CSRFToken": getCsrfToken(),
           },
           body: JSON.stringify({
             ...profileData,
@@ -715,16 +871,68 @@ export default function ProfilePage() {
                                     {t("favorites")}
                                 </h2>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 mb-6">
-                                {t("view_all_favorites")}
-                            </p>
-                            <button
-                                onClick={() => navigate("/favorites")}
-                                className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-lg hover:from-red-600 hover:to-pink-600 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <Heart size={20} className="fill-white" />
-                                {t("open_favorites")}
-                            </button>
+                            {favLoading && (
+                                <div className="text-center py-10">{t("loading")}</div>
+                            )}
+                            {favError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{favError}</div>
+                            )}
+                            {!favLoading && favListings.length === 0 && !favError && (
+                                <div className="text-center py-10">
+                                    <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                    <p className="text-gray-500 mb-4">{t("no_favorites_yet")}</p>
+                                    <button
+                                        onClick={() => navigate("/apartments")}
+                                        className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                                    >
+                                        {t("explore_listings")}
+                                    </button>
+                                </div>
+                            )}
+                            {!favLoading && favListings.length > 0 && (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                        {favListings.map((listing) => (
+                                            <SaleCard
+                                                key={listing.id}
+                                                {...convertToSaleCardType(listing)}
+                                                onRemoveFavorite={() => handleRemoveFavorite(listing.id, listing.type)}
+                                            />
+                                        ))}
+                                    </div>
+                                    {favTotalPages > 1 && (
+                                        <div className="flex justify-center gap-2 mt-4">
+                                            <button
+                                                disabled={favPage === 1}
+                                                onClick={() => setFavPage(Math.max(1, favPage - 1))}
+                                                className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                            >
+                                                {t("previous")}
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: favTotalPages }, (_, i) => i + 1).map((page) => (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setFavPage(page)}
+                                                        className={`px-3 py-2 rounded-lg ${
+                                                            favPage === page ? "bg-blue-600 text-white" : "bg-white border hover:bg-gray-50"
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                disabled={favPage === favTotalPages}
+                                                onClick={() => setFavPage(Math.min(favTotalPages, favPage + 1))}
+                                                className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                            >
+                                                {t("next")}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     )}
 

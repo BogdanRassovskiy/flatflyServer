@@ -30,14 +30,18 @@ urlpatterns = [
     path("api/listings/list", views.listings_view, name="listings_view"),
     path("api/listings/<int:listing_id>/", views.listing_detail, name="listing_detail"),
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),
+    path("api/neighbours/<int:profile_id>/", views.neighbour_detail, name="neighbour_detail"),
     path("api/favorites/add/", views.add_to_favorites, name="add_to_favorites"),
     path("api/favorites/remove/", views.remove_from_favorites, name="remove_from_favorites"),
     path("api/favorites/", views.get_favorites, name="get_favorites"),
     path("api/favorites/is-favorite/", views.is_favorite, name="is_favorite"),
+    # Алиасы для совместимости с фронтендом, который использует подчёркивание
+    path("api/favorites/is_favorite/", views.is_favorite, name="is_favorite_underscore"),
+    path("api/favorites/is_favorite", views.is_favorite, name="is_favorite_underscore_noslash"),
 
     # SPA — ТОЛЬКО для страниц
     re_path(
-        r'^(?!static/|assets/|fonts/|media/|api/|admin)(?!admin/)', 
+        r'^(?!static/|assets/|fonts/|media/|api/|admin/|favorites/)(?!admin/)', 
         TemplateView.as_view(template_name="index.html")
     ),
 
