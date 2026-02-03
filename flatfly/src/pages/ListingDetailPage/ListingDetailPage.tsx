@@ -3,6 +3,7 @@ import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, Phone, Ma
 import {Link, useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
+import {getCsrfToken} from "../../utils/csrf";
 //import {ApartmentList, RoomsList, NeighboursList} from "../../data/mockData";
 //import type {ApartmentItem, RoomItem, NeighbourItem} from "../../data/mockData";
 
@@ -51,6 +52,22 @@ export default function ListingDetailPage() {
         verified?: boolean;
         looking_for_housing?: boolean;
         languages?: string[];
+        currency?: string;
+        condition_state?: string;
+        energy_class?: string;
+        has_bus_stop?: boolean;
+        has_train_station?: boolean;
+        has_metro?: boolean;
+        has_post_office?: boolean;
+        has_atm?: boolean;
+        has_general_practitioner?: boolean;
+        has_vet?: boolean;
+        has_primary_school?: boolean;
+        has_kindergarten?: boolean;
+        has_supermarket?: boolean;
+        has_small_shop?: boolean;
+        has_restaurant?: boolean;
+        has_playground?: boolean;
     }>({
         image: "/placeholder-image.jpg",
         images: [],
@@ -202,6 +219,22 @@ export default function ListingDetailPage() {
                 from: data.from,
                 contactPhone: data.contact_phone,
                 contactEmail: data.contact_email,
+                currency: data.currency,
+                condition_state: data.condition_state,
+                energy_class: data.energy_class,
+                has_bus_stop: data.has_bus_stop,
+                has_train_station: data.has_train_station,
+                has_metro: data.has_metro,
+                has_post_office: data.has_post_office,
+                has_atm: data.has_atm,
+                has_general_practitioner: data.has_general_practitioner,
+                has_vet: data.has_vet,
+                has_primary_school: data.has_primary_school,
+                has_kindergarten: data.has_kindergarten,
+                has_supermarket: data.has_supermarket,
+                has_small_shop: data.has_small_shop,
+                has_restaurant: data.has_restaurant,
+                has_playground: data.has_playground,
             });
 
         } catch (err) {
@@ -218,6 +251,63 @@ export default function ListingDetailPage() {
 
   loadListing();
 }, [id, type, router]);
+
+    // Проверка статуса избранного
+    useEffect(() => {
+        if (!id || !isAuthenticated) return;
+        
+        const checkFavoriteStatus = async () => {
+            try {
+                const isNeighbour = type === "NEIGHBOUR";
+                const param = isNeighbour ? `profile_id=${id}` : `listing_id=${id}`;
+                const res = await fetch(`/api/favorites/is-favorite/?${param}`, {
+                    credentials: "include",
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsLike(data.is_favorite || false);
+                }
+            } catch (err) {
+                console.error("Failed to check favorite status:", err);
+            }
+        };
+        
+        checkFavoriteStatus();
+    }, [id, type, isAuthenticated]);
+
+    // Обработчик добавления/удаления из избранного
+    const handleToggleFavorite = async () => {
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+        
+        try {
+            const isNeighbour = type === "NEIGHBOUR";
+            const endpoint = isLike ? "/api/favorites/remove/" : "/api/favorites/add/";
+            const body = isNeighbour ? { profile_id: id } : { listing_id: id };
+            
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                credentials: "include",
+                body: JSON.stringify(body),
+            });
+            
+            if (res.ok) {
+                setIsLike(!isLike);
+            } else {
+                console.error("Failed to toggle favorite");
+            }
+        } catch (err) {
+            console.error("Error toggling favorite:", err);
+        }
+    };
+    
     const {
         price,
         address,
@@ -243,11 +333,26 @@ export default function ListingDetailPage() {
         verified,
         looking_for_housing,
         languages,
+        energy_class,
+        has_bus_stop,
+        has_train_station,
+        has_metro,
+        has_post_office,
+        has_atm,
+        has_general_practitioner,
+        has_vet,
+        has_primary_school,
+        has_kindergarten,
+        has_supermarket,
+        has_small_shop,
+        has_restaurant,
+        has_playground,
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLike, setIsLike] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showContacts, setShowContacts] = useState(false);
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
     const allImages = safeImages.length > 0
@@ -405,7 +510,7 @@ export default function ListingDetailPage() {
                             {/* Кнопки действий */}
                             <div className={`absolute top-4 right-4 flex items-center gap-2`}>
                                 <button
-                                    onClick={() => setIsLike(!isLike)}
+                                    onClick={handleToggleFavorite}
                                     className={`bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg dark:shadow-gray-900/50 duration-300`}
                                     aria-label={t("listing.addToFavorites")}
                                 >
@@ -534,6 +639,15 @@ export default function ListingDetailPage() {
                                         </div>
                                     </div>
                                 )}
+                                {type !== "NEIGHBOUR" && energy_class && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.energyClass")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{energy_class}</span>
+                                        </div>
+                                    </div>
+                                )}
                                 {type === "NEIGHBOUR" && from && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <MapPin size={24} color="#C505EB" />
@@ -621,6 +735,85 @@ export default function ListingDetailPage() {
                             </div>
                         </div>
 
+                        {/* Инфраструктура */}
+                        {type !== "NEIGHBOUR" && (
+                            has_bus_stop || has_train_station || has_metro || has_post_office || 
+                            has_atm || has_general_practitioner || has_vet || has_primary_school || 
+                            has_kindergarten || has_supermarket || has_small_shop || has_restaurant || 
+                            has_playground
+                        ) && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.infrastructure")}</h2>
+                                <div className={`flex flex-wrap gap-3`}>
+                                    {has_bus_stop && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasBusStop")}
+                                        </div>
+                                    )}
+                                    {has_train_station && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasTrainStation")}
+                                        </div>
+                                    )}
+                                    {has_metro && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasMetro")}
+                                        </div>
+                                    )}
+                                    {has_post_office && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasPostOffice")}
+                                        </div>
+                                    )}
+                                    {has_atm && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasAtm")}
+                                        </div>
+                                    )}
+                                    {has_general_practitioner && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasGeneralPractitioner")}
+                                        </div>
+                                    )}
+                                    {has_vet && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasVet")}
+                                        </div>
+                                    )}
+                                    {has_primary_school && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasPrimarySchool")}
+                                        </div>
+                                    )}
+                                    {has_kindergarten && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasKindergarten")}
+                                        </div>
+                                    )}
+                                    {has_supermarket && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasSupermarket")}
+                                        </div>
+                                    )}
+                                    {has_small_shop && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasSmallShop")}
+                                        </div>
+                                    )}
+                                    {has_restaurant && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasRestaurant")}
+                                        </div>
+                                    )}
+                                    {has_playground && (
+                                        <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {t("listing.hasPlayground")}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Описание */}
                         {description && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
@@ -639,29 +832,36 @@ export default function ListingDetailPage() {
                             
                             {isAuthenticated ? (
                                 <>
-                                    {contactPhone && (
-                                        <a 
-                                            href={`tel:${contactPhone}`}
-                                            className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
-                                        >
-                                            <Phone size={24} color="#C505EB" />
-                                            <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactPhone}</span>
-                                        </a>
-                                    )}
+                                    {showContacts ? (
+                                        <>
+                                            {contactPhone && (
+                                                <a 
+                                                    href={`tel:${contactPhone}`}
+                                                    className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
+                                                >
+                                                    <Phone size={24} color="#C505EB" />
+                                                    <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactPhone}</span>
+                                                </a>
+                                            )}
 
-                                    {contactEmail && (
-                                        <a 
-                                            href={`mailto:${contactEmail}`}
-                                            className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
+                                            {contactEmail && (
+                                                <a 
+                                                    href={`mailto:${contactEmail}`}
+                                                    className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
+                                                >
+                                                    <Mail size={24} color="#C505EB" />
+                                                    <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactEmail}</span>
+                                                </a>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <button 
+                                            onClick={() => setShowContacts(true)}
+                                            className={`w-full py-4 rounded-full bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
                                         >
-                                            <Mail size={24} color="#C505EB" />
-                                            <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactEmail}</span>
-                                        </a>
+                                            {t("listing.showContacts")}
+                                        </button>
                                     )}
-
-                                    <button className={`w-full mt-4 py-4 rounded-full bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}>
-                                        {t("listing.sendMessage")}
-                                    </button>
                                 </>
                             ) : (
                                 <>

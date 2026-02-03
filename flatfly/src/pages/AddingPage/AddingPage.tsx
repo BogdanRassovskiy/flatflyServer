@@ -1,14 +1,39 @@
 import {Icon} from "@iconify/react";
 import {useState, useRef, useEffect} from "react";
-import {X, ChevronLeft, ChevronRight} from "lucide-react";
+import {X, ChevronLeft, ChevronRight, CheckCircle, AlertCircle} from "lucide-react";
 import {useLanguage} from "../../contexts/LanguageContext";
+import {useNavigate} from "react-router-dom";
 
 
 export default function AddingPage() {
+    const navigate = useNavigate();
+    
+    // Основные поля
     const [region, setRegion] = useState("");
+    const [city, setCity] = useState("");
     const [address, setAddress] = useState("");
-    const [size, setSize] = useState("");
-    const [rooms, setRooms] = useState("");
+    
+    // Состояние и энергетика
+    const [conditionState, setConditionState] = useState("");
+    const [energyClass, setEnergyClass] = useState("");
+    const [currency, setCurrency] = useState("CZK");
+    
+    // POI инфраструктура
+    const [hasBusStop, setHasBusStop] = useState(false);
+    const [hasTrainStation, setHasTrainStation] = useState(false);
+    const [hasMetro, setHasMetro] = useState(false);
+    const [hasPostOffice, setHasPostOffice] = useState(false);
+    const [hasAtm, setHasAtm] = useState(false);
+    const [hasGeneralPractitioner, setHasGeneralPractitioner] = useState(false);
+    const [hasVet, setHasVet] = useState(false);
+    const [hasPrimarySchool, setHasPrimarySchool] = useState(false);
+    const [hasKindergarten, setHasKindergarten] = useState(false);
+    const [hasSupermarket, setHasSupermarket] = useState(false);
+    const [hasSmallShop, setHasSmallShop] = useState(false);
+    const [hasRestaurant, setHasRestaurant] = useState(false);
+    const [hasPlayground, setHasPlayground] = useState(false);
+    
+    // Старые поля
     const [hasRoommates, setHasRoommates] = useState(false);
     const [internet, setInternet] = useState(false);
     const [utilitiesIncluded, setUtilitiesIncluded] = useState(false);
@@ -33,6 +58,15 @@ export default function AddingPage() {
     const [layout, setLayout] = useState("");
     const [beds, setBeds] = useState<number | null>(null);
     const [price, setPrice] = useState<number | null>(null);
+    
+    // Состояние для уведомлений
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+    // Функция показа уведомления
+    const showNotification = (message: string, type: 'success' | 'error') => {
+        setNotification({message, type});
+        setTimeout(() => setNotification(null), 4000);
+    };
 
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
@@ -67,7 +101,7 @@ export default function AddingPage() {
 
         imageFiles.forEach(file => {
             if (file.size > 10 * 1024 * 1024) {
-                alert(t("add.fileTooLarge").replace("{fileName}", file.name));
+                showNotification(t("add.fileTooLarge").replace("{fileName}", file.name), 'error');
                 return;
             }
 
@@ -86,12 +120,12 @@ export default function AddingPage() {
     };
     const handlePublish = async () => {
       if (!typeAd) {
-        alert(t("add.selectAdType"));
+        showNotification(t("add.selectAdType"), 'error');
         return;
       }
 
       if (!title || !description || !price) {
-        alert(t("add.fillRequiredFields"));
+        showNotification(t("add.fillRequiredFields"), 'error');
         return;
       }
 
@@ -104,15 +138,40 @@ export default function AddingPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-              type: typeAd,
+              property_type: typeAd,
               title,
               description,
               price,
+              currency,
+              
+              // Локация
               region,
+              city,
               address,
-              size,
-              rooms,
+              
+              // Площадь и комнаты (из верхних полей layout/beds)
               beds,
+              
+              // Состояние и энергетика
+              condition_state: conditionState || null,
+              energy_class: energyClass || null,
+              
+              // POI инфраструктура
+              has_bus_stop: hasBusStop,
+              has_train_station: hasTrainStation,
+              has_metro: hasMetro,
+              has_post_office: hasPostOffice,
+              has_atm: hasAtm,
+              has_general_practitioner: hasGeneralPractitioner,
+              has_vet: hasVet,
+              has_primary_school: hasPrimarySchool,
+              has_kindergarten: hasKindergarten,
+              has_supermarket: hasSupermarket,
+              has_small_shop: hasSmallShop,
+              has_restaurant: hasRestaurant,
+              has_playground: hasPlayground,
+              
+              // Условия проживания
               has_roommates: hasRoommates,
               rental_period: rentalPeriod,
               amenities,
@@ -145,7 +204,12 @@ export default function AddingPage() {
           }
         }
 
-        alert(t("add.adSuccessfullyPublished"));
+        showNotification(t("add.adSuccessfullyPublished"), 'success');
+
+        // Редирект на страницу профиля с вкладкой "Мои объявления"
+        setTimeout(() => {
+          navigate('/profile?tab=myListings');
+        }, 1500);
 
         // опционально: очистка формы
         setTitle("");
@@ -156,10 +220,14 @@ export default function AddingPage() {
         setTypeAd("");
         setUploadedImages([]);
         setSelectedFiles([]);
+        setCity("");
+        setAddress("");
+        setConditionState("");
+        setEnergyClass("");
 
       } catch (err) {
         console.error(err);
-        alert(t("add.publishFailed"));
+        showNotification(t("add.publishFailed"), 'error');
       }
     };
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -372,22 +440,82 @@ export default function AddingPage() {
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
                             {t("add.price")}
                           </span>
-                          <input
-                            type="number"
-                            value={price ?? ""}
-                            onChange={(e) =>
-                              setPrice(e.target.value === "" ? null : Number(e.target.value))
-                            }
-                            className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
-                            placeholder={t("add.pricePlaceholder")}
-                          />
+                          <div className={`w-full flex gap-2`}>
+                            <input
+                              type="number"
+                              value={price ?? ""}
+                              onChange={(e) =>
+                                setPrice(e.target.value === "" ? null : Number(e.target.value))
+                              }
+                              className={`flex-1 h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                          focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
+                              placeholder={t("add.pricePlaceholder")}
+                            />
+                            <select
+                              value={currency}
+                              onChange={(e) => setCurrency(e.target.value)}
+                              className={`w-[100px] h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                         focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
+                            >
+                              <option value="CZK">CZK</option>
+                              <option value="EUR">EUR</option>
+                              <option value="USD">USD</option>
+                            </select>
+                          </div>
                         </div>
 
                       </div>
 
                       {/* DIVIDER */}
                       <div className={`w-full my-8 border-t border-[#E0E0E0] dark:border-gray-600`}></div>
+
+                      {/* CONDITION & ENERGY SECTION */}
+                      <div className={`w-full flex max-[770px]:flex-col items-center justify-between gap-4`}>
+                        {/* CONDITION STATE */}
+                        <div className={`w-full flex flex-col items-start gap-1`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            Stav nemovitosti
+                          </span>
+                          <select
+                            value={conditionState}
+                            onChange={(e) => setConditionState(e.target.value)}
+                            className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                       focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
+                          >
+                            <option value="">Vyberte stav</option>
+                            <option value="VELMI_DOBRY">Velmi dobrý</option>
+                            <option value="DOBRY">Dobrý</option>
+                            <option value="SPATNY">Špatný</option>
+                            <option value="NOVOSTAVBA">Novostavba</option>
+                            <option value="VE_VYSTAVBE">Ve výstavbě</option>
+                            <option value="PRED_REKONSTRUKCI">Před rekonstrukcí</option>
+                            <option value="V_REKONSTRUKCI">V rekonstrukci</option>
+                            <option value="PO_REKONSTRUKCI">Po rekonstrukci</option>
+                          </select>
+                        </div>
+
+                        {/* ENERGY CLASS */}
+                        <div className={`w-full flex flex-col items-start gap-1`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            Energetická třída
+                          </span>
+                          <select
+                            value={energyClass}
+                            onChange={(e) => setEnergyClass(e.target.value)}
+                            className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                       focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
+                          >
+                            <option value="">Vyberte třídu</option>
+                            <option value="A">A (nejlepší)</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="E">E</option>
+                            <option value="F">F</option>
+                            <option value="G">G (nejhorší)</option>
+                          </select>
+                        </div>
+                      </div>
 
                       {/* ADDITIONAL FIELDS SECTION */}
                       <div className={`w-full flex flex-col gap-6`}>
@@ -420,45 +548,30 @@ export default function AddingPage() {
                               {t("filter.city")}
                             </span>
                             <input
-                              value={address}
-                              onChange={(e) => setAddress(e.target.value)}
+                              value={city}
+                              onChange={(e) => setCity(e.target.value)}
                               className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                         focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
                               placeholder={t("filter.cityPlaceholder")}
                             />
                           </div>
                         </div>
-
-                        {/* SIZE & ROOMS ROW */}
-                        <div className={`w-full flex max-[770px]:flex-col items-center justify-between gap-4`}>
-                          {/* SIZE */}
-                          <div className={`w-full flex flex-col items-start gap-1`}>
-                            <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                              {t("listing.area")}
-                            </span>
-                            <input
-                              value={size}
-                              onChange={(e) => setSize(e.target.value)}
-                              className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
-                              placeholder={t("add.areaPlaceholder")}
-                            />
-                          </div>
-
-                          {/* ROOMS */}
-                          <div className={`w-full flex flex-col items-start gap-1`}>
-                            <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                              {t("filter.rooms")}
-                            </span>
-                            <input
-                              value={rooms}
-                              onChange={(e) => setRooms(e.target.value)}
-                              className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
-                              placeholder={t("filter.roomsPlaceholder")}
-                            />
-                          </div>
+                        
+                        {/* ADDRESS DETAIL ROW */}
+                        <div className={`w-full flex flex-col items-start gap-1`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            Adresa (ulice, číslo)
+                          </span>
+                          <input
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                      focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
+                            placeholder="Např. Václavské náměstí 1"
+                          />
                         </div>
+
+                        {/* SIZE & ROOMS ROW - УДАЛЕНО */}
 
                         {/* RENTAL PERIOD & MOVE-IN DATE ROW */}
                         <div className={`w-full flex max-[770px]:flex-col items-center justify-between gap-4`}>
@@ -617,6 +730,48 @@ export default function AddingPage() {
                             </div>
                           </div>
                         </div>
+                        
+                        {/* DIVIDER */}
+                        <div className={`w-full my-6 border-t border-[#E0E0E0] dark:border-gray-600`}></div>
+                        
+                        {/* INFRASTRUCTURE (POI) SECTION */}
+                        <div className={`w-full flex flex-col gap-4`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            {t("filter.infrastructure")}
+                          </span>
+                          <div className={`grid grid-cols-2 md:grid-cols-3 gap-3`}>
+                            {[
+                              { state: hasBusStop, setter: setHasBusStop, label: t("filter.infraBusStop") },
+                              { state: hasTrainStation, setter: setHasTrainStation, label: t("filter.infraTrainStation") },
+                              { state: hasMetro, setter: setHasMetro, label: t("filter.infraMetro") },
+                              { state: hasPostOffice, setter: setHasPostOffice, label: t("filter.infraPostOffice") },
+                              { state: hasAtm, setter: setHasAtm, label: t("filter.infraAtm") },
+                              { state: hasGeneralPractitioner, setter: setHasGeneralPractitioner, label: t("filter.infraDoctor") },
+                              { state: hasVet, setter: setHasVet, label: t("filter.infraVet") },
+                              { state: hasPrimarySchool, setter: setHasPrimarySchool, label: t("filter.infraSchool") },
+                              { state: hasKindergarten, setter: setHasKindergarten, label: t("filter.infraKindergarten") },
+                              { state: hasSupermarket, setter: setHasSupermarket, label: t("filter.infraSupermarket") },
+                              { state: hasSmallShop, setter: setHasSmallShop, label: t("filter.infraShop") },
+                              { state: hasRestaurant, setter: setHasRestaurant, label: t("filter.infraRestaurant") },
+                              { state: hasPlayground, setter: setHasPlayground, label: t("filter.infraPlayground") },
+                            ].map((item, idx) => (
+                              <label key={idx} className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 
+                                             hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
+                                             ${item.state ? 'bg-[#C505EB]/10 border-[#C505EB] dark:bg-[#C505EB]/20' : 'bg-white dark:bg-gray-800'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={item.state}
+                                  onChange={(e) => item.setter(e.target.checked)}
+                                  className={`w-4 h-4 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] 
+                                            focus:ring-[#C505EB] focus:ring-2 cursor-pointer`}
+                                />
+                                <span className={`text-xs font-medium text-black dark:text-white`}>
+                                  {item.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                       </div>
 
 
@@ -761,6 +916,50 @@ export default function AddingPage() {
                     )}
                 </div>
             )}
+
+            {/* Стилизованное уведомление */}
+            {notification && (
+                <div 
+                    className={`fixed top-24 right-4 z-[10000] max-w-md w-full sm:w-96 
+                               animate-in slide-in-from-right duration-300 
+                               ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'} 
+                               text-white rounded-xl shadow-2xl overflow-hidden`}
+                >
+                    <div className={`flex items-start gap-3 p-4`}>
+                        <div className={`flex-shrink-0 mt-0.5`}>
+                            {notification.type === 'success' ? (
+                                <CheckCircle size={24} />
+                            ) : (
+                                <AlertCircle size={24} />
+                            )}
+                        </div>
+                        <div className={`flex-1 mr-2`}>
+                            <p className={`text-sm font-medium leading-relaxed`}>
+                                {notification.message}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setNotification(null)}
+                            className={`flex-shrink-0 hover:bg-white/20 rounded-full p-1 transition-colors`}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <div 
+                        className={`h-1 bg-white/30`}
+                        style={{
+                            animation: 'shrink 4s linear forwards'
+                        }}
+                    />
+                </div>
+            )}
+
+            <style>{`
+                @keyframes shrink {
+                    from { width: 100%; }
+                    to { width: 0%; }
+                }
+            `}</style>
 
         </div>
     );

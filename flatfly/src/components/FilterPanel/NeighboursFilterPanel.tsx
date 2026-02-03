@@ -18,7 +18,6 @@ interface NeighbourFilterState {
     profession: string;
     workFromHome: string;
     languages: string[];
-    interests: string;
 }
 interface Props {
   filters: NeighbourFilterState;
@@ -108,11 +107,6 @@ const NeighboursCategories = [
   filters.languages.length > 0 && {
     title: t("filter.neighbourLanguages"),
     subTitle: filters.languages.map(l => translateLanguage(l)).join(", "),
-  },
-
-  filters.interests && {
-    title: t("filter.neighbourInterests"),
-    subTitle: filters.interests,
   },
 ].filter(Boolean) as { title: string; subTitle: string }[];
 
@@ -215,7 +209,6 @@ const NeighboursCategories = [
         profession: "",
         workFromHome: "",
         languages: [],
-        interests: "",
       });
     };
 
@@ -485,21 +478,6 @@ const NeighboursCategories = [
                                         </div>
                                     </div>
 
-                                    {/* Совпадение интересов */}
-                                    <div className={`flex flex-col gap-2 md:col-span-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourInterests")}</label>
-                                        <input
-                                            type="text"
-                                            value={filters.interests}
-                                            onChange={(e) => handleFilterChange("interests", e.target.value)}
-                                            placeholder={t("filter.neighbourInterestsPlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
-                                    </div>
                                 </div>
                             </div>
 

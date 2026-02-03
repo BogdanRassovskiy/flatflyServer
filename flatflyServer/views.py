@@ -12,6 +12,7 @@ from django.db.models import Q
 from users.models import Profile
 from listings.models import Listing, ListingImage
 from django.core.paginator import Paginator
+from datetime import datetime
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -86,6 +87,10 @@ def neighbours_list(request):
     work_from_home = request.GET.get("workFromHome")
     if work_from_home:
         qs = qs.filter(work_from_home=work_from_home)
+
+    profession = request.GET.get("profession")
+    if profession:
+        qs = qs.filter(profession__icontains=profession)
 
     # LANGUAGES (languages[]=cz&languages[]=en)
     languages = request.GET.getlist("languages[]")
@@ -388,15 +393,65 @@ def listing_detail(request, listing_id):
 
     return JsonResponse({
         "id": listing.id,
-        "type": listing.type,
+        "type": listing.property_type,  # Новое имя поля
+        "property_type": listing.property_type,
         "title": listing.title,
         "description": listing.description,
         "price": str(listing.price),
+        "currency": listing.currency,
+        "region": listing.region,
+        "city": listing.city,
         "address": listing.address,
-        "size": listing.size,
+        "size": listing.usable_area,  # Новое имя поля
+        "usable_area": listing.usable_area,
         "rooms": listing.rooms,
         "beds": listing.beds,
+        
+        # Геолокация
+        "geo_lat": str(listing.geo_lat) if listing.geo_lat else None,
+        "geo_lng": str(listing.geo_lng) if listing.geo_lng else None,
+        
+        # Состояние и энергетика
+        "condition_state": listing.condition_state,
+        "energy_class": listing.energy_class,
+        
+        # POI инфраструктура
+        "has_bus_stop": listing.has_bus_stop,
+        "has_train_station": listing.has_train_station,
+        "has_metro": listing.has_metro,
+        "has_post_office": listing.has_post_office,
+        "has_atm": listing.has_atm,
+        "has_general_practitioner": listing.has_general_practitioner,
+        "has_vet": listing.has_vet,
+        "has_primary_school": listing.has_primary_school,
+        "has_kindergarten": listing.has_kindergarten,
+        "has_supermarket": listing.has_supermarket,
+        "has_small_shop": listing.has_small_shop,
+        "has_restaurant": listing.has_restaurant,
+        "has_playground": listing.has_playground,
+        
+        # Медиа
+        "has_video": listing.has_video,
+        "has_3d_tour": listing.has_3d_tour,
+        "has_floorplan": listing.has_floorplan,
+        
+        # Старые поля
+        "has_roommates": listing.has_roommates,
+        "rental_period": listing.rental_period,
+        "internet": listing.internet,
+        "utilities_included": listing.utilities_included,
+        "pets_allowed": listing.pets_allowed,
+        "smoking_allowed": listing.smoking_allowed,
+        "amenities": listing.amenities,
+        "move_in_date": listing.move_in_date.isoformat() if listing.move_in_date else None,
+        
+        "is_verified": listing.is_verified,
         "badges": [],
+        
+        # Контактные данные владельца
+        "contact_phone": listing.owner.profile.phone if hasattr(listing.owner, 'profile') and listing.owner.profile.phone else None,
+        "contact_email": listing.owner.email if listing.owner.email else None,
+        
         "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
         "images": [
             request.build_absolute_uri(img.image.url)
@@ -419,29 +474,61 @@ def listings_view(request):
 
         listing = Listing.objects.create(
             owner=request.user,
-            type=data.get("type"),
+            # Основные поля
+            property_type=data.get("property_type", data.get("type", "APARTMENT")),  # Обратная совместимость
             title=data.get("title"),
             description=data.get("description"),
 
+            # Локация
+            country=data.get("country", "CZ"),
             region=data.get("region"),
+            city=data.get("city", ""),
             address=data.get("address", ""),
+            geo_lat=data.get("geo_lat", None),  # Явная заглушка
+            geo_lng=data.get("geo_lng", None),  # Явная заглушка
 
+            # Площадь и цена
             price=data.get("price"),
-            rooms=data.get("rooms"),
+            currency=data.get("currency", "CZK"),
+            usable_area=data.get("usable_area", data.get("size", None)),  # Обратная совместимость + заглушка
+            rooms=data.get("rooms", None),  # Явная заглушка
             beds=data.get("beds"),
-            size=data.get("size"),
 
-            has_roommates=data.get("hasRoommates", False),
-            rental_period=data.get("rentalPeriod", "long"),
+            # Состояние и энергетика
+            condition_state=data.get("condition_state", None),  # Явная заглушка
+            energy_class=data.get("energy_class", None),  # Явная заглушка
+
+            # Инфраструктура (POI)
+            has_bus_stop=data.get("has_bus_stop", False),
+            has_train_station=data.get("has_train_station", False),
+            has_metro=data.get("has_metro", False),
+            has_post_office=data.get("has_post_office", False),
+            has_atm=data.get("has_atm", False),
+            has_general_practitioner=data.get("has_general_practitioner", False),
+            has_vet=data.get("has_vet", False),
+            has_primary_school=data.get("has_primary_school", False),
+            has_kindergarten=data.get("has_kindergarten", False),
+            has_supermarket=data.get("has_supermarket", False),
+            has_small_shop=data.get("has_small_shop", False),
+            has_restaurant=data.get("has_restaurant", False),
+            has_playground=data.get("has_playground", False),
+
+            # Медиа контент
+            has_video=data.get("has_video", False),
+            has_3d_tour=data.get("has_3d_tour", False),
+            has_floorplan=data.get("has_floorplan", False),
+
+            # Условия проживания (старые поля)
+            has_roommates=data.get("has_roommates", data.get("hasRoommates", False)),
+            rental_period=data.get("rental_period", data.get("rentalPeriod", "LONG")).upper(),
 
             internet=data.get("internet", False),
-            utilities_included=data.get("utilities", False),
-            pets_allowed=data.get("petsAllowed", False),
-            smoking_allowed=data.get("smokingAllowed", False),
+            utilities_included=data.get("utilities_included", data.get("utilities", False)),
+            pets_allowed=data.get("pets_allowed", data.get("petsAllowed", False)),
+            smoking_allowed=data.get("smoking_allowed", data.get("smokingAllowed", False)),
 
             amenities=data.get("amenities", []),
-
-            move_in_date=parse_date_safe(data.get("moveInDate")),
+            move_in_date=parse_date_safe(data.get("move_in_date", data.get("moveInDate"))),
         )
 
         return JsonResponse({
@@ -454,6 +541,13 @@ def listings_view(request):
     # ПОЛУЧЕНИЕ СПИСКА
     # =========================
     qs = Listing.objects.all().order_by("-created_at")
+
+    # Фильтр по владельцу (для "Мои объявления")
+    owner_filter = request.GET.get("owner")
+    if owner_filter == "me":
+        if not request.user.is_authenticated:
+            return JsonResponse({"detail": "Not authenticated"}, status=401)
+        qs = qs.filter(owner=request.user)
 
     # Получаем фильтры
     search = request.GET.get("search")
@@ -476,13 +570,19 @@ def listings_view(request):
 
     move_in_date = request.GET.get("moveInDate")
     amenities = request.GET.getlist("amenities[]")
+    
+    # Новые фильтры
+    condition_state = request.GET.get("conditionState")
+    energy_class = request.GET.get("energyClass")
+    currency = request.GET.get("currency")
+    infrastructure = request.GET.getlist("infrastructure[]")
 
     # ---- Фильтрация ----
 
     if listing_type:
-        qs = qs.filter(type=listing_type)
+        qs = qs.filter(property_type=listing_type)  # Используем новое имя поля
     #if Type:
-    #    qs = qs.filter(type=Type)
+    #    qs = qs.filter(property_type=Type)  # Используем новое имя поля
     if search:
         qs = qs.filter(
             Q(title__icontains=search) |
@@ -521,6 +621,20 @@ def listings_view(request):
     if move_in_date:
         qs = qs.filter(move_in_date__lte=move_in_date)
 
+    if condition_state:
+        qs = qs.filter(condition_state=condition_state)
+    
+    if energy_class:
+        qs = qs.filter(energy_class=energy_class)
+    
+    if currency:
+        qs = qs.filter(currency=currency)
+    
+    # Фильтрация по инфраструктуре
+    if infrastructure:
+        for infra in infrastructure:
+            qs = qs.filter(**{infra: True})
+
     
     if amenities:
         qs = list(qs)  # превращаем QuerySet в список
@@ -549,14 +663,26 @@ def listings_view(request):
 
         results.append({
             "id": listing.id,
-            "type": listing.type,
+            "type": listing.property_type,  # Используем новое имя поля
+            "property_type": listing.property_type,
             "title": listing.title,
             "price": str(listing.price),
+            "currency": listing.currency,
             "region": listing.region,
+            "city": listing.city,
             "address": listing.address,
-            "size": listing.size,
+            "size": listing.usable_area,  # Используем новое имя поля
+            "usable_area": listing.usable_area,
             "rooms": listing.rooms,
             "beds": listing.beds,
+            
+            # Геолокация
+            "geo_lat": str(listing.geo_lat) if listing.geo_lat else None,
+            "geo_lng": str(listing.geo_lng) if listing.geo_lng else None,
+            
+            # Состояние и энергетика
+            "condition_state": listing.condition_state,
+            "energy_class": listing.energy_class,
 
             "hasRoommates": listing.has_roommates,
             "rentalPeriod": listing.rental_period,
@@ -569,6 +695,7 @@ def listings_view(request):
             "amenities": listing.amenities,
             "moveInDate": listing.move_in_date,
 
+            "is_verified": listing.is_verified,
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
             "is_favorite": listing.id in favorite_ids,
         })
@@ -657,6 +784,7 @@ def profile_view(request):
         return JsonResponse({
             "photo": profile.avatar.url if profile.avatar else "",
             "name": profile.name,
+            "phone": profile.phone or "",
             "age": profile.age,
             "gender": profile.gender,
             "city": profile.city,
@@ -690,6 +818,7 @@ def profile_view(request):
 
     for field, attr in [
         ("name", "name"),
+        ("phone", "phone"),
         ("age", "age"),
         ("gender", "gender"),
         ("city", "city"),
@@ -836,6 +965,8 @@ def google_callback(request):
 
 @login_required
 @require_http_methods(["POST"])
+@login_required
+@require_http_methods(["POST"])
 def add_to_favorites(request):
     """Добавить объявление или соседа в избранное"""
     try:
@@ -896,6 +1027,9 @@ def remove_from_favorites(request):
 @require_http_methods(["GET"])
 def get_favorites(request):
     """Получить все избранные объявления и соседей пользователя"""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+    
     try:
         profile = request.user.profile
         listings = list(profile.favorite_listings.all())
@@ -907,17 +1041,17 @@ def get_favorites(request):
         # Добавляем объявления
         for listing in listings:
             images = ListingImage.objects.filter(listing=listing)
-            image_url = images.first().image.url if images.exists() else None
+            image_url = request.build_absolute_uri(images.first().image.url) if images.exists() else None
             all_favorites.append({
                 "id": listing.id,
                 "type": "LISTING",
                 "title": listing.title,
                 "description": listing.description,
                 "price": str(listing.price),
-                "room_type": listing.type,
-                "city": listing.address,
+                "room_type": listing.property_type,
+                "city": listing.city,
                 "region": listing.region,
-                "area": listing.size,
+                "area": listing.usable_area,
                 "image_url": image_url,
                 "amenities": listing.amenities or [],
                 "is_favorite": True,
@@ -931,7 +1065,7 @@ def get_favorites(request):
                 "name": neighbor.name,
                 "age": neighbor.age,
                 "city": neighbor.city,
-                "image_url": neighbor.avatar.url if neighbor.avatar else None,
+                "image_url": request.build_absolute_uri(neighbor.avatar.url) if neighbor.avatar else None,
                 "verified": neighbor.verified,
                 "looking_for_housing": neighbor.looking_for_housing,
                 "is_favorite": True,

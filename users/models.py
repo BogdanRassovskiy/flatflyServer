@@ -38,6 +38,7 @@ class Profile(models.Model):
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     name = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=SEX_CHOICES, blank=True)
 

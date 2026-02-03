@@ -13,6 +13,7 @@ interface ProfileData {
     // Основная информация
     photo: string;
     name: string;
+    phone: string;
     age: string;
     gender: string;
     city: string;
@@ -46,13 +47,14 @@ export default function ProfilePage() {
     const location = useLocation();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites">("basic");
+    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings">("basic");
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     
     const [profileData, setProfileData] = useState<ProfileData>({
         photo: "",
         name: user?.name || "",
+        phone: "",
         age: "",
         gender: "",
         city: "",
@@ -116,11 +118,12 @@ export default function ProfilePage() {
         { code: "sk", label: t("profile.languages.sk") || "Slovenčina" },
     ];
 
-    const sections: Array<{ key: "basic" | "social" | "status" | "favorites"; label: string }> = [
+    const sections: Array<{ key: "basic" | "social" | "status" | "favorites" | "myListings"; label: string }> = [
         { key: "basic", label: t("profile.sections.basic") },
         { key: "social", label: t("profile.sections.social") },
         { key: "status", label: t("profile.sections.status") },
         { key: "favorites", label: t("favorites") },
+        { key: "myListings", label: t("profile.sections.myListings") },
     ];
 
     const currentSectionIndex = sections.findIndex(s => s.key === activeSection);
@@ -167,6 +170,13 @@ export default function ProfilePage() {
     const [favPage, setFavPage] = useState(1);
     const [favTotalPages, setFavTotalPages] = useState(1);
 
+    // My Listings state
+    const [myListings, setMyListings] = useState<FavoriteListing[]>([]);
+    const [myListingsLoading, setMyListingsLoading] = useState(false);
+    const [myListingsError, setMyListingsError] = useState<string | null>(null);
+    const [myListingsPage, setMyListingsPage] = useState(1);
+    const [myListingsTotalPages, setMyListingsTotalPages] = useState(1);
+
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
     useEffect(() => {
         const hash = (location.hash || "").replace('#', '').toLowerCase();
@@ -174,13 +184,16 @@ export default function ProfilePage() {
         const tab = (params.get("tab") || "").toLowerCase();
         const target = hash || tab;
         const normalizedTarget = target === "favourites" ? "favorites" : target;
-        const validSections: Array<"basic" | "social" | "status" | "favorites"> = ["basic", "social", "status", "favorites"];
+        const validSections: Array<"basic" | "social" | "status" | "favorites" | "myListings"> = ["basic", "social", "status", "favorites", "myListings"];
 
         if (validSections.includes(normalizedTarget as typeof validSections[number])) {
             const sectionKey = normalizedTarget as typeof validSections[number];
             setActiveSection(sectionKey);
             if (sectionKey === "favorites") {
                 setFavPage(1);
+            }
+            if (sectionKey === "myListings") {
+                setMyListingsPage(1);
             }
         }
     }, [location.hash, location.search]);
@@ -228,12 +241,48 @@ export default function ProfilePage() {
         }
     };
 
+    const fetchMyListings = async (page = 1) => {
+        if (!user) return;
+        try {
+            setMyListingsLoading(true);
+            const res = await fetch(`/api/listings/?owner=me&page=${page}`, { credentials: "include" });
+            if (!res.ok) throw new Error("Failed to load my listings");
+            const data = await res.json();
+            // Transform data to match FavoriteListing type
+            const listings = (data.results || []).map((listing: any) => ({
+                id: listing.id,
+                type: "LISTING" as const,
+                title: listing.title,
+                description: listing.description,
+                price: listing.price,
+                room_type: listing.property_type === "APARTMENT" ? "APARTMENT" : "ROOM",
+                city: listing.city,
+                region: listing.region,
+                area: listing.usable_area,
+                amenities: listing.amenities || [],
+                image_url: listing.image || null,
+                is_favorite: listing.is_favorite || false,
+            }));
+            setMyListings(listings);
+            setMyListingsTotalPages(data.total_pages || 1);
+            setMyListingsError(null);
+        } catch (e) {
+            setMyListingsError(e instanceof Error ? e.message : "Error loading my listings");
+            setMyListings([]);
+        } finally {
+            setMyListingsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeSection === "favorites") {
             fetchFavorites(favPage);
         }
+        if (activeSection === "myListings") {
+            fetchMyListings(myListingsPage);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeSection, favPage]);
+    }, [activeSection, favPage, myListingsPage]);
 
     const convertToSaleCardType = (favorite: FavoriteListing) => {
         if (favorite.type === "NEIGHBOUR") {
@@ -248,7 +297,7 @@ export default function ProfilePage() {
                     ...(favorite.verified ? ["Verified"] : []),
                     ...(favorite.looking_for_housing ? ["Looking for housing"] : []),
                 ],
-                is_favorite: true,
+                is_favorite: favorite.is_favorite ?? false,
             };
         }
         return {
@@ -261,7 +310,7 @@ export default function ProfilePage() {
             address: favorite.city,
             size: favorite.area?.toString() || "N/A",
             amenities: favorite.amenities,
-            is_favorite: true,
+            is_favorite: favorite.is_favorite ?? false,
         };
     };
 
@@ -384,7 +433,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Section Tabs - Desktop */}
-                <div className={`hidden min-[771px]:flex items-center gap-2 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
+                <div className={`hidden min-[771px]:flex flex-wrap items-center gap-2 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
                     {sections.map((section) => (
                         <button
                             key={section.key}
@@ -478,6 +527,18 @@ export default function ProfilePage() {
                                     onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
                                     className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
                                     placeholder={t("profile.namePlaceholder")}
+                                />
+                            </div>
+
+                            {/* Phone */}
+                            <div className={`flex flex-col gap-2`}>
+                                <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.phone")}</label>
+                                <input
+                                    type="tel"
+                                    value={profileData.phone}
+                                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                                    className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                    placeholder={t("profile.phonePlaceholder")}
                                 />
                             </div>
 
@@ -936,8 +997,81 @@ export default function ProfilePage() {
                         </div>
                     )}
 
+                    {/* My Listings Section */}
+                    {activeSection === "myListings" && (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Icon icon="mdi:home-city" width="24" height="24" style={{color: "#C505EB"}} />
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {t("profile.sections.myListings")}
+                                </h2>
+                            </div>
+                            {myListingsLoading && (
+                                <div className="text-center py-10">{t("loading")}</div>
+                            )}
+                            {myListingsError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{myListingsError}</div>
+                            )}
+                            {!myListingsLoading && myListings.length === 0 && !myListingsError && (
+                                <div className="text-center py-10">
+                                    <Icon icon="mdi:home-city-outline" width="48" height="48" className="text-gray-300 mx-auto mb-4" />
+                                    <p className="text-gray-500 mb-4">{t("no_listings_yet")}</p>
+                                    <button
+                                        onClick={() => navigate("/add")}
+                                        className="inline-block bg-gradient-to-r from-[#C505EB] to-[#BA00F8] text-white px-6 py-2 rounded-lg hover:from-[#BA00F8] hover:to-[#C505EB] transition"
+                                    >
+                                        {t("header.addListing")}
+                                    </button>
+                                </div>
+                            )}
+                            {!myListingsLoading && myListings.length > 0 && (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                        {myListings.map((listing) => (
+                                            <SaleCard
+                                                key={listing.id}
+                                                {...convertToSaleCardType(listing)}
+                                            />
+                                        ))}
+                                    </div>
+                                    {myListingsTotalPages > 1 && (
+                                        <div className="flex justify-center gap-2 mt-4">
+                                            <button
+                                                disabled={myListingsPage === 1}
+                                                onClick={() => setMyListingsPage(Math.max(1, myListingsPage - 1))}
+                                                className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
+                                            >
+                                                {t("previous")}
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: myListingsTotalPages }, (_, i) => i + 1).map((page) => (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setMyListingsPage(page)}
+                                                        className={`px-3 py-2 rounded-lg ${
+                                                            myListingsPage === page ? "bg-[#C505EB] text-white" : "bg-white dark:bg-gray-700 border dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                disabled={myListingsPage === myListingsTotalPages}
+                                                onClick={() => setMyListingsPage(Math.min(myListingsTotalPages, myListingsPage + 1))}
+                                                className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
+                                            >
+                                                {t("next")}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {/* Save Button */}
-                    {activeSection !== "favorites" && (
+                    {activeSection !== "favorites" && activeSection !== "myListings" && (
                         <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
                             <button
                                 type="button"

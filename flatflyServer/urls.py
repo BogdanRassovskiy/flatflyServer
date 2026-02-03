@@ -41,7 +41,7 @@ urlpatterns = [
 
     # SPA — ТОЛЬКО для страниц
     re_path(
-        r'^(?!static/|assets/|fonts/|media/|api/|admin/|favorites/)(?!admin/)', 
+        r'^(?!static/|assets/|fonts/|media/|api/|admin/|favorites/)', 
         TemplateView.as_view(template_name="index.html")
     ),
 

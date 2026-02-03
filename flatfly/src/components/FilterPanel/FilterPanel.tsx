@@ -8,15 +8,19 @@ export interface FilterState {
       region: string;
       priceFrom: string;
       priceTo: string;
+      currency: string;
       rooms: string;
       hasRoommates: string;
       rentalPeriod: string;
+      conditionState: string;
+      energyClass: string;
       internet: string;
       utilities: string;
       petsAllowed: string;
       smokingAllowed: string;
       moveInDate: string;
       amenities: string[];
+      infrastructure: string[];
     }
 
 interface FilterPanelProps {
@@ -112,12 +116,22 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
 
       (filters.priceFrom || filters.priceTo) && {
         title: t("filter.price"),
-        subTitle: `${filters.priceFrom || "0"} – ${filters.priceTo || "∞"}`,
+        subTitle: `${filters.priceFrom || "0"} – ${filters.priceTo || "∞"} ${filters.currency || "CZK"}`,
       },
 
       filters.rooms && {
         title: t("filter.rooms"),
         subTitle: filters.rooms,
+      },
+
+      filters.conditionState && {
+        title: t("filter.conditionState"),
+        subTitle: filters.conditionState,
+      },
+
+      filters.energyClass && {
+        title: t("filter.energyClass"),
+        subTitle: filters.energyClass,
       },
 
       filters.hasRoommates && {
@@ -159,6 +173,11 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         title: t("filter.amenities"),
         subTitle: filters.amenities.map(a => translateAmenity(a)).join(", "),
       },
+
+      filters.infrastructure.length > 0 && {
+        title: t("filter.infrastructure"),
+        subTitle: `${filters.infrastructure.length} ${t("filter.selected")}`,
+      },
     ].filter(Boolean) as { title: string; subTitle: string }[];
 
     const propertyTypes = [
@@ -190,6 +209,49 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         {key: "heating", label: t("filter.amenityHeating")},
         {key: "balcony", label: t("filter.amenityBalcony")},
         {key: "parking", label: t("filter.amenityParking")},
+    ];
+
+    const conditionOptions = [
+        {value: "NEW", label: t("filter.conditionNew")},
+        {value: "EXCELLENT", label: t("filter.conditionExcellent")},
+        {value: "VERY_GOOD", label: t("filter.conditionVeryGood")},
+        {value: "GOOD", label: t("filter.conditionGood")},
+        {value: "SATISFACTORY", label: t("filter.conditionSatisfactory")},
+        {value: "NEEDS_RENOVATION", label: t("filter.conditionNeedsRenovation")},
+        {value: "UNDER_RECONSTRUCTION", label: t("filter.conditionUnderReconstruction")},
+        {value: "PROJECT", label: t("filter.conditionProject")},
+    ];
+
+    const energyClassOptions = [
+        {value: "A", label: "A"},
+        {value: "B", label: "B"},
+        {value: "C", label: "C"},
+        {value: "D", label: "D"},
+        {value: "E", label: "E"},
+        {value: "F", label: "F"},
+        {value: "G", label: "G"},
+    ];
+
+    const currencyOptions = [
+        {value: "CZK", label: "CZK"},
+        {value: "EUR", label: "EUR"},
+        {value: "USD", label: "USD"},
+    ];
+
+    const infrastructureOptions = [
+        {key: "has_bus_stop", label: t("filter.infraBusStop")},
+        {key: "has_train_station", label: t("filter.infraTrainStation")},
+        {key: "has_metro", label: t("filter.infraMetro")},
+        {key: "has_post_office", label: t("filter.infraPostOffice")},
+        {key: "has_atm", label: t("filter.infraAtm")},
+        {key: "has_general_practitioner", label: t("filter.infraDoctor")},
+        {key: "has_vet", label: t("filter.infraVet")},
+        {key: "has_primary_school", label: t("filter.infraSchool")},
+        {key: "has_kindergarten", label: t("filter.infraKindergarten")},
+        {key: "has_supermarket", label: t("filter.infraSupermarket")},
+        {key: "has_small_shop", label: t("filter.infraShop")},
+        {key: "has_restaurant", label: t("filter.infraRestaurant")},
+        {key: "has_playground", label: t("filter.infraPlayground")},
     ];
 
     useEffect(() => {
@@ -232,21 +294,36 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
       });
     };
 
+    const toggleInfrastructure = (infra: string) => {
+      const newInfrastructure = filters.infrastructure.includes(infra)
+        ? filters.infrastructure.filter(i => i !== infra)
+        : [...filters.infrastructure, infra];
+
+      onChange({
+        ...filters,
+        infrastructure: newInfrastructure,
+      });
+    };
+
     const handleReset = () => {
       onChange({
         propertyType: "",
         region: "",
         priceFrom: "",
         priceTo: "",
+        currency: "CZK",
         rooms: "",
         hasRoommates: "",
         rentalPeriod: "",
+        conditionState: "",
+        energyClass: "",
         internet: "",
         utilities: "",
         petsAllowed: "",
         smokingAllowed: "",
         moveInDate: "",
         amenities: [],
+        infrastructure: [],
       });
     };
 
@@ -445,6 +522,24 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                                         />
                                     </div>
 
+                                    {/* Валюта */}
+                                    <div className={`flex flex-col gap-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.currency")}</label>
+                                        <select
+                                            value={filters.currency || "CZK"}
+                                            onChange={(e) => handleFilterChange("currency", e.target.value)}
+                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                        outline-0 duration-300 transition-all bg-white text-black
+                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        >
+                                            {currencyOptions.map((curr) => (
+                                                <option key={curr.value} value={curr.value}>{curr.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     {/* Количество комнат */}
                                     <div className={`flex flex-col gap-2`}>
                                         <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.rooms")}</label>
@@ -460,6 +555,44 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                                             <option value="">{t("filter.roomsPlaceholder")}</option>
                                             {roomOptions.map((room) => (
                                                 <option key={room} value={room}>{room}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Состояние */}
+                                    <div className={`flex flex-col gap-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.conditionState")}</label>
+                                        <select
+                                            value={filters.conditionState}
+                                            onChange={(e) => handleFilterChange("conditionState", e.target.value)}
+                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                        outline-0 duration-300 transition-all bg-white text-black
+                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        >
+                                            <option value="">-</option>
+                                            {conditionOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Энергетический класс */}
+                                    <div className={`flex flex-col gap-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.energyClass")}</label>
+                                        <select
+                                            value={filters.energyClass}
+                                            onChange={(e) => handleFilterChange("energyClass", e.target.value)}
+                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                        outline-0 duration-300 transition-all bg-white text-black
+                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        >
+                                            <option value="">-</option>
+                                            {energyClassOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -606,6 +739,33 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                                                                        cursor-pointer accent-[#C505EB]`}
                                                         />
                                                         <span className={`text-sm font-medium text-black dark:text-white`}>{amenity.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Инфраструктура */}
+                                    <div className={`flex flex-col gap-2 md:col-span-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.infrastructure")}</label>
+                                        <div className={`grid grid-cols-2 md:grid-cols-3 gap-3`}>
+                                            {infrastructureOptions.map((infra) => {
+                                                const isChecked = filters.infrastructure.includes(infra.key);
+                                                return (
+                                                    <label 
+                                                        key={infra.key} 
+                                                        className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600  overflow-hidden
+                                                                 hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
+                                                                 ${isChecked ? 'bg-[#C505EB]/10 border-[#C505EB] dark:bg-[#C505EB]/20' : 'bg-white dark:bg-gray-800'}`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => toggleInfrastructure(infra.key)}
+                                                            className={`w-5 h-5 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] 
+                                                                       cursor-pointer accent-[#C505EB]`}
+                                                        />
+                                                        <span className={`text-sm font-medium text-black dark:text-white`}>{infra.label}</span>
                                                     </label>
                                                 );
                                             })}

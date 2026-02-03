@@ -53,15 +53,19 @@ export default function ApartmentsPage({ listingType }: Props) {
     region: "",
     priceFrom: "",
     priceTo: "",
+    currency: "CZK",
     rooms: "",
     hasRoommates: "",
     rentalPeriod: "",
+    conditionState: "",
+    energyClass: "",
     internet: "",
     utilities: "",
     petsAllowed: "",
     smokingAllowed: "",
     moveInDate: "",
     amenities: [] as string[],
+    infrastructure: [] as string[],
   });
 
   useEffect(() => {

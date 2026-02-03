@@ -57,7 +57,6 @@ export default function NeighboursPage() {
     profession: "",
     workFromHome: "",
     languages: [],
-    interests: "",
   });
 
   useEffect(() => {
@@ -133,24 +132,47 @@ export default function NeighboursPage() {
               {neighbours.map((n) => {
                 const badges: string[] = [];
 
-                const addBadge = (value?: string | boolean, label?: string) => {
-                  if (value === null || value === undefined || value === "") return;
+                // Функция для получения локализованного значения badge
+                const getBadgeValue = (fieldName: string, value?: string | boolean): string | null => {
+                  if (value === null || value === undefined || value === "") return null;
+                  
                   if (typeof value === "boolean") {
-                    if (value) badges.push(label || "");
-                  } else {
-                    badges.push(label ? `${label}: ${value}` : value);
+                    return value ? t(`badges.${fieldName}`) : null;
                   }
+                  
+                  // Нормализуем значение
+                  const normalizedValue = String(value).toLowerCase().replace(/\s+/g, "");
+                  
+                  // Если значение "no", не показываем плашку
+                  if (normalizedValue === "no") return null;
+                  
+                  // Если значение "yes", показываем название характеристики
+                  if (normalizedValue === "yes") {
+                    return t(`badges.${fieldName}`);
+                  }
+                  
+                  // Для остальных значений показываем локализованное значение
+                  return t(`badges.${normalizedValue}`) || String(value);
                 };
 
-                addBadge(n.verified, "Verified");
-                addBadge(n.looking_for_housing, "Looking for housing");
-                addBadge(n.gender, "Gender");
-                addBadge(n.smoking, "Smoking");
-                addBadge(n.alcohol, "Alcohol");
-                addBadge(n.pets, "Pets");
-                addBadge(n.sleep_schedule, "Sleep");
-                addBadge(n.gamer, "Gamer");
-                addBadge(n.work_from_home, "Work from home");
+                // Собираем badges с учетом приоритета
+                const potentialBadges: (string | null)[] = [
+                  getBadgeValue("verified", n.verified),
+                  getBadgeValue("lookingForHousing", n.looking_for_housing),
+                  getBadgeValue(n.gender || "", n.gender),
+                  getBadgeValue("smoking", n.smoking),
+                  getBadgeValue("alcohol", n.alcohol),
+                  getBadgeValue("pets", n.pets),
+                  getBadgeValue("sleepSchedule", n.sleep_schedule),
+                  getBadgeValue("gamer", n.gamer),
+                  getBadgeValue("workFromHome", n.work_from_home),
+                ];
+
+                // Фильтруем null и ограничиваем до 6
+                potentialBadges
+                  .filter((b): b is string => b !== null)
+                  .slice(0, 6)
+                  .forEach(b => badges.push(b));
 
                 return (
                   <SaleCard
