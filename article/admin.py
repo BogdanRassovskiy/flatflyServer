@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Article
+from .models import Article, FAQ
 
 
 @admin.register(Article)
@@ -22,3 +22,10 @@ class ArticleAdmin(admin.ModelAdmin):
             "classes": ("collapse",)
         }),
     )
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ("faq_id", "language", "question")
+    list_filter = ("language",)
+    search_fields = ("question", "answer")

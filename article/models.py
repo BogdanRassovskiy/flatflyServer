@@ -30,3 +30,28 @@ class Article(models.Model):
     
     def __str__(self):
         return self.title
+
+
+class FAQ(models.Model):
+    LANGUAGE_CHOICES = [
+        ("en", "English"),
+        ("ru", "Russian"),
+        ("cz", "Czech"),
+    ]
+
+    faq_id = models.PositiveIntegerField(db_index=True)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES)
+    question = models.CharField(max_length=500)
+    answer = models.TextField()
+    keys = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["faq_id", "language"]
+        constraints = [
+            models.UniqueConstraint(fields=["faq_id", "language"], name="unique_faq_id_language"),
+        ]
+        verbose_name = "FAQ"
+        verbose_name_plural = "FAQs"
+
+    def __str__(self):
+        return f"FAQ {self.faq_id} ({self.language})"

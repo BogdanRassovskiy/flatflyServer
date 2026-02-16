@@ -5,6 +5,7 @@
     "rooms": "Rooms",
     "neighbours": "Neighbours",
     "blog": "Blog",
+    "faq": "FAQ",
     "contact": "Contact",
     "addListing": "Add Listing",
     "about": "About",
@@ -201,6 +202,20 @@
     "title": "FlatFly Blog, guide to the world of co-living.",
     "subtitle": "Tips, tricks and advice on how to find the ideal home and roommates.",
     "readMore": "Read more →"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "loading": "Loading FAQ...",
+    "empty": "No questions yet",
+    "chat": {
+      "title": "FAQ Chat",
+      "welcome": "Hi! Ask your question and I will pick the most relevant answer from FAQ.",
+      "placeholder": "Type your question...",
+      "send": "Send",
+      "open": "Open FAQ chat",
+      "thinking": "Thinking",
+      "noMatch": "I couldn't find an exact FAQ answer. Try rephrasing your question and adding keywords."
+    }
   },
   "article": {
     "back": "Back",

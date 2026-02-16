@@ -13,6 +13,7 @@ import ProfilePage from "./pages/ProfilePage/ProfilePage";
 import AuthPage from "./pages/AuthPage/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
 import FavoritesPage from "./pages/FavoritesPage/FavoritesPage";
+import FaqPage from "./pages/FaqPage/FaqPage";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
 // import другие страницы при необходимости
 
@@ -27,6 +28,7 @@ function App() {
                         <Route index element={<BlogPage />} />
                         <Route path=":id" element={<ArticlePage />} />
                     </Route>
+                    <Route path="/faq" element={<FaqPage />} />
                     <Route path="/contact" element={<ContactPage />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} />

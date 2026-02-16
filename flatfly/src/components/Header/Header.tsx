@@ -29,6 +29,7 @@ export default function Header() {
         { title: t("favorites"), path: "/profile?tab=favorites" },
         { title: t("header.home"), path: "/" },
         { title: t("header.blog"), path: "/blog" },
+        { title: t("header.faq"), path: "/faq" },
         { title: t("header.contact"), path: "/contact" },
     ];
 
@@ -205,6 +206,7 @@ export default function Header() {
                             <Link to="/profile?tab=favorites" className={`hover:text-[#C505EB] duration-300`}>{t("favorites")}</Link>
                             <Link to="/" className={`hover:text-[#C505EB] duration-300`}>{t("header.about")}</Link>
                             <Link to="/blog" className={`hover:text-[#C505EB] duration-300`}>{t("header.blog")}</Link>
+                            <Link to="/faq" className={`hover:text-[#C505EB] duration-300`}>{t("header.faq")}</Link>
                         </div>
                     )}
 

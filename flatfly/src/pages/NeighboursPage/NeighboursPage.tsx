@@ -57,6 +57,7 @@ export default function NeighboursPage() {
     profession: "",
     workFromHome: "",
     languages: [],
+    interests: "",
   });
 
   useEffect(() => {

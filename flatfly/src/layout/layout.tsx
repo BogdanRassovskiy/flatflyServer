@@ -1,6 +1,7 @@
 import Header from "../components/Header/Header";
 import { Outlet } from "react-router-dom";
 import Footer from "../components/Footer/Footer";
+import FaqChatWidget from "../components/FaqChatWidget/FaqChatWidget";
 
 export default function Layout() {
     return (
@@ -8,6 +9,7 @@ export default function Layout() {
             <Header />
             <Outlet />
             <Footer/>
+            <FaqChatWidget />
         </div>
     );
 }

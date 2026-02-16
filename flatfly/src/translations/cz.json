@@ -5,6 +5,7 @@
     "rooms": "Pokoj",
     "neighbours": "Spolubydlící",
     "blog": "Blog",
+    "faq": "FAQ",
     "contact": "Kontakt",
     "addListing": "Vložit inzerát",
     "about": "O nás",
@@ -199,6 +200,20 @@
     "title": "Blog FlatFly, průvodce světem spolubydlení.",
     "subtitle": "Tipy, triky a rady, jak najít ideální domov i parťáky.",
     "readMore": "Číst více →"
+  },
+  "faq": {
+    "title": "Často kladené otázky",
+    "loading": "Načítání FAQ...",
+    "empty": "Zatím nejsou žádné otázky",
+    "chat": {
+      "title": "FAQ chat",
+      "welcome": "Ahoj! Zeptej se a já vyberu nejvhodnější odpověď z FAQ.",
+      "placeholder": "Napište otázku...",
+      "send": "Odeslat",
+      "open": "Otevřít FAQ chat",
+      "thinking": "Přemýšlím",
+      "noMatch": "Nepodařilo se najít přesnou odpověď v FAQ. Zkuste otázku přeformulovat a přidat klíčová slova."
+    }
   },
   "article": {
     "back": "Zpět",

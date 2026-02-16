@@ -18,6 +18,7 @@ interface NeighbourFilterState {
     profession: string;
     workFromHome: string;
     languages: string[];
+    interests: string;
 }
 interface Props {
   filters: NeighbourFilterState;
@@ -209,6 +210,7 @@ const NeighboursCategories = [
         profession: "",
         workFromHome: "",
         languages: [],
+                interests: "",
       });
     };
 
