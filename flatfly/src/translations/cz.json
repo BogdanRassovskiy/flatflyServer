@@ -364,8 +364,8 @@
     "genderFemale": "Žena",
     "genderOther": "Jiné",
     "genderAny": "Libovolné",
-    "city": "Město",
-    "cityPlaceholder": "Zadejte své město",
+    "city": "Kraj",
+    "cityPlaceholder": "Vyberte svůj kraj",
     "languages": {
       "title": "Jazyky",
       "cz": "Čeština",

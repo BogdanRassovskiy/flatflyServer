@@ -368,8 +368,8 @@
     "genderFemale": "Женский",
     "genderOther": "Другой",
     "genderAny": "Любой",
-    "city": "Город",
-    "cityPlaceholder": "Введите ваш город",
+    "city": "Край",
+    "cityPlaceholder": "Введите ваш край",
     "languages": {
       "title": "Языки",
       "cz": "Чешский",

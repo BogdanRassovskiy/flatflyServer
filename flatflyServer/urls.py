@@ -25,6 +25,7 @@ urlpatterns = [
     path("api/google_callback/", views.google_callback, name="google_callback"),
     path("api/profile/avatar/", views.upload_avatar, name="upload_avatar"),
     path("api/profile/", views.profile_view, name="profile"),
+    path("api/launch-date/", views.launch_date_view, name="launch_date"),
     path("api/listings/", views.listings_view, name="listings"),
     path("api/listings/<int:listing_id>/images/", views.upload_listing_image, name="upload_listing_image"),
     path("api/listings/list", views.listings_view, name="listings_view"),
@@ -41,7 +42,7 @@ urlpatterns = [
 
     # SPA — ТОЛЬКО для страниц
     re_path(
-        r'^(?!api/|admin/|static/|assets/|fonts/|media/).*$',
+        r'^(?!static/|assets/|fonts/|media/|api/|admin/|favorites/)(?!admin/)', 
         TemplateView.as_view(template_name="index.html")
     ),
 
@@ -51,5 +52,5 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static('/assets/', document_root=os.path.join(settings.BASE_DIR, 'static/assets'))
+    urlpatterns += static('/assets/', document_root=os.path.join(settings.BASE_DIR, 'flatfly/dist/assets'))
     urlpatterns += static('/fonts/', document_root=os.path.join(settings.BASE_DIR, 'static/fonts'))

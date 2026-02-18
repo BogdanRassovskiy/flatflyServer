@@ -368,8 +368,8 @@
     "genderFemale": "Female",
     "genderOther": "Other",
     "genderAny": "Any",
-    "city": "City",
-    "cityPlaceholder": "Enter your city",
+    "city": "Region",
+    "cityPlaceholder": "Select your region",
     "languages": {
       "title": "Languages",
       "cz": "Czech",

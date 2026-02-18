@@ -1,4 +1,10 @@
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+
+
+def default_launch_date():
+    return timezone.now() + timedelta(days=150)
 
 
 class Article(models.Model):
@@ -55,3 +61,15 @@ class FAQ(models.Model):
 
     def __str__(self):
         return f"FAQ {self.faq_id} ({self.language})"
+
+
+class LaunchSettings(models.Model):
+    launch_date = models.DateTimeField(default=default_launch_date)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Launch settings"
+        verbose_name_plural = "Launch settings"
+
+    def __str__(self):
+        return f"Launch: {self.launch_date.isoformat()}"

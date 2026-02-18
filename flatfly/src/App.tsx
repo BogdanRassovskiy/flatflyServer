@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useSearchParams } from "react-router-dom";
 import Layout from "./layout/layout";
 import HomePage from "./pages/HomePage/HomePage";
 import BlogPage from "./pages/BlogPage/BlogPage";
@@ -15,15 +15,37 @@ import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
 import FavoritesPage from "./pages/FavoritesPage/FavoritesPage";
 import FaqPage from "./pages/FaqPage/FaqPage";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
+import StartPage from "./pages/StartPage/StartPage";
+import Header from "./components/Header/Header";
+import Footer from "./components/Footer/Footer";
+import FaqChatWidget from "./components/FaqChatWidget/FaqChatWidget";
 // import другие страницы при необходимости
+
+function RootPage() {
+    const [searchParams] = useSearchParams();
+    const isLegacyHomeAllowed = searchParams.get("pswd") === "flatbomb";
+
+    if (!isLegacyHomeAllowed) {
+        return <StartPage />;
+    }
+
+    return (
+        <div className="w-full min-h-screen flex flex-col items-center">
+            <Header />
+            <HomePage />
+            <Footer />
+            <FaqChatWidget />
+        </div>
+    );
+}
 
 function App() {
     return (
         <>
             <ScrollToTop />
             <Routes>
+                <Route path="/" element={<RootPage />} />
                 <Route element={<Layout />}>
-                    <Route path="/" element={<HomePage />} />
                     <Route path="/blog">
                         <Route index element={<BlogPage />} />
                         <Route path=":id" element={<ArticlePage />} />

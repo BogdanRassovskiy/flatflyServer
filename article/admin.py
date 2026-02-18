@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Article, FAQ
+from .models import Article, FAQ, LaunchSettings
 
 
 @admin.register(Article)
@@ -29,3 +29,9 @@ class FAQAdmin(admin.ModelAdmin):
     list_display = ("faq_id", "language", "question")
     list_filter = ("language",)
     search_fields = ("question", "answer")
+
+
+@admin.register(LaunchSettings)
+class LaunchSettingsAdmin(admin.ModelAdmin):
+    list_display = ("id", "launch_date", "updated_at")
+    readonly_fields = ("updated_at",)
