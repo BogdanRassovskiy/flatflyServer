@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, re_path, include
 from django.views.generic import TemplateView
+from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
 import os
@@ -40,6 +41,13 @@ urlpatterns = [
     path("api/favorites/is_favorite/", views.is_favorite, name="is_favorite_underscore"),
     path("api/favorites/is_favorite", views.is_favorite, name="is_favorite_underscore_noslash"),
 
+    re_path(r'^assets/(?P<path>.*)$', serve, {
+        'document_root': os.path.join(settings.BASE_DIR, 'static/assets')
+    }),
+    re_path(r'^fonts/(?P<path>.*)$', serve, {
+        'document_root': os.path.join(settings.BASE_DIR, 'static/fonts')
+    }),
+
     # SPA — ТОЛЬКО для страниц
     re_path(
         r'^(?!static/|assets/|fonts/|media/|api/|admin/|favorites/)(?!admin/)', 
@@ -52,5 +60,3 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static('/assets/', document_root=os.path.join(settings.BASE_DIR, 'flatfly/dist/assets'))
-    urlpatterns += static('/fonts/', document_root=os.path.join(settings.BASE_DIR, 'static/fonts'))
