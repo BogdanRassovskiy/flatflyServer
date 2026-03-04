@@ -38,8 +38,38 @@ function getStableLaunchTimestamp() {
 export default function StartPage() {
 	const fallbackTargetTimestamp = useMemo(getStableLaunchTimestamp, []);
 	const [targetTimestamp, setTargetTimestamp] = useState(fallbackTargetTimestamp);
-
 	const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(fallbackTargetTimestamp));
+
+	const [email, setEmail] = useState("");
+	const [subscribeStatus, setSubscribeStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+	const [subscribeMessage, setSubscribeMessage] = useState("");
+
+	const handleSubscribe = async (e: React.FormEvent) => {
+		e.preventDefault();
+		const trimmed = email.trim();
+		if (!trimmed) return;
+		setSubscribeStatus("loading");
+		setSubscribeMessage("");
+		try {
+			const response = await fetch("/api/newsletter/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email: trimmed }),
+			});
+			const data = await response.json().catch(() => ({}));
+			if (response.ok) {
+				setSubscribeStatus("success");
+				setSubscribeMessage("Děkujeme! Budete mezi prvními.");
+				setEmail("");
+			} else {
+				setSubscribeStatus("error");
+				setSubscribeMessage((data as { message?: string }).message ?? "Něco se pokazilo. Zkuste to znovu.");
+			}
+		} catch {
+			setSubscribeStatus("error");
+			setSubscribeMessage("Něco se pokazilo. Zkuste to znovu.");
+		}
+	};
 
 	useEffect(() => {
 		let isMounted = true;
@@ -86,98 +116,150 @@ export default function StartPage() {
 	}, [targetTimestamp]);
 
 	return (
-		<div className="relative w-full min-h-screen overflow-hidden bg-[#292a2d] text-white flex items-center justify-center px-4 py-10">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(255,255,255,0.04),transparent_42%)]" />
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_40%,rgba(0,0,0,0.32),transparent_52%)]" />
+		<div
+			className="relative w-full min-h-screen overflow-hidden text-white flex flex-col items-center justify-center px-4 py-10"
+			style={{
+				background: "linear-gradient(135deg, #2d1b4e 0%, #1a0d2e 50%, #0f0a1a 100%)",
+			}}
+		>
+			{/* Декоративная полупрозрачная F на фоне — full height справа */}
 			<img
 				src={logo}
 				alt=""
 				aria-hidden="true"
-				className="absolute right-[-250px] top-1/2 -translate-y-1/2 w-[833px] max-w-none select-none pointer-events-none opacity-[0.18] grayscale brightness-[0.22] contrast-110"
+				className="absolute right-0 top-0 h-full w-auto min-w-0 max-w-[45vw] sm:min-w-[280px] sm:max-w-[55vw] md:min-w-[400px] md:max-w-[60vw] object-contain object-right select-none pointer-events-none opacity-[0.12]"
 			/>
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(138,42,196,0.15),transparent)] pointer-events-none" />
 
-			<div className="relative z-10 w-full max-w-[980px] flex flex-col items-center gap-12">
-				<div className="w-full flex items-center justify-center gap-8 max-[700px]:flex-col max-[700px]:gap-4">
-					<img
-						src={logo}
-						alt="FlatFly"
-						className="w-[178px] h-[178px] max-[700px]:w-[120px] max-[700px]:h-[120px] object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.45)]"
-					/>
-					<span className="text-[86px] leading-none max-[980px]:text-[72px] max-[700px]:text-[52px] font-extrabold tracking-[-0.02em] bg-gradient-to-r from-[#8A2AC4] via-[#6C63D9] to-[#32C8EE] bg-clip-text text-transparent">
+			<div className="relative z-10 w-full max-w-[720px] flex flex-col items-center gap-12">
+				{/* Логотип: иконка + FLATFLY */}
+				<div className="flex items-center justify-center gap-4 max-[700px]:gap-3">
+					<div
+						className="rounded-2xl flex-shrink-0  transition-shadow "
+					>
+						<img
+							src={logo}
+							alt=""
+							className="w-28 h-28 max-[700px]:w-12 max-[700px]:h-12 object-contain"
+						/>
+					</div>
+					<span className="text-[72px] max-[700px]:text-[32px] font-bold tracking-tight uppercase text-white drop-shadow-sm">
 						FLATFLY
 					</span>
 				</div>
 
-				<p className="text-[48px] leading-tight max-[980px]:text-[40px] max-[700px]:text-[30px] font-extrabold text-center">
+				{/* Слоган */}
+				<p className="text-[34px] max-[700px]:text-[26px] leading-tight font-bold text-center text-white tracking-tight">
 					Děláme spolubydlení jednodušší.
 				</p>
 
-				
+				{/* Призыв и форма подписки */}
+				<p className="text-[18px] font-extrabold max-[700px]:text-[16px] leading-relaxed text-center text-white/90 max-w-md -mt-2">
+					Bud&apos; mezi prvními, kdo si najde spolubydlení! Odebírej náš newsletter a buď v obraze.
+				</p>
 
+				<form
+					onSubmit={handleSubscribe}
+					className="w-full max-w-[480px] flex flex-col sm:flex-row gap-3 sm:gap-0"
+					style={{ position: "relative" }}
+				>
+					<div
+						className="absolute inset-0 rounded-2xl sm:rounded-full"
+						style={{
+							padding: "2px",
+							background: "linear-gradient(135deg, #8A2AC4, #6C63D9, #32C8EE)",
+							WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+							WebkitMaskComposite: "xor",
+							maskComposite: "exclude",
+							pointerEvents: "none",
+						}}
+					/>
+					<input
+						type="email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						placeholder="example123@gmail.com"
+						disabled={subscribeStatus === "loading"}
+						className="flex-1 w-full px-5 py-4 sm:py-4 sm:pl-6 sm:pr-4 rounded-2xl sm:rounded-l-full sm:rounded-r-none bg-[rgba(26,13,46,0.85)] text-white placeholder-white/45 outline-none text-[16px] focus:ring-2 focus:ring-white/20 transition-shadow border-0"
+						aria-label="E-mail pro newsletter"
+						required
+					/>
+					<button
+						type="submit"
+						disabled={subscribeStatus === "loading"}
+						className="shrink-0 px-8 py-4 rounded-2xl sm:rounded-l-none sm:rounded-r-full font-semibold text-[15px] uppercase tracking-wide text-white disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] min-h-[52px]"
+						style={{
+							background: "linear-gradient(135deg, #8A2AC4 0%, #6C63D9 50%, #5b7cdf 100%)",
+							boxShadow: "0 4px 20px rgba(138,42,196,0.4)",
+						}}
+					>
+						{subscribeStatus === "loading" ? "Odesílám…" : "Odebírat"}
+					</button>
+				</form>
 
+				{subscribeMessage && (
+					<p
+						className={`text-sm font-medium min-h-[20px] ${
+							subscribeStatus === "success" ? "text-emerald-300" : "text-red-300"
+						}`}
+					>
+						{subscribeMessage}
+					</p>
+				)}
+
+				{/* Таймер в овале с градиентной обводкой */}
 				<div
-	className="w-full rounded-[64px] max-[700px]:rounded-[34px]"
-	style={{
-		position: "relative",
-		borderRadius: "64px",
-	}}
->
-	<div
-		style={{
-			position: "absolute",
-			inset: 0,
-			padding: "2px",
-			borderRadius: "64px",
-			background: "linear-gradient(to right, #8A2AC4, #6C63D9, #32C8EE)",
-			WebkitMask:
-				"linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-			WebkitMaskComposite: "xor",
-			maskComposite: "exclude",
-			pointerEvents: "none",
-		}}
-	/>
-
-	{/* ✅ только один grid контейнер */}
-	<div className="px-10 py-12 grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2 max-[700px]:grid-cols-2 max-[700px]:gap-y-7">
-
-		<div className="flex flex-col items-center gap-5 max-[700px]:gap-3 min-w-0">
-			<span className="text-[50px] leading-none max-[980px]:text-[40px] max-[700px]:text-[30px] font-extrabold">
-				Dní
-			</span>
-			<span className="text-[78px] max-[980px]:text-[64px] max-[700px]:text-[50px] leading-none font-extrabold bg-gradient-to-r from-[#8E00EA] to-[#6A00D4] bg-clip-text text-transparent">
-				{timeLeft.days}
-			</span>
-		</div>
-
-		<div className="flex flex-col items-center gap-5 max-[700px]:gap-3 min-w-0">
-			<span className="text-[50px] leading-none max-[980px]:text-[40px] max-[700px]:text-[30px] font-extrabold">
-				Hodiny
-			</span>
-			<span className="text-[78px] max-[980px]:text-[64px] max-[700px]:text-[50px] leading-none font-extrabold bg-gradient-to-r from-[#8E00EA] to-[#6A00D4] bg-clip-text text-transparent">
-				{timeLeft.hours}
-			</span>
-		</div>
-
-		<div className="flex flex-col items-center gap-5 max-[700px]:gap-3 min-w-0">
-			<span className="text-[50px] leading-none max-[980px]:text-[40px] max-[700px]:text-[30px] font-extrabold">
-				Minut
-			</span>
-			<span className="text-[78px] max-[980px]:text-[64px] max-[700px]:text-[50px] leading-none font-extrabold bg-gradient-to-r from-[#8E00EA] to-[#6A00D4] bg-clip-text text-transparent">
-				{timeLeft.minutes}
-			</span>
-		</div>
-
-		<div className="flex flex-col items-center gap-5 max-[700px]:gap-3 min-w-0">
-			<span className="text-[50px] leading-none max-[980px]:text-[40px] max-[700px]:text-[30px] font-extrabold">
-				Sekund
-			</span>
-			<span className="text-[78px] max-[980px]:text-[64px] max-[700px]:text-[50px] leading-none font-extrabold bg-gradient-to-r from-[#8E00EA] to-[#6A00D4] bg-clip-text text-transparent">
-				{timeLeft.seconds}
-			</span>
-		</div>
-
-	</div>
-</div>
+					className="w-full rounded-[64px] max-[700px]:rounded-[48px]"
+					style={{ position: "relative" }}
+				>
+					<div
+						style={{
+							position: "absolute",
+							inset: 0,
+							padding: "2px",
+							borderRadius: "64px",
+							background: "linear-gradient(to right, #8A2AC4, #6C63D9, #32C8EE)",
+							WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+							WebkitMaskComposite: "xor",
+							maskComposite: "exclude",
+							pointerEvents: "none",
+						}}
+					/>
+					<div className="px-8 py-8 grid grid-cols-4 gap-4 max-[700px]:grid-cols-2 max-[700px]:gap-y-6 max-[700px]:py-6 rounded-[64px] bg-[rgba(26,13,46,0.5)]">
+						<div className="flex flex-col items-center gap-2 min-w-0">
+							<span className="text-[18px] max-[700px]:text-[14px] font-semibold text-white uppercase tracking-wide">
+								Dní
+							</span>
+							<span className="text-[56px] max-[700px]:text-[42px] leading-none font-bold text-[#b366ff]">
+								{timeLeft.days}
+							</span>
+						</div>
+						<div className="flex flex-col items-center gap-2 min-w-0">
+							<span className="text-[18px] max-[700px]:text-[14px] font-semibold text-white uppercase tracking-wide">
+								Hodiny
+							</span>
+							<span className="text-[56px] max-[700px]:text-[42px] leading-none font-bold text-[#b366ff]">
+								{timeLeft.hours}
+							</span>
+						</div>
+						<div className="flex flex-col items-center gap-2 min-w-0">
+							<span className="text-[18px] max-[700px]:text-[14px] font-semibold text-white uppercase tracking-wide">
+								Minut
+							</span>
+							<span className="text-[56px] max-[700px]:text-[42px] leading-none font-bold text-[#b366ff]">
+								{timeLeft.minutes}
+							</span>
+						</div>
+						<div className="flex flex-col items-center gap-2 min-w-0">
+							<span className="text-[18px] max-[700px]:text-[14px] font-semibold text-white uppercase tracking-wide">
+								Sekund
+							</span>
+							<span className="text-[56px] max-[700px]:text-[42px] leading-none font-bold text-[#b366ff]">
+								{timeLeft.seconds}
+							</span>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	);
