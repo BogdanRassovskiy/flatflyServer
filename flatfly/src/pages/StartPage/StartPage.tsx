@@ -127,7 +127,7 @@ export default function StartPage() {
 				src={logo}
 				alt=""
 				aria-hidden="true"
-				className="absolute right-0 top-0 h-full w-auto min-w-0 max-w-[45vw] sm:min-w-[280px] sm:max-w-[55vw] md:min-w-[400px] md:max-w-[60vw] object-contain object-right select-none pointer-events-none opacity-[0.12]"
+				className="absolute -right-44 top-0 h-full w-auto min-w-0 max-w-[45vw] sm:min-w-[280px] sm:max-w-[55vw] md:min-w-[400px] md:max-w-[60vw] object-contain object-right select-none pointer-events-none opacity-[0.12]"
 			/>
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(138,42,196,0.15),transparent)] pointer-events-none" />
 
