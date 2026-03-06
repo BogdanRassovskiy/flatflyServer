@@ -15,7 +15,7 @@ export default function HomePage() {
     ];
 
     return(
-        <div className={`w-screen min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-white dark:bg-gray-900`}>
+        <div className={`w-screen min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent`}>
 
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
                 {/*Hero title*/}

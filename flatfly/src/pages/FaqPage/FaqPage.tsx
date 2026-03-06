@@ -47,7 +47,7 @@ export default function FaqPage() {
 
 
     return (
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-white dark:bg-gray-900`}>
+        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent`}>
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
                 <div className={`mt-[214px] max-[770px]:mt-[164px] flex flex-col items-center`}>
                     <span className={`text-[44px] max-[770px]:text-[28px] font-extrabold text-[#555555] dark:text-gray-300 interFont leading-16 max-[770px]:leading-10 text-center`}>

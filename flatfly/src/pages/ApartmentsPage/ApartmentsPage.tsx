@@ -121,7 +121,7 @@ export default function ApartmentsPage({ listingType }: Props) {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-white dark:bg-gray-900">
+    <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
       <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
         <div className="w-full flex flex-col items-start my-[150px]">
 

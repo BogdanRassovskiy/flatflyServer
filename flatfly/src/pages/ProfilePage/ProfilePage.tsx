@@ -419,7 +419,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-white dark:bg-gray-900 pt-[150px] max-[770px]:pt-[120px] pb-[90px] max-[770px]:pb-[60px]`}>
+        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[120px] pb-[90px] max-[770px]:pb-[60px]`}>
             <div className={`w-full max-w-[1200px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
                 
                 {/* Header */}

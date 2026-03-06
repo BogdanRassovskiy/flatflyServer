@@ -19,23 +19,24 @@ import StartPage from "./pages/StartPage/StartPage";
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import FaqChatWidget from "./components/FaqChatWidget/FaqChatWidget";
+import PageBackground from "./components/PageBackground/PageBackground";
 // import другие страницы при необходимости
 
 function RootPage() {
     const [searchParams] = useSearchParams();
     const isLegacyHomeAllowed = searchParams.get("pswd") === "flatbomb";
 
-    if (!isLegacyHomeAllowed) {
+    if (isLegacyHomeAllowed) {
         return <StartPage />;
     }
 
     return (
-        <div className="w-full min-h-screen flex flex-col items-center">
+        <PageBackground className="flex flex-col items-center">
             <Header />
             <HomePage />
             <Footer />
             <FaqChatWidget />
-        </div>
+        </PageBackground>
     );
 }
 

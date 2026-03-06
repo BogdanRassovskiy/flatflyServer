@@ -57,7 +57,7 @@ export default function ArticlePage() {
     
     if (loading) {
         return (
-            <div className={`w-full min-h-screen flex items-center justify-center interFont text-black dark:text-white bg-white dark:bg-gray-900`}>
+            <div className={`w-full min-h-screen flex items-center justify-center interFont text-black dark:text-white bg-transparent`}>
                 <div className={`text-lg`}>{t("loading") || "Загрузка..."}</div>
             </div>
         );
@@ -65,7 +65,7 @@ export default function ArticlePage() {
     
     if (error || !article) {
         return (
-            <div className={`w-full min-h-screen flex flex-col items-center justify-center interFont text-black dark:text-white bg-white dark:bg-gray-900`}>
+            <div className={`w-full min-h-screen flex flex-col items-center justify-center interFont text-black dark:text-white bg-transparent`}>
                 <div className={`text-2xl mb-4`}>{t("article.notFound")}</div>
                 <div className={`mt-8`}>
                     <Link 
@@ -82,7 +82,7 @@ export default function ArticlePage() {
     const content = article.content[language as keyof typeof article.content] || article.content.en;
     
     return (
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-white dark:bg-gray-900`}>
+        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent`}>
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
                 
                 {/* Back button */}
