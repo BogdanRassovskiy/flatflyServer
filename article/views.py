@@ -1,7 +1,11 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from .models import Article, FAQ
+from django.views.decorators.csrf import csrf_exempt
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from .models import Article, FAQ, NewsletterSubscription
+import json
 
 
 @require_http_methods(["GET"])
@@ -72,3 +76,28 @@ def faqs_list(request):
     ]
 
     return JsonResponse({"faqs": data})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def newsletter_subscribe(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    raw_email = payload.get("email", "")
+    email = raw_email.strip().lower()
+    if not email:
+        return JsonResponse({"message": "Email is required"}, status=400)
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({"message": "Invalid email"}, status=400)
+
+    _, created = NewsletterSubscription.objects.get_or_create(email=email)
+    if created:
+        return JsonResponse({"message": "Subscribed"}, status=201)
+
+    return JsonResponse({"message": "Email already subscribed"}, status=200)

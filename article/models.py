@@ -73,3 +73,16 @@ class LaunchSettings(models.Model):
 
     def __str__(self):
         return f"Launch: {self.launch_date.isoformat()}"
+
+
+class NewsletterSubscription(models.Model):
+    email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Newsletter subscription"
+        verbose_name_plural = "Newsletter subscriptions"
+
+    def __str__(self):
+        return self.email

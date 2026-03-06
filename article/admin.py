@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Article, FAQ, LaunchSettings
+from .models import Article, FAQ, LaunchSettings, NewsletterSubscription
 
 
 @admin.register(Article)
@@ -35,3 +35,11 @@ class FAQAdmin(admin.ModelAdmin):
 class LaunchSettingsAdmin(admin.ModelAdmin):
     list_display = ("id", "launch_date", "updated_at")
     readonly_fields = ("updated_at",)
+
+
+@admin.register(NewsletterSubscription)
+class NewsletterSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ("email", "created_at")
+    search_fields = ("email",)
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
