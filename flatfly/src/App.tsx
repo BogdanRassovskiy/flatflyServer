@@ -26,7 +26,7 @@ function RootPage() {
     const [searchParams] = useSearchParams();
     const isLegacyHomeAllowed = searchParams.get("pswd") === "flatbomb";
 
-    if (isLegacyHomeAllowed) {
+    if (!isLegacyHomeAllowed) {
         return <StartPage />;
     }
 
