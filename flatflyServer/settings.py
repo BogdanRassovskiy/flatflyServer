@@ -45,9 +45,11 @@ if not DEBUG:
 GOOGLE_CLIENT_ID="382119089928-1jj9i247ccga761fkcbr4pq7m42kqhdg.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
-# Динамический выбор хоста для Google OAuth redirect URI
-SERVER_HOST = os.getenv("SERVER_HOST", "localhost")  # localhost для разработки, или IP для сервера
-GOOGLE_REDIRECT_URI=f"http://{SERVER_HOST}:3001/api/google_callback/"
+# Google OAuth redirect URI (по умолчанию на прод-домен)
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    "https://flatfly.eu/api/google_callback/",
+)
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
