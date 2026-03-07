@@ -51,6 +51,9 @@ GOOGLE_REDIRECT_URI = os.getenv(
     "https://flatfly.eu/api/google_callback/",
 )
 
+if not DEBUG and "localhost" in GOOGLE_REDIRECT_URI:
+    GOOGLE_REDIRECT_URI = "https://flatfly.eu/api/google_callback/"
+
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"

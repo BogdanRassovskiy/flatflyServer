@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model, login, logout, authenticate
@@ -19,9 +19,9 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.urls import reverse
+from urllib.parse import urlencode
 User = get_user_model()
 DEBUG_MODE=True;
-google_auth_url="https://accounts.google.com/o/oauth2/v2/auth?client_id={0}&redirect_uri={1}&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=consent".format(settings.GOOGLE_CLIENT_ID,settings.GOOGLE_REDIRECT_URI,)
 
 
 @ensure_csrf_cookie
@@ -29,6 +29,15 @@ def index(request):
     return render(request, 'index.html')
 
 def google_login(request):
+    query = urlencode({
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    })
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
     return redirect(google_auth_url)
 
 
@@ -778,7 +787,6 @@ def apple_callback(request):
     return redirect("/apartments")
 def google_callback(request):
     error = request.GET.get("error")
-    redirect_uri = request.build_absolute_uri(reverse("google_callback"))
     if error:
         return HttpResponse(f"Google OAuth error: {error}")
 
@@ -794,7 +802,7 @@ def google_callback(request):
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": redirect_uri,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
         },
     )
 
