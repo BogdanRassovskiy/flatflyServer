@@ -42,7 +42,7 @@
     "aboutText2": "Our idea got real shape thanks to cooperation with the Innovation Center of Ústí Region (ICUK). Within the business incubator, we were able to turn our vision into a functional platform. We fine-tuned features, tested beta versions and focused on what's missing elsewhere – simplicity and trust.\n\nToday FlatFly is a ready project that helps not only students, but everyone looking for a new start. Whether you're moving for work, school, or starting a new life chapter, we want finding a home to be safe and stress-free for you."
   },
   "filter": {
-    "location": "Location",
+    "location": "Region",
     "locationValue": "All CR",
     "region": "Region",
     "city": "City / District",
@@ -55,6 +55,7 @@
     "propertyTypeRoom": "Room",
     "propertyTypeApartment": "Apartment",
     "propertyTypeHouse": "House",
+    "propertyTypeNeighbour": "Dormitory",
     "price": "Price",
     "priceValue": "Unlimited",
     "priceFrom": "From",
@@ -235,9 +236,9 @@
   },
   "add": {
     "title": "New listing",
-    "fullApartment": "Full apartment",
-    "room": "Room",
-    "sharedRoom": "Shared room",
+    "fullApartment": "House",
+    "room": "Apartment",
+    "sharedRoom": "Dormitory",
     "uploadPhotos": "Upload photos",
     "uploadFormat": "JPG, PNG, max 10 MB",
     "adTitle": "Listing title",
@@ -246,8 +247,13 @@
     "descriptionPlaceholder": "Write something about the apartment, about roommates, what's nearby...",
     "layout": "Layout / Area",
     "layoutPlaceholder": "e.g. 2+kk or 25 m²",
-    "beds": "Number of beds",
-    "bedsPlaceholder": "e.g. 1, 2, 3...",
+    "creatorRole": "Creator role",
+    "roleOwner": "Owner",
+    "roleNeighbour": "Neighbour",
+    "maxResidents": "Max neighbours",
+    "conditions": "Conditions",
+    "selectRegionRequired": "Please select a region",
+    "utilitiesFeePlaceholder": "Utilities fee",
     "price": "Price (CZK/month)",
     "pricePlaceholder": "e.g. 12 000",
     "publish": "Publish listing",
@@ -275,7 +281,8 @@
   "saleCard": {
     "perMonth": "CZK / monthly",
     "roomRent": "Room rent",
-    "apartmentRent": "Apartment rent"
+    "apartmentRent": "Apartment rent",
+    "utilitiesPayments": "utilities payments"
   },
   "badges": {
     "verified": "Verified",
@@ -353,7 +360,8 @@
       "basic": "Basic Information",
       "social": "Lifestyle & Preferences",
       "status": "Profile Status",
-      "myListings": "My Listings"
+      "myListings": "My Listings",
+      "myHome": "My Home"
     },
     "photoHint": "Click to upload profile photo",
     "name": "Full Name",
@@ -441,6 +449,18 @@
     "save": "Save Profile",
     "saving": "Saving...",
     "saved": "Saved!",
+    "notInHome": "You are not living in any home yet",
+    "residents": "Residents",
+    "leaveHome": "Leave home",
+    "leavingHome": "Leaving...",
+    "leaveHomeConfirm": "Are you sure you want to leave this home?",
+    "leaveHomeFailed": "Failed to leave home",
+    "invite": "Invite",
+    "creatingInvite": "Creating invite...",
+    "inviteLink": "Invite link",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "inviteFailed": "Failed to create invite",
     "errorUploadingAvatar": "Error uploading avatar",
     "errorSavingProfile": "Error saving profile"
   },

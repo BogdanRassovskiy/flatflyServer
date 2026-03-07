@@ -1,6 +1,10 @@
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
+import re
+import uuid
+from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from django.http import JsonResponse, HttpResponse
 import requests
 from django.conf import settings
@@ -9,8 +13,9 @@ import jwt
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
 from django.db.models import Q
+from django.utils import timezone
 from users.models import Profile
-from listings.models import Listing, ListingImage
+from listings.models import Listing, ListingImage, ListingInvite, ListingResident
 from article.models import LaunchSettings, default_launch_date
 from django.core.paginator import Paginator
 
@@ -395,8 +400,63 @@ def login_view(request):
         }
     })
 
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
 def listing_detail(request, listing_id):
     listing = get_object_or_404(Listing, id=listing_id)
+
+    if request.method in ["PUT", "PATCH", "DELETE"]:
+        if not request.user.is_authenticated:
+            return JsonResponse({"detail": "Not authenticated"}, status=401)
+
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        can_manage = listing.owner_id == request.user.id or ListingResident.objects.filter(listing=listing, profile=profile).exists()
+
+        if not can_manage:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+        if request.method == "DELETE":
+            listing.delete()
+            return JsonResponse({"detail": "Deleted"})
+
+        data = json.loads(request.body or "{}")
+        editable_fields = {
+            "title": "title",
+            "description": "description",
+            "region": "region",
+            "city": "city",
+            "address": "address",
+            "price": "price",
+            "rooms": "rooms",
+            "size": "size",
+            "moveInDate": "move_in_date",
+            "move_in_date": "move_in_date",
+            "maxResidents": "max_residents",
+            "max_residents": "max_residents",
+            "utilitiesFee": "utilities_fee",
+            "utilities_fee": "utilities_fee",
+            "utilitiesIncluded": "utilities_included",
+            "utilities_included": "utilities_included",
+        }
+
+        for incoming_key, model_field in editable_fields.items():
+            if incoming_key not in data:
+                continue
+
+            value = data[incoming_key]
+            if model_field in ["rooms", "size", "max_residents"]:
+                value = parse_int_value(value)
+            elif model_field == "move_in_date":
+                value = parse_date_safe(value)
+            elif model_field == "utilities_fee":
+                value = parse_decimal_value(value, Decimal("0"))
+
+            setattr(listing, model_field, value)
+
+        if listing.utilities_included:
+            listing.utilities_fee = Decimal("0")
+
+        listing.save()
+        return JsonResponse({"detail": "Updated"})
 
     main_image = listing.images.first()
 
@@ -418,6 +478,9 @@ def listing_detail(request, listing_id):
         "size": listing.size,
         "rooms": listing.rooms,
         "beds": listing.beds,
+        "maxResidents": listing.max_residents,
+        "utilitiesFee": str(listing.utilities_fee),
+        "residentsCount": listing.residents.count(),
         "badges": [],
         "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
         "images": [
@@ -437,34 +500,96 @@ def listings_view(request):
         if not request.user.is_authenticated:
             return JsonResponse({"detail": "Not authenticated"}, status=401)
 
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
+
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+
+        if ListingResident.objects.filter(profile=profile).exclude(listing__owner=request.user).exists():
+            return JsonResponse({"detail": "You already belong to a home"}, status=400)
+
+        role_raw = data.get("creatorRole", data.get("role"))
+        role = str(role_raw).upper() if role_raw is not None else ""
+        if role not in ["OWNER", "NEIGHBOUR"]:
+            return JsonResponse({"detail": "Creator role must be OWNER or NEIGHBOUR"}, status=400)
+
+        owner_user = request.user if role == "OWNER" else None
+
+        region_value = data.get("region")
+        if not region_value or region_value in ["ALL", "ALL_CR"]:
+            return JsonResponse({"detail": "Region is required"}, status=400)
+
+        rooms_value = parse_int_value(data.get("rooms"))
+        size_value = parse_int_value(data.get("size"))
+
+        if rooms_value is None and isinstance(data.get("rooms"), str):
+            raw_rooms = data.get("rooms", "")
+            if re.search(r"m\s*2|m²|\bм\b|\bm\b", raw_rooms.lower()) and size_value is None:
+                size_value = parse_int_value(raw_rooms)
+
+        max_residents_value = parse_int_value(data.get("maxResidents"))
+        if max_residents_value is None:
+            max_residents_value = 1
+        max_residents_value = max(1, min(6, max_residents_value))
+
+        utilities_included_value = bool(
+            data.get("utilitiesIncluded", data.get("utilities_included", data.get("utilities", False)))
+        )
+        utilities_fee_value = parse_decimal_value(
+            data.get("utilitiesFee", data.get("utilities_fee", 0)),
+            Decimal("0"),
+        )
+        if utilities_included_value:
+            utilities_fee_value = Decimal("0")
 
         listing = Listing.objects.create(
-            owner=request.user,
-            type=data.get("type"),
+            owner=owner_user,
+            type=data.get("type") or data.get("property_type") or "APARTMENT",
             title=data.get("title"),
             description=data.get("description"),
 
-            region=data.get("region"),
+            region=region_value,
+            city=data.get("city", ""),
             address=data.get("address", ""),
 
             price=data.get("price"),
-            rooms=data.get("rooms"),
-            beds=data.get("beds"),
-            size=data.get("size"),
+            currency=data.get("currency", "CZK"),
+            rooms=rooms_value,
+            beds=parse_int_value(data.get("beds")),
+            size=size_value,
 
-            has_roommates=data.get("hasRoommates", False),
-            rental_period=data.get("rentalPeriod", "long"),
+            has_roommates=bool(data.get("hasRoommates", data.get("has_roommates", False))),
+            rental_period=(data.get("rentalPeriod") or data.get("rental_period") or "LONG").upper(),
 
-            internet=data.get("internet", False),
-            utilities_included=data.get("utilities", False),
-            pets_allowed=data.get("petsAllowed", False),
-            smoking_allowed=data.get("smokingAllowed", False),
+            internet=bool(data.get("internet", False)),
+            utilities_included=utilities_included_value,
+            pets_allowed=bool(data.get("petsAllowed", data.get("pets_allowed", False))),
+            smoking_allowed=bool(data.get("smokingAllowed", data.get("smoking_allowed", False))),
 
             amenities=data.get("amenities", []),
 
-            move_in_date=parse_date_safe(data.get("moveInDate")),
+            move_in_date=parse_date_safe(data.get("moveInDate") or data.get("move_in_date")),
+            condition_state=data.get("conditionState") or data.get("condition_state") or None,
+            energy_class=data.get("energyClass") or data.get("energy_class") or None,
+
+            has_bus_stop=bool(data.get("hasBusStop", data.get("has_bus_stop", False))),
+            has_train_station=bool(data.get("hasTrainStation", data.get("has_train_station", False))),
+            has_metro=bool(data.get("hasMetro", data.get("has_metro", False))),
+            has_post_office=bool(data.get("hasPostOffice", data.get("has_post_office", False))),
+            has_atm=bool(data.get("hasAtm", data.get("has_atm", False))),
+            has_general_practitioner=bool(data.get("hasGeneralPractitioner", data.get("has_general_practitioner", False))),
+            has_vet=bool(data.get("hasVet", data.get("has_vet", False))),
+            has_primary_school=bool(data.get("hasPrimarySchool", data.get("has_primary_school", False))),
+            has_kindergarten=bool(data.get("hasKindergarten", data.get("has_kindergarten", False))),
+            has_supermarket=bool(data.get("hasSupermarket", data.get("has_supermarket", False))),
+            has_small_shop=bool(data.get("hasSmallShop", data.get("has_small_shop", False))),
+            has_restaurant=bool(data.get("hasRestaurant", data.get("has_restaurant", False))),
+            has_playground=bool(data.get("hasPlayground", data.get("has_playground", False))),
+
+            max_residents=max_residents_value,
+            utilities_fee=utilities_fee_value,
         )
+
+        ListingResident.objects.create(listing=listing, profile=profile)
 
         return JsonResponse({
             "id": listing.id,
@@ -574,11 +699,14 @@ def listings_view(request):
             "type": listing.type,
             "title": listing.title,
             "price": str(listing.price),
+            "utilitiesFee": str(listing.utilities_fee),
             "region": listing.region,
             "address": listing.address,
             "size": listing.size,
             "rooms": listing.rooms,
             "beds": listing.beds,
+            "maxResidents": listing.max_residents,
+            "residentsCount": listing.residents.count(),
 
             "hasRoommates": listing.has_roommates,
             "rentalPeriod": listing.rental_period,
@@ -612,6 +740,137 @@ def parse_date_safe(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def parse_int_value(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        match = re.search(r"\d+", value)
+        if not match:
+            return None
+        return int(match.group(0))
+    return None
+
+
+def parse_decimal_value(value, fallback=Decimal("0")):
+    if value is None or value == "":
+        return fallback
+    try:
+        return Decimal(str(value).replace(",", "."))
+    except (InvalidOperation, TypeError, ValueError):
+        return fallback
+
+
+@login_required
+@require_POST
+def create_home_invite(request, listing_id):
+    listing = get_object_or_404(Listing, id=listing_id)
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    is_resident = ListingResident.objects.filter(listing=listing, profile=profile).exists()
+    if not is_resident:
+        return JsonResponse({"detail": "Only residents can create invite"}, status=403)
+
+    invite = ListingInvite.objects.create(
+        listing=listing,
+        token=uuid.uuid4().hex,
+        created_by=profile,
+        expires_at=timezone.now() + timedelta(days=7),
+    )
+    return JsonResponse({
+        "token": invite.token,
+        "inviteUrl": f"/api/listings/invite/{invite.token}/join/",
+        "expiresAt": invite.expires_at.isoformat(),
+    })
+
+
+@login_required
+@require_POST
+def join_home_by_invite(request, token):
+    invite = get_object_or_404(ListingInvite, token=token)
+
+    if not invite.is_active:
+        return JsonResponse({"detail": "Invite inactive"}, status=400)
+    if invite.expires_at <= timezone.now():
+        return JsonResponse({"detail": "Invite expired"}, status=400)
+
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    if ListingResident.objects.filter(profile=profile).exclude(listing=invite.listing).exists():
+        return JsonResponse({"detail": "Already resident in another home"}, status=400)
+
+    if ListingResident.objects.filter(listing=invite.listing, profile=profile).exists():
+        return JsonResponse({"detail": "Already joined"}, status=200)
+
+    current_count = ListingResident.objects.filter(listing=invite.listing).count()
+    if current_count >= invite.listing.max_residents:
+        return JsonResponse({"detail": "Home is full"}, status=400)
+
+    ListingResident.objects.create(listing=invite.listing, profile=profile)
+    invite.accepted_by = profile
+    invite.accepted_at = timezone.now()
+    invite.is_active = False
+    invite.save(update_fields=["accepted_by", "accepted_at", "is_active"])
+
+    return JsonResponse({"detail": "Joined", "listingId": invite.listing_id})
+
+
+@login_required
+@require_http_methods(["GET"])
+def my_home(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    resident = ListingResident.objects.select_related("listing").filter(profile=profile).first()
+    if not resident:
+        return JsonResponse({"detail": "Not in home", "listing": None})
+
+    listing = resident.listing
+    main_image = listing.images.first()
+    residents = ListingResident.objects.filter(listing=listing).select_related("profile__user")
+
+    return JsonResponse({
+        "listing": {
+            "id": listing.id,
+            "title": listing.title,
+            "type": listing.type,
+            "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
+            "address": listing.address,
+            "region": listing.region,
+            "maxResidents": listing.max_residents,
+            "residentsCount": residents.count(),
+        },
+        "residents": [
+            {
+                "profileId": r.profile_id,
+                "name": r.profile.name or r.profile.user.username,
+                "userId": r.profile.user_id,
+                "avatar": request.build_absolute_uri(r.profile.avatar.url) if r.profile.avatar else None,
+            }
+            for r in residents
+        ],
+    })
+
+
+@login_required
+@require_POST
+def leave_home(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    resident = ListingResident.objects.select_related("listing").filter(profile=profile).first()
+
+    if not resident:
+        return JsonResponse({"detail": "Not in any home"}, status=404)
+
+    listing = resident.listing
+    total_residents = ListingResident.objects.filter(listing=listing).count()
+    if total_residents <= 1:
+        return JsonResponse({"detail": "Cannot leave as sole resident"}, status=400)
+
+    resident.delete()
+    return JsonResponse({"detail": "Left home"})
 @csrf_exempt
 @require_POST
 def create_ad(request):
@@ -637,7 +896,11 @@ def upload_listing_image(request, listing_id):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Not authenticated"}, status=401)
 
-    listing = get_object_or_404(Listing, id=listing_id, owner=request.user)
+    listing = get_object_or_404(Listing, id=listing_id)
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    can_manage = listing.owner_id == request.user.id or ListingResident.objects.filter(listing=listing, profile=profile).exists()
+    if not can_manage:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
 
     if "image" not in request.FILES:
         return JsonResponse({"detail": "No image"}, status=400)

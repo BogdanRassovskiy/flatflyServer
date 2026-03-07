@@ -34,12 +34,14 @@ export default function AddingPage() {
     const [hasPlayground, setHasPlayground] = useState(false);
     
     // Старые поля
-    const [hasRoommates, setHasRoommates] = useState(false);
     const [internet, setInternet] = useState(false);
     const [utilitiesIncluded, setUtilitiesIncluded] = useState(false);
+    const [utilitiesFee, setUtilitiesFee] = useState<number>(0);
     const [petsAllowed, setPetsAllowed] = useState(false);
     const [smokingAllowed, setSmokingAllowed] = useState(false);
     const [rentalPeriod, setRentalPeriod] = useState("long");
+    const [maxResidents, setMaxResidents] = useState(2);
+    const [creatorRole, setCreatorRole] = useState<"OWNER" | "NEIGHBOUR">("OWNER");
     const [moveInDate, setMoveInDate] = useState("");
     const [amenities, setAmenities] = useState<string[]>([]);
 
@@ -56,7 +58,6 @@ export default function AddingPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [layout, setLayout] = useState("");
-    const [beds, setBeds] = useState<number | null>(null);
     const [price, setPrice] = useState<number | null>(null);
     
     // Состояние для уведомлений
@@ -85,11 +86,17 @@ export default function AddingPage() {
       { value: "MORAVSKOSLEZSKY", label: "Moravskoslezský kraj" },
     ];
     const toggleAmenity = (value: string) => {
-      setAmenities(prev =>
-        prev.includes(value)
+      setAmenities(prev => {
+        const next = prev.includes(value)
           ? prev.filter(v => v !== value)
-          : [...prev, value]
-      );
+          : [...prev, value];
+
+        if (value === "internet") {
+          setInternet(next.includes("internet"));
+        }
+
+        return next;
+      });
     };
     const handleFileSelect = (files: FileList | null) => {
         if (!files) return;
@@ -129,6 +136,11 @@ export default function AddingPage() {
         return;
       }
 
+      if (!region) {
+        showNotification(t("add.selectRegionRequired"), 'error');
+        return;
+      }
+
       try {
         // 1. создаём объявление
         const res = await fetch("/api/listings/", {
@@ -139,6 +151,7 @@ export default function AddingPage() {
           },
           body: JSON.stringify({
               property_type: typeAd,
+              creatorRole,
               title,
               description,
               price,
@@ -149,8 +162,8 @@ export default function AddingPage() {
               city,
               address,
               
-              // Площадь и комнаты (из верхних полей layout/beds)
-              beds,
+              // Площадь и комнаты
+              rooms: layout,
               
               // Состояние и энергетика
               condition_state: conditionState || null,
@@ -172,11 +185,14 @@ export default function AddingPage() {
               has_playground: hasPlayground,
               
               // Условия проживания
-              has_roommates: hasRoommates,
               rental_period: rentalPeriod,
+              max_residents: maxResidents,
+              maxResidents,
               amenities,
               internet,
               utilities_included: utilitiesIncluded,
+              utilities_fee: utilitiesIncluded ? 0 : utilitiesFee,
+              utilitiesFee: utilitiesIncluded ? 0 : utilitiesFee,
               pets_allowed: petsAllowed,
               smoking_allowed: smokingAllowed,
               move_in_date: moveInDate || null,
@@ -215,7 +231,6 @@ export default function AddingPage() {
         setTitle("");
         setDescription("");
         setLayout("");
-        setBeds(null);
         setPrice(null);
         setTypeAd("");
         setUploadedImages([]);
@@ -305,17 +320,17 @@ export default function AddingPage() {
 
                     <div className={`flex flex-col items-center w-full max-w-[850px] py-10 px-[72px] max-[770px]:py-5 max-[770px]:px-[20px] border border-[#666666] dark:border-gray-600 bg-white dark:bg-gray-800 rounded-[24px]`}>
                         <div className={`w-full flex items-center justify-between gap-2`}>
-                            <div onClick={()=>setTypeAd(`APARTMENT`)} className={`cursor-pointer relative flex flex-col items-center ${typeAd==="APARTMENT"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2`}>
-                                <span className={`text-2xl max-[770px]:text-xs font-bold ${typeAd===`APARTMENT`? `text-white` : `text-[#C505EB]`} duration-300`}>{t("add.fullApartment")}</span>
-                                <Icon className={`absolute bottom-5 duration-300 w-[64px] h-[64px] max-[770px]:w-[32px] max-[770px]:h-[32px]`} icon="lsicon:house-outline" width="64" height="64"  style={{color: typeAd===`APARTMENT`? `#ffffff` : `#08E2BE`}} />
+                            <div onClick={()=>setTypeAd(`BYT`)} className={`cursor-pointer relative flex flex-col items-center ${typeAd==="BYT"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2`}>
+                              <span className={`text-2xl max-[770px]:text-xs font-bold ${typeAd===`BYT`? `text-white` : `text-[#C505EB]`} duration-300`}>{t("add.fullApartment")}</span>
+                              <Icon className={`absolute bottom-5 duration-300 w-[64px] h-[64px] max-[770px]:w-[32px] max-[770px]:h-[32px]`} icon="lsicon:house-outline" width="64" height="64"  style={{color: typeAd===`BYT`? `#ffffff` : `#08E2BE`}} />
                             </div>
                             <div onClick={()=>setTypeAd(`ROOM`)} className={`cursor-pointer relative flex flex-col items-center ${typeAd==="ROOM"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2`}>
                                 <span className={`text-2xl max-[770px]:text-xs font-bold ${typeAd===`ROOM`? `text-white` : `text-[#C505EB]`} duration-300`}>{t("add.room")}</span>
                                 <Icon className={`absolute bottom-3 duration-300 w-[64px] h-[64px] max-[770px]:w-[32px] max-[770px]:h-[32px]`} icon="material-symbols-light:bed-outline" style={{color: typeAd===`ROOM`? `#ffffff` : `#08E2BE`}} />
                             </div>
-                            <div onClick={()=>setTypeAd(`SHAREROOM`)} className={`cursor-pointer relative flex flex-col items-center text-center ${typeAd==="SHAREROOM"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2 px-3`}>
-                                <span className={`text-2xl max-[770px]:text-xs font-bold ${typeAd===`SHAREROOM`? `text-white` : `text-[#C505EB]`} duration-300 `}>{t("add.sharedRoom")}</span>
-                                <Icon className={`absolute bottom-2 duration-300 w-[64px] h-[64px] max-[770px]:w-[32px] max-[770px]:h-[32px]`} icon="iconoir:sofa" style={{color:  typeAd===`SHAREROOM`? `#ffffff` : `#08E2BE`}} />
+                            <div onClick={()=>setTypeAd(`NEIGHBOUR`)} className={`cursor-pointer relative flex flex-col items-center text-center ${typeAd==="NEIGHBOUR"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2 px-3`}>
+                              <span className={`text-2xl max-[770px]:text-xs font-bold ${typeAd===`NEIGHBOUR`? `text-white` : `text-[#C505EB]`} duration-300 `}>{t("add.sharedRoom")}</span>
+                              <Icon className={`absolute bottom-2 duration-300 w-[64px] h-[64px] max-[770px]:w-[32px] max-[770px]:h-[32px]`} icon="iconoir:sofa" style={{color:  typeAd===`NEIGHBOUR`? `#ffffff` : `#08E2BE`}} />
                             </div>
                         </div>
                         <div className={`w-full flex flex-col items-center mt-[90px] max-[770px]:mt-8`}>
@@ -418,21 +433,27 @@ export default function AddingPage() {
                           />
                         </div>
 
-                        {/* BEDS */}
+                        {/* CREATOR ROLE */}
                         <div className={`w-full flex flex-col items-start gap-1`}>
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                            {t("add.beds")}
+                            {t("add.creatorRole")}
                           </span>
-                          <input
-                            type="number"
-                            value={beds ?? ""}
-                            onChange={(e) =>
-                              setBeds(e.target.value === "" ? null : Number(e.target.value))
-                            }
-                            className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
-                            placeholder={t("add.bedsPlaceholder")}
-                          />
+                          <div className={`w-full h-[50px] grid grid-cols-2 gap-2`}>
+                            <button
+                              type="button"
+                              onClick={() => setCreatorRole("OWNER")}
+                              className={`rounded-xl border duration-300 text-sm font-semibold ${creatorRole === "OWNER" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {t("add.roleOwner")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCreatorRole("NEIGHBOUR")}
+                              className={`rounded-xl border duration-300 text-sm font-semibold ${creatorRole === "NEIGHBOUR" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {t("add.roleNeighbour")}
+                            </button>
+                          </div>
                         </div>
 
                         {/* PRICE */}
@@ -462,8 +483,52 @@ export default function AddingPage() {
                               <option value="USD">USD</option>
                             </select>
                           </div>
+
+                          <label className={`mt-2 flex items-center gap-2 text-sm font-medium text-black dark:text-white`}>
+                            <input
+                              type="checkbox"
+                              checked={utilitiesIncluded}
+                              onChange={(e) => {
+                                const isIncluded = e.target.checked;
+                                setUtilitiesIncluded(isIncluded);
+                                if (isIncluded) setUtilitiesFee(0);
+                              }}
+                              className={`w-4 h-4 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] focus:ring-[#C505EB]`}
+                            />
+                            {t("filter.utilitiesIncluded")}
+                          </label>
+
+                          {!utilitiesIncluded && (
+                            <input
+                              type="number"
+                              min={0}
+                              value={utilitiesFee}
+                              onChange={(e) => setUtilitiesFee(Number(e.target.value || 0))}
+                              className={`mt-2 w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                          focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
+                              placeholder={t("add.utilitiesFeePlaceholder")}
+                            />
+                          )}
                         </div>
 
+                      </div>
+
+                      <div className={`w-full flex flex-col items-start gap-2`}>
+                        <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                          {t("add.maxResidents")}
+                        </span>
+                        <div className={`grid grid-cols-6 gap-2 w-full`}>
+                          {[1, 2, 3, 4, 5, 6].map((count) => (
+                            <button
+                              key={count}
+                              type="button"
+                              onClick={() => setMaxResidents(count)}
+                              className={`h-[42px] rounded-xl border duration-300 text-sm font-semibold ${maxResidents === count ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {count}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       {/* DIVIDER */}
@@ -533,7 +598,7 @@ export default function AddingPage() {
                               className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                          focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
                             >
-                              <option value="">{t("filter.locationValue")}</option>
+                              <option value="" disabled>{t("add.selectRegionRequired")}</option>
                               {CZECH_REGIONS.map(r => (
                                 <option key={r.value} value={r.value}>
                                   {r.label}
@@ -611,59 +676,11 @@ export default function AddingPage() {
                         {/* CHECKBOXES SECTION */}
                         <div className={`w-full flex flex-col gap-4`}>
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                            {t("filter.amenities")}
+                            {t("add.conditions")}
                           </span>
                           
                           {/* BOOLEAN CHECKBOXES GRID */}
                           <div className={`grid grid-cols-2 md:grid-cols-3 gap-4`}>
-                            {/* HAS ROOMMATES */}
-                            <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 
-                                             hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
-                                             ${hasRoommates ? 'bg-[#C505EB]/10 border-[#C505EB] dark:bg-[#C505EB]/20' : 'bg-white dark:bg-gray-800'}`}>
-                              <input
-                                type="checkbox"
-                                checked={hasRoommates}
-                                onChange={(e) => setHasRoommates(e.target.checked)}
-                                className={`w-5 h-5 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] 
-                                          focus:ring-[#C505EB] focus:ring-2 cursor-pointer`}
-                              />
-                              <span className={`text-sm font-medium text-black dark:text-white`}>
-                                {t("filter.hasRoommates")}
-                              </span>
-                            </label>
-
-                            {/* INTERNET */}
-                            <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 
-                                             hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
-                                             ${internet ? 'bg-[#C505EB]/10 border-[#C505EB] dark:bg-[#C505EB]/20' : 'bg-white dark:bg-gray-800'}`}>
-                              <input
-                                type="checkbox"
-                                checked={internet}
-                                onChange={(e) => setInternet(e.target.checked)}
-                                className={`w-5 h-5 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] 
-                                          focus:ring-[#C505EB] focus:ring-2 cursor-pointer`}
-                              />
-                              <span className={`text-sm font-medium text-black dark:text-white`}>
-                                {t("filter.internet")} ({t("filter.internetYes")})
-                              </span>
-                            </label>
-
-                            {/* UTILITIES INCLUDED */}
-                            <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 
-                                             hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
-                                             ${utilitiesIncluded ? 'bg-[#C505EB]/10 border-[#C505EB] dark:bg-[#C505EB]/20' : 'bg-white dark:bg-gray-800'}`}>
-                              <input
-                                type="checkbox"
-                                checked={utilitiesIncluded}
-                                onChange={(e) => setUtilitiesIncluded(e.target.checked)}
-                                className={`w-5 h-5 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] 
-                                          focus:ring-[#C505EB] focus:ring-2 cursor-pointer`}
-                              />
-                              <span className={`text-sm font-medium text-black dark:text-white`}>
-                                {t("filter.utilities")} ({t("filter.utilitiesIncluded")})
-                              </span>
-                            </label>
-
                             {/* PETS ALLOWED */}
                             <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 
                                              hover:border-[#C505EB] dark:hover:border-[#C505EB] cursor-pointer transition-all duration-300
@@ -704,6 +721,7 @@ export default function AddingPage() {
                             </span>
                             <div className={`grid grid-cols-2 md:grid-cols-4 gap-4`}>
                               {[
+                                { key: "internet", label: t("filter.internet") },
                                 { key: "balcony", label: t("filter.amenityBalcony") },
                                 { key: "parking", label: t("filter.amenityParking") },
                                 { key: "furnished", label: t("filter.amenityFurnished") },

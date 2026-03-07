@@ -54,8 +54,10 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
     const translatePropertyType = (value: string) => {
         const map: Record<string, string> = {
             "ROOM": t("filter.propertyTypeRoom"),
-            "APARTMENT": t("filter.propertyTypeApartment"),
-            "HOUSE": t("filter.propertyTypeHouse"),
+        "BYT": t("filter.propertyTypeApartment"),
+        "DUM": t("filter.propertyTypeHouse"),
+        "NEIGHBOUR": t("filter.propertyTypeNeighbour"),
+        "APARTMENT": t("filter.propertyTypeApartment"),
         };
         return map[value] || value;
     };
@@ -182,8 +184,9 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
 
     const propertyTypes = [
         {value: "ROOM", label: t("filter.propertyTypeRoom")},
-        {value: "APARTMENT", label: t("filter.propertyTypeApartment")},
-        {value: "HOUSE", label: t("filter.propertyTypeHouse")},
+      {value: "BYT", label: t("filter.propertyTypeApartment")},
+      {value: "DUM", label: t("filter.propertyTypeHouse")},
+      {value: "NEIGHBOUR", label: t("filter.propertyTypeNeighbour")},
     ];
 
     const roomOptions = ["1", "2", "3", "4", "5+"];

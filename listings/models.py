@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+
 class Listing(models.Model):
     REGION_CHOICES = [
         ("PRAGUE", "Praha"),
@@ -19,13 +20,12 @@ class Listing(models.Model):
         ("MORAVSKOSLEZSKY", "Moravskoslezský kraj"),
     ]
     
-    # property_type: byt / dum (расширяем старый TYPE_CHOICES)
-    PROPERTY_TYPE_CHOICES = [
-        ("BYT", "Byt"),  # Квартира
-        ("DUM", "Dům"),  # Дом
-        ("APARTMENT", "Apartment"),  # Сохраняем старый вариант
+    TYPE_CHOICES = [
+        ("BYT", "Byt"),
+        ("DUM", "Dům"),
+        ("APARTMENT", "Apartment"),
         ("ROOM", "Room"),
-        ("NEIGHBOUR", "Neighbour"),
+        ("NEIGHBOUR", "Kolej"),
     ]
 
     RENTAL_PERIOD_CHOICES = [
@@ -65,16 +65,13 @@ class Listing(models.Model):
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="listings"
     )
 
-    # ========== Тип и предложение ==========
-    property_type = models.CharField(
-        max_length=20, 
-        choices=PROPERTY_TYPE_CHOICES,
-        default="APARTMENT"  # Значение по умолчанию для существующих записей
-    )
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, db_column="property_type", default="APARTMENT")
     
     # Основные
     title = models.CharField(max_length=255)
@@ -91,7 +88,7 @@ class Listing(models.Model):
     # ========== Площади и цена ==========
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="CZK")
-    usable_area = models.IntegerField(null=True, blank=True)  # м² (было size)
+    size = models.IntegerField(null=True, blank=True, db_column="usable_area")
     
     rooms = models.IntegerField(null=True, blank=True)
     beds = models.IntegerField(null=True, blank=True)
@@ -155,6 +152,9 @@ class Listing(models.Model):
     # Верификация
     is_verified = models.BooleanField(default=False)
 
+    max_residents = models.PositiveSmallIntegerField(default=1)
+    utilities_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -168,3 +168,50 @@ class ListingImage(models.Model):
     )
     image = models.ImageField(upload_to="listings/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class ListingResident(models.Model):
+    listing = models.ForeignKey(
+        Listing,
+        on_delete=models.CASCADE,
+        related_name="residents",
+    )
+    profile = models.OneToOneField(
+        'users.Profile',
+        on_delete=models.CASCADE,
+        related_name="home_residency",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["listing", "profile"],
+                name="uniq_listing_profile_resident",
+            )
+        ]
+
+
+class ListingInvite(models.Model):
+    listing = models.ForeignKey(
+        Listing,
+        on_delete=models.CASCADE,
+        related_name="invites",
+    )
+    token = models.CharField(max_length=32, unique=True)
+    created_by = models.ForeignKey(
+        'users.Profile',
+        on_delete=models.CASCADE,
+        related_name="created_listing_invites",
+    )
+    accepted_by = models.ForeignKey(
+        'users.Profile',
+        on_delete=models.SET_NULL,
+        related_name="accepted_listing_invites",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)

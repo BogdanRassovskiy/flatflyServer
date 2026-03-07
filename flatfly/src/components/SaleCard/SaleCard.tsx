@@ -10,6 +10,7 @@ export type SaleCardTypes = {
     id?: string | number;
     type: "APARTMENT" | "ROOM" | "NEIGHBOUR";
     price?: number | string;
+    utilitiesFee?: number | string;
     address?: string;
     size?: string | number;
     rooms?: string;
@@ -35,6 +36,7 @@ interface SaleCardProps extends SaleCardTypes {
 export default function SaleCard({
     id,
     price,
+    utilitiesFee,
     address,
     size,
     amenities = [],
@@ -133,7 +135,10 @@ export default function SaleCard({
                     <div className={`w-full h-full flex flex-col items-start py-1.5 px-3 gap-1`}>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
-                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>{price} {t("saleCard.perMonth")}</span>
+                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
+                                {price} {t("saleCard.perMonth")}
+                                {Number(utilitiesFee || 0) > 0 ? ` (+${t("saleCard.utilitiesPayments")})` : ""}
+                            </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
@@ -172,7 +177,10 @@ export default function SaleCard({
                     <div className={`w-full h-full flex flex-col items-start py-1.5 px-3 gap-1`}>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
-                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>{price} {t("saleCard.perMonth")}</span>
+                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
+                                {price} {t("saleCard.perMonth")}
+                                {Number(utilitiesFee || 0) > 0 ? ` (+${t("saleCard.utilitiesPayments")})` : ""}
+                            </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />

@@ -47,7 +47,7 @@ export default function ProfilePage() {
     const location = useLocation();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings">("basic");
+    const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome">("basic");
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     
@@ -118,12 +118,13 @@ export default function ProfilePage() {
         { code: "sk", label: t("profile.languages.sk") || "Slovenčina" },
     ];
 
-    const sections: Array<{ key: "basic" | "social" | "status" | "favorites" | "myListings"; label: string }> = [
+    const sections: Array<{ key: "basic" | "social" | "status" | "favorites" | "myListings" | "myHome"; label: string }> = [
         { key: "basic", label: t("profile.sections.basic") },
         { key: "social", label: t("profile.sections.social") },
         { key: "status", label: t("profile.sections.status") },
         { key: "favorites", label: t("favorites") },
         { key: "myListings", label: t("profile.sections.myListings") },
+        { key: "myHome", label: t("profile.sections.myHome") },
     ];
 
     const currentSectionIndex = sections.findIndex(s => s.key === activeSection);
@@ -177,6 +178,12 @@ export default function ProfilePage() {
     const [myListingsPage, setMyListingsPage] = useState(1);
     const [myListingsTotalPages, setMyListingsTotalPages] = useState(1);
 
+    const [myHomeData, setMyHomeData] = useState<any>(null);
+    const [myHomeLoading, setMyHomeLoading] = useState(false);
+    const [myHomeError, setMyHomeError] = useState<string | null>(null);
+    const [leavingHome, setLeavingHome] = useState(false);
+    const [creatingInvite, setCreatingInvite] = useState(false);
+
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
     useEffect(() => {
         const hash = (location.hash || "").replace('#', '').toLowerCase();
@@ -184,7 +191,7 @@ export default function ProfilePage() {
         const tab = (params.get("tab") || "").toLowerCase();
         const target = hash || tab;
         const normalizedTarget = target === "favourites" ? "favorites" : target;
-        const validSections: Array<"basic" | "social" | "status" | "favorites" | "myListings"> = ["basic", "social", "status", "favorites", "myListings"];
+        const validSections: Array<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome"> = ["basic", "social", "status", "favorites", "myListings", "myHome"];
 
         if (validSections.includes(normalizedTarget as typeof validSections[number])) {
             const sectionKey = normalizedTarget as typeof validSections[number];
@@ -274,12 +281,111 @@ export default function ProfilePage() {
         }
     };
 
+    const fetchMyHome = async () => {
+        if (!user) return;
+        try {
+            setMyHomeLoading(true);
+            const res = await fetch(`/api/listings/my-home/`, { credentials: "include" });
+            if (!res.ok) throw new Error("Failed to load my home");
+            const data = await res.json();
+            setMyHomeData(data);
+            setMyHomeError(null);
+        } catch (e) {
+            setMyHomeError(e instanceof Error ? e.message : "Error loading my home");
+            setMyHomeData(null);
+        } finally {
+            setMyHomeLoading(false);
+        }
+    };
+
+    const handleLeaveHome = async () => {
+        if (!window.confirm(t("profile.leaveHomeConfirm"))) {
+            return;
+        }
+
+        try {
+            setLeavingHome(true);
+            const res = await fetch(`/api/listings/leave-home/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                },
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.detail || t("profile.leaveHomeFailed"));
+            }
+
+            await fetchMyHome();
+        } catch (e) {
+            alert(e instanceof Error ? e.message : t("profile.leaveHomeFailed"));
+        } finally {
+            setLeavingHome(false);
+        }
+    };
+
+    const handleCreateInvite = async () => {
+        if (!myHomeData?.listing?.id) return;
+        try {
+            setCreatingInvite(true);
+            const res = await fetch(`/api/listings/${myHomeData.listing.id}/invite/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                },
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.detail || t("profile.inviteFailed"));
+            }
+
+            const token = data.token;
+            const link = data.inviteUrl
+                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+                : `${window.location.origin}/api/listings/invite/${token}/join/`;
+
+            await navigator.clipboard.writeText(link);
+            alert(t("profile.copied"));
+        } catch (e) {
+            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const getMyHomeListingUrl = (listing: any) => {
+        if (!listing) return "/apartments";
+        const listingType = String(listing.type || "").toUpperCase();
+        if (listingType === "ROOM") {
+            return `/rooms/${listing.id}`;
+        }
+        if (listingType === "NEIGHBOUR") {
+            return `/neighbours/${listing.id}`;
+        }
+        return `/apartments/${listing.id}`;
+    };
+
+    const getInitials = (name: string) => {
+        return (name || "?")
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() || "")
+            .join("") || "?";
+    };
+
     useEffect(() => {
         if (activeSection === "favorites") {
             fetchFavorites(favPage);
         }
         if (activeSection === "myListings") {
             fetchMyListings(myListingsPage);
+        }
+        if (activeSection === "myHome") {
+            fetchMyHome();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, favPage, myListingsPage]);
@@ -1070,8 +1176,98 @@ export default function ProfilePage() {
                         </div>
                     )}
 
+                    {/* My Home Section */}
+                    {activeSection === "myHome" && (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Icon icon="mdi:home-group" width="24" height="24" style={{color: "#C505EB"}} />
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {t("profile.sections.myHome")}
+                                </h2>
+                            </div>
+
+                            {myHomeLoading && <div className="text-center py-10">{t("loading")}</div>}
+                            {myHomeError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{myHomeError}</div>
+                            )}
+
+                            {!myHomeLoading && myHomeData?.listing == null && !myHomeError && (
+                                <div className="text-center py-10 text-gray-500">{t("profile.notInHome")}</div>
+                            )}
+
+                            {!myHomeLoading && myHomeData?.listing && (
+                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate(getMyHomeListingUrl(myHomeData.listing))}
+                                        className="w-full mb-5 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-[#C505EB] transition-all duration-300 text-left"
+                                    >
+                                        <div className="h-44 w-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                            <img
+                                                src={getImageUrl(myHomeData.listing.image)}
+                                                alt={myHomeData.listing.title}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div className="p-4 bg-white dark:bg-gray-800">
+                                            <div className="text-xl font-bold text-[#C505EB] hover:text-[#BA00F8] underline underline-offset-4">
+                                                {myHomeData.listing.title}
+                                            </div>
+                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                {myHomeData.listing.address || myHomeData.listing.region}
+                                            </div>
+                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                                                {t("profile.residents")}: {myHomeData.listing.residentsCount} / {myHomeData.listing.maxResidents}
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    <div className="mb-6">
+                                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                                            {t("profile.residents")}
+                                        </div>
+                                        <div className="flex flex-wrap gap-3">
+                                        {Array.isArray(myHomeData.residents) && myHomeData.residents.map((resident: any) => (
+                                            <div key={resident.profileId} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full pl-1 pr-3 py-1">
+                                                <div className="w-9 h-9 rounded-full overflow-hidden bg-[#C505EB]/20 flex items-center justify-center text-[#C505EB] text-xs font-bold">
+                                                    {resident.avatar ? (
+                                                        <img src={getImageUrl(resident.avatar)} alt={resident.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span>{getInitials(resident.name)}</span>
+                                                    )}
+                                                </div>
+                                                <span className="text-sm text-gray-700 dark:text-gray-200">
+                                                    {resident.name}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-4 flex flex-wrap gap-3">
+                                        <button
+                                            onClick={handleCreateInvite}
+                                            disabled={creatingInvite}
+                                            className="px-6 py-3 rounded-lg bg-[#C505EB] text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                                        >
+                                            {creatingInvite ? t("profile.creatingInvite") : t("profile.invite")}
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={handleLeaveHome}
+                                        disabled={leavingHome}
+                                        className="px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                                    >
+                                        {leavingHome ? t("profile.leavingHome") : t("profile.leaveHome")}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Save Button */}
-                    {activeSection !== "favorites" && activeSection !== "myListings" && (
+                    {activeSection !== "favorites" && activeSection !== "myListings" && activeSection !== "myHome" && (
                         <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
                             <button
                                 type="button"

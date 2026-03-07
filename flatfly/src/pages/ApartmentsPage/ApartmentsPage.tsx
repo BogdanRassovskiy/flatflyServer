@@ -13,6 +13,7 @@ interface Listing {
   type: "APARTMENT" | "ROOM" | "NEIGHBOUR";
   title?: string;
   price: number | string;
+  utilitiesFee?: number | string;
 
   region?: string;
   address?: string;
@@ -157,6 +158,7 @@ export default function ApartmentsPage({ listingType }: Props) {
                   key={listing.id}
                   id={listing.id}
                   price={Number(listing.price)}
+                  utilitiesFee={listing.utilitiesFee}
                   address={listing.address || ""}
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}

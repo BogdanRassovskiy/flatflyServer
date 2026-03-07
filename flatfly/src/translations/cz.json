@@ -42,7 +42,7 @@
     "aboutText2": "Náš nápad dostal reálné obrysy díky spolupráci s Inovačním centrem Ústeckého kraje (ICUK). V rámci podnikatelského inkubátoru jsme mohli naši vizi přetavit ve funkční platformu. Ladili jsme funkce, testovali betaverze a zaměřili se na to, co jinde chybí – na jednoduchost a důvěru.\n\nDnes je FlatFly hotovým projektem, který pomáhá nejen studentům, ale každému, kdo hledá nový začátek. Ať už se stěhujete za prací, školou, nebo začínáte novou životní kapitolu, chceme, aby pro vás hledání domova bylo bezpečné a bez stresu."
   },
   "filter": {
-    "location": "Lokalita",
+    "location": "Kraj",
     "locationValue": "Celá ČR",
     "region": "Kraj",
     "city": "Město / Okres",
@@ -55,6 +55,7 @@
     "propertyTypeRoom": "Pokoj",
     "propertyTypeApartment": "Byt",
     "propertyTypeHouse": "Dům",
+    "propertyTypeNeighbour": "Kolej",
     "price": "Cena",
     "priceValue": "Neomezeno",
     "priceFrom": "Od",
@@ -233,9 +234,9 @@
   },
   "add": {
     "title": "Nový inzerát",
-    "fullApartment": "Celý byt",
-    "room": "Pokoj",
-    "sharedRoom": "Sdílený pokoj",
+    "fullApartment": "Dům",
+    "room": "Byt",
+    "sharedRoom": "Kolej",
     "uploadPhotos": "Nahrajte fotky",
     "uploadFormat": "JPG, PNG, max 10 MB",
     "adTitle": "Název inzerátu",
@@ -244,8 +245,13 @@
     "descriptionPlaceholder": "Napište něco o bytě, o spolubydlících, co je v okolí...",
     "layout": "Dispozice / Plocha",
     "layoutPlaceholder": "např. 2+kk nebo 25 m²",
-    "beds": "Počet lůžek",
-    "bedsPlaceholder": "např. 1, 2, 3...",
+    "creatorRole": "Role tvůrce",
+    "roleOwner": "Vlastník",
+    "roleNeighbour": "Soused",
+    "maxResidents": "Max. počet sousedů",
+    "conditions": "Podmínky",
+    "selectRegionRequired": "Vyberte kraj",
+    "utilitiesFeePlaceholder": "Poplatek za energie",
     "price": "Cena (Kč/měsíc)",
     "pricePlaceholder": "např. 12 000",
     "publish": "Zveřejnit inzerát",
@@ -273,7 +279,8 @@
   "saleCard": {
     "perMonth": "Kč / měsíčně",
     "roomRent": "Pronájem bytu pokoje",
-    "apartmentRent": "Pronájem bytu"
+    "apartmentRent": "Pronájem bytu",
+    "utilitiesPayments": "platby za energie"
   },  "badges": {
     "verified": "Ověřeno",
     "lookingForHousing": "Hledám bydlení",
@@ -349,7 +356,8 @@
       "basic": "Základní informace",
       "social": "Životní styl a preference",
       "status": "Stav profilu",
-      "myListings": "Moje inzeráty"
+      "myListings": "Moje inzeráty",
+      "myHome": "Můj domov"
     },
     "photoHint": "Klikněte pro nahrání fotografie",
     "name": "Celé jméno",
@@ -437,6 +445,18 @@
     "save": "Uložit profil",
     "saving": "Ukládání...",
     "saved": "Uloženo!",
+    "notInHome": "Zatím nebydlíte v žádném domově",
+    "residents": "Obyvatelé",
+    "leaveHome": "Opustit domov",
+    "leavingHome": "Opouštím...",
+    "leaveHomeConfirm": "Opravdu chcete opustit tento domov?",
+    "leaveHomeFailed": "Nepodařilo se opustit domov",
+    "invite": "Pozvat",
+    "creatingInvite": "Vytvářím pozvánku...",
+    "inviteLink": "Pozvánkový odkaz",
+    "copyLink": "Kopírovat odkaz",
+    "copied": "Odkaz zkopírován",
+    "inviteFailed": "Nepodařilo se vytvořit pozvánku",
     "errorUploadingAvatar": "Chyba při nahrávání avatara",
     "errorSavingProfile": "Chyba při ukládání profilu"
   },
