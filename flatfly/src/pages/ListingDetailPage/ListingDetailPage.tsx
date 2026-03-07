@@ -28,8 +28,10 @@ export default function ListingDetailPage() {
     
     // Состояние для данных листинга
     const [listingData, setListingData] = useState<{
-        price?: number;
+        price?: number | string;
         address?: string;
+        city?: string;
+        region?: string;
         size?: number;
         rooms?: string;
         image?: string | null;
@@ -41,8 +43,17 @@ export default function ListingDetailPage() {
         title?: string;
         description?: string;
         beds?: number;
+        maxResidents?: number;
+        residentsCount?: number;
         contactPhone?: string;
         contactEmail?: string;
+        profession?: string;
+        noise_tolerance?: string;
+        cleanliness?: number;
+        introvert_extrovert?: number;
+        guests_parties?: string;
+        preferred_gender?: string;
+        preferred_age_range?: string;
         smoking?: string;
         alcohol?: string;
         pets?: string;
@@ -53,6 +64,18 @@ export default function ListingDetailPage() {
         looking_for_housing?: boolean;
         languages?: string[];
         currency?: string;
+        rental_period?: string;
+        move_in_date?: string;
+        amenities?: string[];
+        internet?: boolean;
+        utilities_included?: boolean;
+        utilitiesFee?: string | number;
+        pets_allowed?: boolean;
+        smoking_allowed?: boolean;
+        has_roommates?: boolean;
+        has_video?: boolean;
+        has_3d_tour?: boolean;
+        has_floorplan?: boolean;
         condition_state?: string;
         energy_class?: string;
         has_bus_stop?: boolean;
@@ -189,12 +212,20 @@ export default function ListingDetailPage() {
                     address: data.city,
                     title: data.name,
                     description: data.about,
+                    profession: data.profession,
+                    contactPhone: data.phone,
                     smoking: data.smoking,
                     alcohol: data.alcohol,
                     pets: data.pets,
                     sleep_schedule: data.sleep_schedule,
+                    noise_tolerance: data.noise_tolerance,
                     gamer: data.gamer,
                     work_from_home: data.work_from_home,
+                    cleanliness: data.cleanliness,
+                    introvert_extrovert: data.introvert_extrovert,
+                    guests_parties: data.guests_parties,
+                    preferred_gender: data.preferred_gender,
+                    preferred_age_range: data.preferred_age_range,
                     verified: data.verified,
                     looking_for_housing: data.looking_for_housing,
                     languages: data.languages,
@@ -206,6 +237,8 @@ export default function ListingDetailPage() {
             setListingData({
                 price: data.price,
                 address: data.address,
+                city: data.city,
+                region: data.region,
                 size: data.size,
                 rooms: data.rooms,
                 image: data.images?.[0] || null,
@@ -214,12 +247,26 @@ export default function ListingDetailPage() {
                 title: data.title,
                 description: data.description,
                 beds: data.beds,
+                maxResidents: data.maxResidents,
+                residentsCount: data.residentsCount,
                 name: data.name,
                 age: data.age,
                 from: data.from,
                 contactPhone: data.contact_phone,
                 contactEmail: data.contact_email,
                 currency: data.currency,
+                rental_period: data.rental_period,
+                move_in_date: data.move_in_date,
+                amenities: data.amenities || [],
+                internet: data.internet,
+                utilities_included: data.utilities_included,
+                utilitiesFee: data.utilitiesFee,
+                pets_allowed: data.pets_allowed,
+                smoking_allowed: data.smoking_allowed,
+                has_roommates: data.has_roommates,
+                has_video: data.has_video,
+                has_3d_tour: data.has_3d_tour,
+                has_floorplan: data.has_floorplan,
                 condition_state: data.condition_state,
                 energy_class: data.energy_class,
                 has_bus_stop: data.has_bus_stop,
@@ -311,6 +358,8 @@ export default function ListingDetailPage() {
     const {
         price,
         address,
+        city,
+        region,
         size,
         rooms,
         image,
@@ -322,8 +371,17 @@ export default function ListingDetailPage() {
         title,
         description,
         beds,
+        maxResidents,
+        residentsCount,
         contactPhone,
         contactEmail,
+        profession,
+        noise_tolerance,
+        cleanliness,
+        introvert_extrovert,
+        guests_parties,
+        preferred_gender,
+        preferred_age_range,
         smoking,
         alcohol,
         pets,
@@ -333,6 +391,20 @@ export default function ListingDetailPage() {
         verified,
         looking_for_housing,
         languages,
+        currency,
+        rental_period,
+        move_in_date,
+        amenities,
+        internet,
+        utilities_included,
+        utilitiesFee,
+        pets_allowed,
+        smoking_allowed,
+        has_roommates,
+        has_video,
+        has_3d_tour,
+        has_floorplan,
+        condition_state,
         energy_class,
         has_bus_stop,
         has_train_station,
@@ -639,12 +711,70 @@ export default function ListingDetailPage() {
                                         </div>
                                     </div>
                                 )}
+                                {type !== "NEIGHBOUR" && maxResidents && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.maxResidents") || "Max residents"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {residentsCount ?? 0} / {maxResidents}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && (city || region) && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <MapPin size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.address") || "Location"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{city || region}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && condition_state && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.condition") || "Condition"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{condition_state}</span>
+                                        </div>
+                                    </div>
+                                )}
                                 {type !== "NEIGHBOUR" && energy_class && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.energyClass")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{energy_class}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && rental_period && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.rentalPeriod") || "Rental period"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{rental_period}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && move_in_date && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.moveInDate") || "Move in date"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{move_in_date}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && Number(utilitiesFee || 0) > 0 && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.utilitiesFeePlaceholder") || "Utilities fee"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {Number(utilitiesFee || 0).toLocaleString("cs-CZ")} {currency || "CZK"}
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -663,6 +793,24 @@ export default function ListingDetailPage() {
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.languages.title") || "Languages"}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{languages.join(", ")}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && profession && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <MapPin size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.profession") || "Profession"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{profession}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && contactPhone && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Phone size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.phone") || "Phone"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{contactPhone}</span>
                                         </div>
                                     </div>
                                 )}
@@ -717,6 +865,50 @@ export default function ListingDetailPage() {
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>Work from home</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{work_from_home}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && noise_tolerance && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.noiseTolerance") || "Noise tolerance"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{noise_tolerance}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && (cleanliness !== undefined || introvert_extrovert !== undefined) && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Scores</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {cleanliness !== undefined ? `Cleanliness: ${cleanliness}/10` : ""}
+                                                {cleanliness !== undefined && introvert_extrovert !== undefined ? " · " : ""}
+                                                {introvert_extrovert !== undefined ? `Introvert/Extrovert: ${introvert_extrovert}/10` : ""}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && guests_parties && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.guestsParties") || "Guests/Parties"}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{guests_parties}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type === "NEIGHBOUR" && (preferred_gender || preferred_age_range) && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Bed size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Preferences</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {preferred_gender ? `${t("profile.preferredGender") || "Gender"}: ${preferred_gender}` : ""}
+                                                {preferred_gender && preferred_age_range ? " · " : ""}
+                                                {preferred_age_range ? `${t("profile.preferredAgeRange") || "Age"}: ${preferred_age_range}` : ""}
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -810,6 +1002,37 @@ export default function ListingDetailPage() {
                                             {t("listing.hasPlayground")}
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        )}
+
+                        {type !== "NEIGHBOUR" && (
+                            internet || utilities_included || pets_allowed || smoking_allowed || has_roommates || has_video || has_3d_tour || has_floorplan
+                        ) && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.conditions") || "Conditions"}</h2>
+                                <div className={`flex flex-wrap gap-3`}>
+                                    {internet && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>Internet</div>}
+                                    {utilities_included && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.utilitiesIncluded") || "Utilities included"}</div>}
+                                    {pets_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.petsAllowed") || "Pets allowed"}</div>}
+                                    {smoking_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.smokingAllowed") || "Smoking allowed"}</div>}
+                                    {has_roommates && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.withRoommates") || "With roommates"}</div>}
+                                    {has_video && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>Video</div>}
+                                    {has_3d_tour && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>3D tour</div>}
+                                    {has_floorplan && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.floorplan") || "Floorplan"}</div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {type !== "NEIGHBOUR" && amenities && amenities.length > 0 && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.amenities") || "Amenities"}</h2>
+                                <div className={`flex flex-wrap gap-3`}>
+                                    {amenities.map((amenity, index) => (
+                                        <div key={`${amenity}-${index}`} className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
+                                            {amenity}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}

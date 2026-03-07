@@ -1202,7 +1202,7 @@ export default function ProfilePage() {
                                         onClick={() => navigate(getMyHomeListingUrl(myHomeData.listing))}
                                         className="w-full mb-5 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-[#C505EB] transition-all duration-300 text-left"
                                     >
-                                        <div className="h-44 w-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                        <div className="w-full max-w-[320px] aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden mx-auto">
                                             <img
                                                 src={getImageUrl(myHomeData.listing.image)}
                                                 alt={myHomeData.listing.title}
@@ -1228,7 +1228,12 @@ export default function ProfilePage() {
                                         </div>
                                         <div className="flex flex-wrap gap-3">
                                         {Array.isArray(myHomeData.residents) && myHomeData.residents.map((resident: any) => (
-                                            <div key={resident.profileId} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full pl-1 pr-3 py-1">
+                                            <button
+                                                key={resident.profileId}
+                                                type="button"
+                                                onClick={() => navigate(`/neighbours/${resident.profileId}`)}
+                                                className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full pl-1 pr-3 py-1 hover:ring-2 hover:ring-[#C505EB]/40 transition-all duration-200"
+                                            >
                                                 <div className="w-9 h-9 rounded-full overflow-hidden bg-[#C505EB]/20 flex items-center justify-center text-[#C505EB] text-xs font-bold">
                                                     {resident.avatar ? (
                                                         <img src={getImageUrl(resident.avatar)} alt={resident.name} className="w-full h-full object-cover" />
@@ -1239,7 +1244,7 @@ export default function ProfilePage() {
                                                 <span className="text-sm text-gray-700 dark:text-gray-200">
                                                     {resident.name}
                                                 </span>
-                                            </div>
+                                            </button>
                                         ))}
                                         </div>
                                     </div>

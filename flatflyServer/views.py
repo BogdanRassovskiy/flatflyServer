@@ -188,6 +188,7 @@ def neighbour_detail(request, profile_id):
     return JsonResponse({
         "id": profile.id,
         "name": profile.name,
+        "phone": profile.phone,
         "age": profile.age,
         "gender": profile.gender,
         "city": profile.city,
@@ -198,8 +199,14 @@ def neighbour_detail(request, profile_id):
         "alcohol": profile.alcohol,
         "pets": profile.pets,
         "sleep_schedule": profile.sleep_schedule,
+        "noise_tolerance": profile.noise_tolerance,
         "gamer": profile.gamer,
         "work_from_home": profile.work_from_home,
+        "cleanliness": profile.cleanliness,
+        "introvert_extrovert": profile.introvert_extrovert,
+        "guests_parties": profile.guests_parties,
+        "preferred_gender": profile.preferred_gender,
+        "preferred_age_range": profile.preferred_age_range,
         "verified": profile.verified,
         "looking_for_housing": profile.looking_for_housing,
         "avatar": request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
@@ -474,10 +481,25 @@ def listing_detail(request, listing_id):
         "title": listing.title,
         "description": listing.description,
         "price": str(listing.price),
+        "currency": listing.currency,
+        "region": listing.region,
+        "city": listing.city,
         "address": listing.address,
         "size": listing.size,
         "rooms": listing.rooms,
         "beds": listing.beds,
+        "condition_state": listing.condition_state,
+        "rental_period": listing.rental_period,
+        "move_in_date": listing.move_in_date.isoformat() if listing.move_in_date else None,
+        "amenities": listing.amenities or [],
+        "internet": listing.internet,
+        "utilities_included": listing.utilities_included,
+        "pets_allowed": listing.pets_allowed,
+        "smoking_allowed": listing.smoking_allowed,
+        "has_roommates": listing.has_roommates,
+        "has_video": listing.has_video,
+        "has_3d_tour": listing.has_3d_tour,
+        "has_floorplan": listing.has_floorplan,
         "maxResidents": listing.max_residents,
         "utilitiesFee": str(listing.utilities_fee),
         "residentsCount": listing.residents.count(),
@@ -790,7 +812,7 @@ def create_home_invite(request, listing_id):
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def join_home_by_invite(request, token):
     invite = get_object_or_404(ListingInvite, token=token)
 
