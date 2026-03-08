@@ -194,7 +194,34 @@
     "hasSupermarket": "Supermarket",
     "hasSmallShop": "Small Shop",
     "hasRestaurant": "Restaurant",
-    "hasPlayground": "Playground"
+    "hasPlayground": "Playground",
+    "maxResidents": "Max residents",
+    "location": "Location",
+    "rentalPeriod": "Rental period",
+    "moveInDate": "Move-in date",
+    "utilitiesFee": "Utilities fee",
+    "conditions": "Conditions",
+    "amenities": "Amenities",
+    "video": "Video",
+    "tour3d": "3D tour",
+    "floorplan": "Floor plan",
+    "scores": "Scores",
+    "preferences": "Preferences",
+    "manageActions": "Listing management",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "delete": "Delete",
+    "confirmDelete": "Delete this listing? This action cannot be undone.",
+    "actionFailed": "Failed to perform action",
+    "editTitlePrompt": "Enter new listing title",
+    "editDescriptionPrompt": "Enter new listing description",
+    "editPricePrompt": "Enter new price",
+    "invalidPrice": "Invalid price"
+    ,"deactivated": "Deactivated"
+    ,"removeFromHome": "Remove from home"
+    ,"removeFromHomeConfirm": "Remove this person from home?"
+    ,"removedFromHomeSuccess": "User removed from home"
   },
   "pagination": {
     "next": "Next"
@@ -257,6 +284,8 @@
     "price": "Price (CZK/month)",
     "pricePlaceholder": "e.g. 12 000",
     "publish": "Publish listing",
+    "update": "Save changes",
+    "updatedSuccessfully": "Listing updated successfully",
     "fileTooLarge": "File {fileName} is too large. Maximum size is 10 MB.",
     "selectAdType": "Select ad type",
     "fillRequiredFields": "Fill required fields",
@@ -461,6 +490,7 @@
     "copyLink": "Copy link",
     "copied": "Link copied",
     "inviteFailed": "Failed to create invite",
+    "joinedHomeSuccess": "You have successfully joined the home!",
     "errorUploadingAvatar": "Error uploading avatar",
     "errorSavingProfile": "Error saving profile"
   },

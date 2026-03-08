@@ -192,7 +192,34 @@
     "hasSupermarket": "Supermarket",
     "hasSmallShop": "Malý obchod",
     "hasRestaurant": "Restaurace",
-    "hasPlayground": "Dětské hřiště"
+    "hasPlayground": "Dětské hřiště",
+    "maxResidents": "Max. počet obyvatel",
+    "location": "Lokalita",
+    "rentalPeriod": "Doba pronájmu",
+    "moveInDate": "Datum nastěhování",
+    "utilitiesFee": "Poplatek za energie",
+    "conditions": "Podmínky",
+    "amenities": "Vybavení",
+    "video": "Video",
+    "tour3d": "3D prohlídka",
+    "floorplan": "Půdorys",
+    "scores": "Skóre",
+    "preferences": "Preference",
+    "manageActions": "Správa inzerátu",
+    "edit": "Upravit",
+    "deactivate": "Deaktivovat",
+    "activate": "Aktivovat",
+    "delete": "Smazat",
+    "confirmDelete": "Smazat tento inzerát? Tuto akci nelze vrátit zpět.",
+    "actionFailed": "Akci se nepodařilo provést",
+    "editTitlePrompt": "Zadejte nový název inzerátu",
+    "editDescriptionPrompt": "Zadejte nový popis inzerátu",
+    "editPricePrompt": "Zadejte novou cenu",
+    "invalidPrice": "Neplatná cena"
+    ,"deactivated": "Deaktivováno"
+    ,"removeFromHome": "Odebrat z domova"
+    ,"removeFromHomeConfirm": "Odebrat tohoto člověka z domova?"
+    ,"removedFromHomeSuccess": "Uživatel byl odebrán z domova"
   },
   "pagination": {
     "next": "Další"
@@ -255,6 +282,8 @@
     "price": "Cena (Kč/měsíc)",
     "pricePlaceholder": "např. 12 000",
     "publish": "Zveřejnit inzerát",
+    "update": "Uložit změny",
+    "updatedSuccessfully": "Inzerát byl úspěšně aktualizován",
     "fileTooLarge": "Soubor {fileName} je příliš velký. Maximální velikost je 10 MB.",
     "selectAdType": "Vyberte typ inzerátu",
     "fillRequiredFields": "Vyplňte povinná pole",
@@ -457,6 +486,7 @@
     "copyLink": "Kopírovat odkaz",
     "copied": "Odkaz zkopírován",
     "inviteFailed": "Nepodařilo se vytvořit pozvánku",
+    "joinedHomeSuccess": "Úspěšně jste se připojili k domovu!",
     "errorUploadingAvatar": "Chyba při nahrávání avatara",
     "errorSavingProfile": "Chyba při ukládání profilu"
   },

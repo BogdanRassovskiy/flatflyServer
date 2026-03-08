@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/listings/invite/<str:token>/join/", views.join_home_by_invite, name="join_home_by_invite"),
     path("api/listings/my-home/", views.my_home, name="my_home"),
     path("api/listings/leave-home/", views.leave_home, name="leave_home"),
+    path("api/listings/remove-from-home/<int:profile_id>/", views.remove_from_home, name="remove_from_home"),
     path("api/listings/list", views.listings_view, name="listings_view"),
     path("api/listings/<int:listing_id>/", views.listing_detail, name="listing_detail"),
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),

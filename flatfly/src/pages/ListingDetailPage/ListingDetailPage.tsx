@@ -1,6 +1,6 @@
 import {useState, useEffect} from "react";
 import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, Phone, Mail, X} from "lucide-react";
-import {Link, useNavigate, useParams, useLocation} from "react-router-dom";
+import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import {getCsrfToken} from "../../utils/csrf";
@@ -91,6 +91,14 @@ export default function ListingDetailPage() {
         has_small_shop?: boolean;
         has_restaurant?: boolean;
         has_playground?: boolean;
+        canManage?: boolean;
+        isActive?: boolean;
+        canRemoveFromHome?: boolean;
+        residents?: Array<{
+            profileId: number;
+            name: string;
+            avatar?: string | null;
+        }>;
     }>({
         image: "/placeholder-image.jpg",
         images: [],
@@ -191,16 +199,23 @@ export default function ListingDetailPage() {
             const data = await res.json();
 
             if (isNeighbour) {
+                const translateBadgeValue = (value?: string) => {
+                    if (!value) return "";
+                    const normalized = String(value).toLowerCase().replace(/\s+/g, "");
+                    const translated = t(`badges.${normalized}`);
+                    return translated !== `badges.${normalized}` ? translated : value;
+                };
+
                 const neighbourBadges: string[] = [];
-                if (data.verified) neighbourBadges.push("Verified");
-                if (data.looking_for_housing) neighbourBadges.push("Looking for housing");
-                if (data.gender) neighbourBadges.push(`Gender: ${data.gender}`);
-                if (data.smoking) neighbourBadges.push(`Smoking: ${data.smoking}`);
-                if (data.alcohol) neighbourBadges.push(`Alcohol: ${data.alcohol}`);
-                if (data.pets) neighbourBadges.push(`Pets: ${data.pets}`);
-                if (data.sleep_schedule) neighbourBadges.push(`Sleep: ${data.sleep_schedule}`);
-                if (data.gamer) neighbourBadges.push(`Gamer: ${data.gamer}`);
-                if (data.work_from_home) neighbourBadges.push(`Work from home: ${data.work_from_home}`);
+                if (data.verified) neighbourBadges.push(t("badges.verified"));
+                if (data.looking_for_housing) neighbourBadges.push(t("badges.lookingForHousing"));
+                if (data.gender) neighbourBadges.push(`${t("profile.gender")}: ${translateBadgeValue(data.gender)}`);
+                if (data.smoking) neighbourBadges.push(`${t("profile.smoking")}: ${translateBadgeValue(data.smoking)}`);
+                if (data.alcohol) neighbourBadges.push(`${t("profile.alcohol")}: ${translateBadgeValue(data.alcohol)}`);
+                if (data.pets) neighbourBadges.push(`${t("profile.pets")}: ${translateBadgeValue(data.pets)}`);
+                if (data.sleep_schedule) neighbourBadges.push(`${t("profile.sleepSchedule")}: ${translateBadgeValue(data.sleep_schedule)}`);
+                if (data.gamer) neighbourBadges.push(`${t("profile.gamer")}: ${translateBadgeValue(data.gamer)}`);
+                if (data.work_from_home) neighbourBadges.push(`${t("profile.workFromHome")}: ${translateBadgeValue(data.work_from_home)}`);
 
                 setListingData({
                     image: data.avatar || null,
@@ -213,7 +228,6 @@ export default function ListingDetailPage() {
                     title: data.name,
                     description: data.about,
                     profession: data.profession,
-                    contactPhone: data.phone,
                     smoking: data.smoking,
                     alcohol: data.alcohol,
                     pets: data.pets,
@@ -229,6 +243,7 @@ export default function ListingDetailPage() {
                     verified: data.verified,
                     looking_for_housing: data.looking_for_housing,
                     languages: data.languages,
+                    canRemoveFromHome: Boolean(data.canRemoveFromHome),
                 });
                 return;
             }
@@ -249,6 +264,7 @@ export default function ListingDetailPage() {
                 beds: data.beds,
                 maxResidents: data.maxResidents,
                 residentsCount: data.residentsCount,
+                residents: data.residents || [],
                 name: data.name,
                 age: data.age,
                 from: data.from,
@@ -269,6 +285,8 @@ export default function ListingDetailPage() {
                 has_floorplan: data.has_floorplan,
                 condition_state: data.condition_state,
                 energy_class: data.energy_class,
+                canManage: Boolean(data.canManage),
+                isActive: data.isActive !== false,
                 has_bus_stop: data.has_bus_stop,
                 has_train_station: data.has_train_station,
                 has_metro: data.has_metro,
@@ -419,12 +437,19 @@ export default function ListingDetailPage() {
         has_small_shop,
         has_restaurant,
         has_playground,
+        canManage,
+        isActive,
+        canRemoveFromHome,
+        residents,
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLike, setIsLike] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showContacts, setShowContacts] = useState(false);
+    const [contactsLoading, setContactsLoading] = useState(false);
+    const [creatingInvite, setCreatingInvite] = useState(false);
+    const [removingFromHome, setRemovingFromHome] = useState(false);
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
     const allImages = safeImages.length > 0
@@ -445,6 +470,50 @@ export default function ListingDetailPage() {
         if (!isAuthenticated) {
             router("/auth");
         }
+    };
+
+    const handleShowContacts = async () => {
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+
+        if (showContacts) {
+            return;
+        }
+
+        if (type === "NEIGHBOUR") {
+            if (!id) {
+                return;
+            }
+
+            try {
+                setContactsLoading(true);
+                const response = await fetch(`/api/neighbours/${id}/?include_contacts=1`, {
+                    credentials: "include",
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to load contacts");
+                }
+
+                const contactData = await response.json();
+                setListingData((prev) => ({
+                    ...prev,
+                    contactPhone: contactData.phone,
+                    contactEmail: contactData.email,
+                }));
+                setShowContacts(true);
+            } catch (error) {
+                console.error("Failed to load neighbour contacts", error);
+            } finally {
+                setContactsLoading(false);
+            }
+
+            return;
+        }
+
+        setShowContacts(true);
     };
 
     const nextImage = () => {
@@ -469,6 +538,128 @@ export default function ListingDetailPage() {
         }
     };
 
+    const handleDeleteListing = async () => {
+        if (!id || type === "NEIGHBOUR") return;
+        if (!window.confirm(t("listing.confirmDelete"))) return;
+
+        try {
+            const res = await fetch(`/api/listings/${id}/`, {
+                method: "DELETE",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                credentials: "include",
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || t("listing.actionFailed"));
+            }
+
+            router(type === "ROOM" ? "/rooms" : "/apartments");
+        } catch (error) {
+            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+        }
+    };
+
+    const handleToggleActive = async () => {
+        if (!id || type === "NEIGHBOUR") return;
+
+        try {
+            const nextActive = !Boolean(isActive);
+            const res = await fetch(`/api/listings/${id}/`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                credentials: "include",
+                body: JSON.stringify({ isActive: nextActive }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || t("listing.actionFailed"));
+            }
+
+            setListingData((prev) => ({
+                ...prev,
+                isActive: nextActive,
+            }));
+        } catch (error) {
+            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+        }
+    };
+
+    const handleCreateInvite = async () => {
+        if (!id || type === "NEIGHBOUR") return;
+
+        try {
+            setCreatingInvite(true);
+            const res = await fetch(`/api/listings/${id}/invite/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                },
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.detail || t("profile.inviteFailed"));
+            }
+
+            const token = data.token;
+            const link = data.inviteUrl
+                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+                : `${window.location.origin}/api/listings/invite/${token}/join/`;
+
+            await navigator.clipboard.writeText(link);
+            alert(t("profile.copied"));
+        } catch (e) {
+            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const handleEditListing = async () => {
+        if (!id || type === "NEIGHBOUR") return;
+        router(`/add?editListingId=${id}`);
+    };
+
+    const handleRemoveFromHome = async () => {
+        if (!id || type !== "NEIGHBOUR") return;
+        if (!window.confirm(t("listing.removeFromHomeConfirm"))) {
+            return;
+        }
+
+        try {
+            setRemovingFromHome(true);
+            const res = await fetch(`/api/listings/remove-from-home/${id}/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                },
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.detail || t("listing.actionFailed"));
+            }
+
+            alert(t("listing.removedFromHomeSuccess"));
+            setListingData((prev) => ({
+                ...prev,
+                canRemoveFromHome: false,
+            }));
+        } catch (error) {
+            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+        } finally {
+            setRemovingFromHome(false);
+        }
+    };
+
     // Закрытие модального окна по Escape и блокировка скролла
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -488,21 +679,68 @@ export default function ListingDetailPage() {
         };
     }, [isModalOpen]);
 
+    const getConditionStateLabel = (value?: string) => {
+        if (!value) return "";
+        const map: Record<string, string> = {
+            VELMI_DOBRY: t("filter.conditionVeryGood"),
+            DOBRY: t("filter.conditionGood"),
+            SPATNY: t("filter.conditionSatisfactory"),
+            NOVOSTAVBA: t("filter.conditionNew"),
+            VE_VYSTAVBE: t("filter.conditionProject"),
+            PRED_REKONSTRUKCI: t("filter.conditionNeedsRenovation"),
+            V_REKONSTRUKCI: t("filter.conditionUnderReconstruction"),
+            PO_REKONSTRUKCI: t("filter.conditionExcellent"),
+        };
+        return map[value] || value;
+    };
+
+    const getRentalPeriodLabel = (value?: string) => {
+        if (!value) return "";
+        const map: Record<string, string> = {
+            SHORT: t("filter.rentalPeriodShort"),
+            LONG: t("filter.rentalPeriodLong"),
+            BOTH: t("filter.rentalPeriodFlexible"),
+        };
+        return map[value] || value;
+    };
+
+    const getLifestyleValueLabel = (value?: string) => {
+        if (!value) return "";
+        const normalized = value.replace(/\s+/g, "");
+        return t(`badges.${normalized}`) !== `badges.${normalized}` ? t(`badges.${normalized}`) : value;
+    };
+
+    const getAmenityLabel = (amenity?: string) => {
+        if (!amenity) return "";
+        const normalized = amenity.trim().toLowerCase();
+        const map: Record<string, string> = {
+            internet: t("filter.internet"),
+            balcony: t("filter.amenityBalcony"),
+            parking: t("filter.amenityParking"),
+            furnished: t("filter.amenityFurnished"),
+            dishwasher: t("filter.amenityDishwasher"),
+            washingmachine: t("filter.amenityWashingMachine"),
+            microwave: t("filter.amenityMicrowave"),
+            oven: t("filter.amenityOven"),
+            refrigerator: t("filter.amenityRefrigerator"),
+            tv: t("filter.amenityTV"),
+            airconditioning: t("filter.amenityAirConditioning"),
+            heating: t("filter.amenityHeating"),
+        };
+        return map[normalized] || amenity;
+    };
+
+    const normalizedAmenities = (amenities || [])
+        .map((amenity) => String(amenity || "").trim())
+        .filter((amenity) => amenity.length > 0);
+    const hasInternetAmenity = normalizedAmenities.some((amenity) => amenity.toLowerCase() === "internet");
+    const shouldShowInternet = Boolean(internet) || hasInternetAmenity;
+    const visibleAmenities = normalizedAmenities.filter((amenity) => amenity.toLowerCase() !== "internet");
+
     return(
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[100px]`}>
             
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
-
-                {/* Кнопка назад */}
-                <div className={`w-full flex items-start mt-8 mb-4`}>
-                    <Link 
-                        to={type === "APARTMENT" ? "/apartments" : type === "ROOM" ? "/rooms" : "/neighbours"}
-                        className={`flex items-center gap-2 text-[#C505EB] hover:text-[#BA00F8] duration-300 font-semibold`}
-                    >
-                        <ChevronLeft size={20} />
-                        <span>{t("listing.back")}</span>
-                    </Link>
-                </div>
 
                 {/* Галерея изображений */}
                 <div className={`w-full flex flex-col items-center gap-4 mb-8`}>
@@ -681,6 +919,38 @@ export default function ListingDetailPage() {
                         </div>
 
                         {/* Детали */}
+                        {type !== "NEIGHBOUR" && Array.isArray(residents) && residents.length > 0 && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <h2 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white mb-4`}>
+                                    {t("profile.residents")}
+                                </h2>
+                                <div className={`flex flex-wrap items-center gap-3`}>
+                                    {residents.map((resident) => (
+                                        <button
+                                            key={resident.profileId}
+                                            type="button"
+                                            onClick={() => router(`/neighbours/${resident.profileId}`)}
+                                            className={`w-12 h-12 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm hover:scale-105 hover:ring-2 hover:ring-[#C505EB]/40 transition-all duration-200`}
+                                            title={resident.name}
+                                            aria-label={resident.name}
+                                        >
+                                            {resident.avatar ? (
+                                                <img
+                                                    src={resident.avatar}
+                                                    alt={resident.name}
+                                                    className={`w-full h-full object-cover`}
+                                                />
+                                            ) : (
+                                                <div className={`w-full h-full bg-[#C505EB]/15 text-[#C505EB] text-xs font-bold flex items-center justify-center`}>
+                                                    {(resident.name || "?").charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
                             <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.details")}</h2>
                             <div className={`grid grid-cols-2 max-[770px]:grid-cols-1 gap-4`}>
@@ -715,7 +985,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.maxResidents") || "Max residents"}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.maxResidents")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>
                                                 {residentsCount ?? 0} / {maxResidents}
                                             </span>
@@ -726,7 +996,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <MapPin size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.address") || "Location"}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.location")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{city || region}</span>
                                         </div>
                                     </div>
@@ -735,8 +1005,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.condition") || "Condition"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{condition_state}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.condition")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getConditionStateLabel(condition_state)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -753,8 +1023,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.rentalPeriod") || "Rental period"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{rental_period}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.rentalPeriod")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getRentalPeriodLabel(rental_period)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -762,7 +1032,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.moveInDate") || "Move in date"}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.moveInDate")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{move_in_date}</span>
                                         </div>
                                     </div>
@@ -771,7 +1041,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("add.utilitiesFeePlaceholder") || "Utilities fee"}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.utilitiesFee")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>
                                                 {Number(utilitiesFee || 0).toLocaleString("cs-CZ")} {currency || "CZK"}
                                             </span>
@@ -805,21 +1075,12 @@ export default function ListingDetailPage() {
                                         </div>
                                     </div>
                                 )}
-                                {type === "NEIGHBOUR" && contactPhone && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Phone size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.phone") || "Phone"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{contactPhone}</span>
-                                        </div>
-                                    </div>
-                                )}
                                 {type === "NEIGHBOUR" && smoking && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Smoking</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{smoking}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.smoking")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(smoking)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -827,8 +1088,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Alcohol</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{alcohol}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.alcohol")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(alcohol)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -836,7 +1097,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Pets</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.pets")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{pets}</span>
                                         </div>
                                     </div>
@@ -845,8 +1106,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Sleep schedule</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{sleep_schedule}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.sleepSchedule")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(sleep_schedule)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -854,8 +1115,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Gamer</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{gamer}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.gamer")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(gamer)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -863,8 +1124,8 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Work from home</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{work_from_home}</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.workFromHome")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(work_from_home)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -881,11 +1142,11 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Scores</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.scores")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>
-                                                {cleanliness !== undefined ? `Cleanliness: ${cleanliness}/10` : ""}
+                                                {cleanliness !== undefined ? `${t("profile.cleanliness")}: ${cleanliness}/10` : ""}
                                                 {cleanliness !== undefined && introvert_extrovert !== undefined ? " · " : ""}
-                                                {introvert_extrovert !== undefined ? `Introvert/Extrovert: ${introvert_extrovert}/10` : ""}
+                                                {introvert_extrovert !== undefined ? `${t("profile.introvertExtrovert")}: ${introvert_extrovert}/10` : ""}
                                             </span>
                                         </div>
                                     </div>
@@ -903,7 +1164,7 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Preferences</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.preferences")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>
                                                 {preferred_gender ? `${t("profile.preferredGender") || "Gender"}: ${preferred_gender}` : ""}
                                                 {preferred_gender && preferred_age_range ? " · " : ""}
@@ -916,10 +1177,10 @@ export default function ListingDetailPage() {
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>Status</span>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.sections.status")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{[
-                                                verified ? "Verified" : null,
-                                                looking_for_housing ? "Looking for housing" : null
+                                                verified ? t("badges.verified") : null,
+                                                looking_for_housing ? t("badges.lookingForHousing") : null
                                             ].filter(Boolean).join(" · ")}</span>
                                         </div>
                                     </div>
@@ -1007,30 +1268,30 @@ export default function ListingDetailPage() {
                         )}
 
                         {type !== "NEIGHBOUR" && (
-                            internet || utilities_included || pets_allowed || smoking_allowed || has_roommates || has_video || has_3d_tour || has_floorplan
+                            shouldShowInternet || utilities_included || pets_allowed || smoking_allowed || has_roommates || has_video || has_3d_tour || has_floorplan
                         ) && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
-                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.conditions") || "Conditions"}</h2>
+                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.conditions")}</h2>
                                 <div className={`flex flex-wrap gap-3`}>
-                                    {internet && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>Internet</div>}
-                                    {utilities_included && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.utilitiesIncluded") || "Utilities included"}</div>}
-                                    {pets_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.petsAllowed") || "Pets allowed"}</div>}
-                                    {smoking_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.smokingAllowed") || "Smoking allowed"}</div>}
-                                    {has_roommates && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.withRoommates") || "With roommates"}</div>}
-                                    {has_video && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>Video</div>}
-                                    {has_3d_tour && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>3D tour</div>}
-                                    {has_floorplan && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("add.floorplan") || "Floorplan"}</div>}
+                                    {shouldShowInternet && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.internet")}</div>}
+                                    {utilities_included && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.utilitiesIncluded")}</div>}
+                                    {pets_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.petsAllowed")}</div>}
+                                    {smoking_allowed && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.smokingAllowed")}</div>}
+                                    {has_roommates && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("filter.hasRoommates")}</div>}
+                                    {has_video && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("listing.video")}</div>}
+                                    {has_3d_tour && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("listing.tour3d")}</div>}
+                                    {has_floorplan && <div className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>{t("listing.floorplan")}</div>}
                                 </div>
                             </div>
                         )}
 
-                        {type !== "NEIGHBOUR" && amenities && amenities.length > 0 && (
+                        {type !== "NEIGHBOUR" && visibleAmenities.length > 0 && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
-                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.amenities") || "Amenities"}</h2>
+                                <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.amenities")}</h2>
                                 <div className={`flex flex-wrap gap-3`}>
-                                    {amenities.map((amenity, index) => (
+                                    {visibleAmenities.map((amenity, index) => (
                                         <div key={`${amenity}-${index}`} className={`px-4 py-2 rounded-full bg-[#08E2BE]/10 border border-[#06B396] text-[#06B396] text-sm font-semibold`}>
-                                            {amenity}
+                                            {getAmenityLabel(amenity)}
                                         </div>
                                     ))}
                                 </div>
@@ -1044,6 +1305,58 @@ export default function ListingDetailPage() {
                                 <p className={`text-lg max-[770px]:text-base text-[#666666] dark:text-gray-400 leading-relaxed whitespace-pre-line`}>
                                     {description}
                                 </p>
+                            </div>
+                        )}
+
+                        {type !== "NEIGHBOUR" && canManage && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <h2 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white mb-4`}>
+                                    {t("listing.manageActions")}
+                                </h2>
+                                <div className={`flex max-[770px]:flex-col gap-3`}>
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateInvite}
+                                        disabled={creatingInvite}
+                                        className={`px-6 py-3 rounded-lg bg-[#C505EB] text-white hover:bg-[#BA00F8] disabled:opacity-60 duration-300 font-semibold`}
+                                    >
+                                        {creatingInvite ? t("profile.creatingInvite") : t("profile.invite")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleEditListing}
+                                        className={`px-6 py-3 rounded-lg bg-[#C505EB] text-white hover:bg-[#BA00F8] duration-300 font-semibold`}
+                                    >
+                                        {t("listing.edit")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleActive}
+                                        className={`px-6 py-3 rounded-lg bg-[#08D3E2] text-white hover:opacity-90 duration-300 font-semibold`}
+                                    >
+                                        {isActive ? t("listing.deactivate") : t("listing.activate")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteListing}
+                                        className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 duration-300 font-semibold`}
+                                    >
+                                        {t("listing.delete")}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {type === "NEIGHBOUR" && canRemoveFromHome && (
+                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
+                                <button
+                                    type="button"
+                                    onClick={handleRemoveFromHome}
+                                    disabled={removingFromHome}
+                                    className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 duration-300 font-semibold`}
+                                >
+                                    {removingFromHome ? t("loading") : t("listing.removeFromHome")}
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1079,10 +1392,11 @@ export default function ListingDetailPage() {
                                         </>
                                     ) : (
                                         <button 
-                                            onClick={() => setShowContacts(true)}
+                                            onClick={handleShowContacts}
+                                            disabled={contactsLoading}
                                             className={`w-full py-4 rounded-full bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
                                         >
-                                            {t("listing.showContacts")}
+                                            {contactsLoading ? t("loading") : t("listing.showContacts")}
                                         </button>
                                     )}
                                 </>

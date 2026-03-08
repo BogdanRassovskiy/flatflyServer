@@ -151,6 +151,7 @@ class Listing(models.Model):
 
     # Верификация
     is_verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     max_residents = models.PositiveSmallIntegerField(default=1)
     utilities_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)

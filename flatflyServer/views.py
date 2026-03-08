@@ -29,6 +29,17 @@ User = get_user_model()
 DEBUG_MODE=True;
 
 
+def normalize_listing_type(value):
+    normalized = str(value or "").upper()
+    if normalized in ["BYT", "DUM", "APARTMENT"]:
+        return "APARTMENT"
+    if normalized == "ROOM":
+        return "ROOM"
+    if normalized == "NEIGHBOUR":
+        return "NEIGHBOUR"
+    return normalized or "APARTMENT"
+
+
 @ensure_csrf_cookie
 def index(request):
     return render(request, 'index.html')
@@ -177,6 +188,18 @@ def neighbours_list(request):
 @require_http_methods(["GET"])
 def neighbour_detail(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id)
+    include_contacts = request.GET.get("include_contacts") in ["1", "true", "yes"]
+
+    target_residency = ListingResident.objects.select_related("listing").filter(profile=profile).first()
+    can_remove_from_home = False
+    if request.user.is_authenticated and target_residency:
+        requester_profile, _ = Profile.objects.get_or_create(user=request.user)
+        same_home_resident = ListingResident.objects.filter(
+            listing=target_residency.listing,
+            profile=requester_profile,
+        ).exists()
+        is_home_owner = target_residency.listing.owner_id == request.user.id
+        can_remove_from_home = (same_home_resident or is_home_owner) and requester_profile.id != profile.id
 
     is_favorite = False
     if request.user.is_authenticated:
@@ -185,10 +208,9 @@ def neighbour_detail(request, profile_id):
         except Exception:
             is_favorite = False
 
-    return JsonResponse({
+    payload = {
         "id": profile.id,
         "name": profile.name,
-        "phone": profile.phone,
         "age": profile.age,
         "gender": profile.gender,
         "city": profile.city,
@@ -211,7 +233,41 @@ def neighbour_detail(request, profile_id):
         "looking_for_housing": profile.looking_for_housing,
         "avatar": request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
         "is_favorite": is_favorite,
-    })
+        "canRemoveFromHome": can_remove_from_home,
+    }
+
+    if include_contacts and request.user.is_authenticated:
+        payload["phone"] = profile.phone
+        payload["email"] = profile.user.email
+
+    return JsonResponse(payload)
+
+
+@login_required
+@require_POST
+def remove_from_home(request, profile_id):
+    target_profile = get_object_or_404(Profile, id=profile_id)
+    requester_profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    if target_profile.id == requester_profile.id:
+        return JsonResponse({"detail": "Use leave-home endpoint for yourself"}, status=400)
+
+    target_residency = ListingResident.objects.select_related("listing").filter(profile=target_profile).first()
+    if not target_residency:
+        return JsonResponse({"detail": "Target is not in home"}, status=404)
+
+    listing = target_residency.listing
+    same_home_resident = ListingResident.objects.filter(listing=listing, profile=requester_profile).exists()
+    is_home_owner = listing.owner_id == request.user.id
+
+    if not (same_home_resident or is_home_owner):
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    if ListingResident.objects.filter(listing=listing).count() <= 1:
+        return JsonResponse({"detail": "Cannot remove sole resident"}, status=400)
+
+    target_residency.delete()
+    return JsonResponse({"detail": "Removed from home"})
 
 @csrf_exempt
 @require_POST
@@ -407,16 +463,19 @@ def login_view(request):
         }
     })
 
+@csrf_exempt
 @require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
 def listing_detail(request, listing_id):
     listing = get_object_or_404(Listing, id=listing_id)
 
+    can_manage = False
+    if request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        can_manage = listing.owner_id == request.user.id or ListingResident.objects.filter(listing=listing, profile=profile).exists()
+
     if request.method in ["PUT", "PATCH", "DELETE"]:
         if not request.user.is_authenticated:
             return JsonResponse({"detail": "Not authenticated"}, status=401)
-
-        profile, _ = Profile.objects.get_or_create(user=request.user)
-        can_manage = listing.owner_id == request.user.id or ListingResident.objects.filter(listing=listing, profile=profile).exists()
 
         if not can_manage:
             return JsonResponse({"detail": "Forbidden"}, status=403)
@@ -429,20 +488,66 @@ def listing_detail(request, listing_id):
         editable_fields = {
             "title": "title",
             "description": "description",
+            "type": "type",
+            "property_type": "type",
             "region": "region",
             "city": "city",
             "address": "address",
             "price": "price",
+            "currency": "currency",
             "rooms": "rooms",
+            "beds": "beds",
             "size": "size",
             "moveInDate": "move_in_date",
             "move_in_date": "move_in_date",
+            "conditionState": "condition_state",
+            "condition_state": "condition_state",
+            "energyClass": "energy_class",
+            "energy_class": "energy_class",
+            "rentalPeriod": "rental_period",
+            "rental_period": "rental_period",
             "maxResidents": "max_residents",
             "max_residents": "max_residents",
             "utilitiesFee": "utilities_fee",
             "utilities_fee": "utilities_fee",
             "utilitiesIncluded": "utilities_included",
             "utilities_included": "utilities_included",
+            "internet": "internet",
+            "petsAllowed": "pets_allowed",
+            "pets_allowed": "pets_allowed",
+            "smokingAllowed": "smoking_allowed",
+            "smoking_allowed": "smoking_allowed",
+            "amenities": "amenities",
+            "hasRoommates": "has_roommates",
+            "has_roommates": "has_roommates",
+            "hasBusStop": "has_bus_stop",
+            "has_bus_stop": "has_bus_stop",
+            "hasTrainStation": "has_train_station",
+            "has_train_station": "has_train_station",
+            "hasMetro": "has_metro",
+            "has_metro": "has_metro",
+            "hasPostOffice": "has_post_office",
+            "has_post_office": "has_post_office",
+            "hasAtm": "has_atm",
+            "has_atm": "has_atm",
+            "hasGeneralPractitioner": "has_general_practitioner",
+            "has_general_practitioner": "has_general_practitioner",
+            "hasVet": "has_vet",
+            "has_vet": "has_vet",
+            "hasPrimarySchool": "has_primary_school",
+            "has_primary_school": "has_primary_school",
+            "hasKindergarten": "has_kindergarten",
+            "has_kindergarten": "has_kindergarten",
+            "hasSupermarket": "has_supermarket",
+            "has_supermarket": "has_supermarket",
+            "hasSmallShop": "has_small_shop",
+            "has_small_shop": "has_small_shop",
+            "hasRestaurant": "has_restaurant",
+            "has_restaurant": "has_restaurant",
+            "hasPlayground": "has_playground",
+            "has_playground": "has_playground",
+            "isActive": "is_active",
+            "is_active": "is_active",
         }
 
         for incoming_key, model_field in editable_fields.items():
@@ -452,10 +557,47 @@ def listing_detail(request, listing_id):
             value = data[incoming_key]
             if model_field in ["rooms", "size", "max_residents"]:
                 value = parse_int_value(value)
+            elif model_field == "beds":
+                value = parse_int_value(value)
             elif model_field == "move_in_date":
                 value = parse_date_safe(value)
             elif model_field == "utilities_fee":
                 value = parse_decimal_value(value, Decimal("0"))
+            elif model_field in [
+                "utilities_included",
+                "internet",
+                "pets_allowed",
+                "smoking_allowed",
+                "has_roommates",
+                "has_bus_stop",
+                "has_train_station",
+                "has_metro",
+                "has_post_office",
+                "has_atm",
+                "has_general_practitioner",
+                "has_vet",
+                "has_primary_school",
+                "has_kindergarten",
+                "has_supermarket",
+                "has_small_shop",
+                "has_restaurant",
+                "has_playground",
+            ]:
+                if isinstance(value, str):
+                    value = value.strip().lower() in ["1", "true", "yes", "on"]
+                else:
+                    value = bool(value)
+            elif model_field == "rental_period":
+                value = str(value).upper() if value else "LONG"
+                if value not in ["SHORT", "LONG", "BOTH"]:
+                    value = "LONG"
+            elif model_field == "amenities":
+                value = value if isinstance(value, list) else []
+            elif model_field == "is_active":
+                if isinstance(value, str):
+                    value = value.strip().lower() in ["1", "true", "yes", "on"]
+                else:
+                    value = bool(value)
 
             setattr(listing, model_field, value)
 
@@ -477,7 +619,7 @@ def listing_detail(request, listing_id):
 
     return JsonResponse({
         "id": listing.id,
-        "type": listing.type,
+        "type": normalize_listing_type(listing.type),
         "title": listing.title,
         "description": listing.description,
         "price": str(listing.price),
@@ -496,6 +638,19 @@ def listing_detail(request, listing_id):
         "utilities_included": listing.utilities_included,
         "pets_allowed": listing.pets_allowed,
         "smoking_allowed": listing.smoking_allowed,
+        "has_bus_stop": listing.has_bus_stop,
+        "has_train_station": listing.has_train_station,
+        "has_metro": listing.has_metro,
+        "has_post_office": listing.has_post_office,
+        "has_atm": listing.has_atm,
+        "has_general_practitioner": listing.has_general_practitioner,
+        "has_vet": listing.has_vet,
+        "has_primary_school": listing.has_primary_school,
+        "has_kindergarten": listing.has_kindergarten,
+        "has_supermarket": listing.has_supermarket,
+        "has_small_shop": listing.has_small_shop,
+        "has_restaurant": listing.has_restaurant,
+        "has_playground": listing.has_playground,
         "has_roommates": listing.has_roommates,
         "has_video": listing.has_video,
         "has_3d_tour": listing.has_3d_tour,
@@ -503,6 +658,16 @@ def listing_detail(request, listing_id):
         "maxResidents": listing.max_residents,
         "utilitiesFee": str(listing.utilities_fee),
         "residentsCount": listing.residents.count(),
+        "residents": [
+            {
+                "profileId": resident.profile_id,
+                "name": resident.profile.name or resident.profile.user.username,
+                "avatar": request.build_absolute_uri(resident.profile.avatar.url) if resident.profile.avatar else None,
+            }
+            for resident in ListingResident.objects.filter(listing=listing).select_related("profile__user")
+        ],
+        "isActive": listing.is_active,
+        "canManage": can_manage,
         "badges": [],
         "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
         "images": [
@@ -622,7 +787,16 @@ def listings_view(request):
     # =========================
     # ПОЛУЧЕНИЕ СПИСКА
     # =========================
-    qs = Listing.objects.all().order_by("-created_at")
+    owner_filter = request.GET.get("owner")
+    if owner_filter == "me":
+        if not request.user.is_authenticated:
+            return JsonResponse({"detail": "Not authenticated"}, status=401)
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        qs = Listing.objects.filter(
+            Q(owner=request.user) | Q(residents__profile=profile)
+        ).distinct().order_by("-created_at")
+    else:
+        qs = Listing.objects.filter(is_active=True).order_by("-created_at")
 
     # Получаем фильтры
     search = request.GET.get("search")
@@ -649,9 +823,11 @@ def listings_view(request):
     # ---- Фильтрация ----
 
     if listing_type:
-        qs = qs.filter(type=listing_type)
-    #if Type:
-    #    qs = qs.filter(type=Type)
+        normalized_requested_type = normalize_listing_type(listing_type)
+        if normalized_requested_type == "APARTMENT":
+            qs = qs.filter(type__in=["APARTMENT", "BYT", "DUM"])
+        else:
+            qs = qs.filter(type=normalized_requested_type)
     if search:
         qs = qs.filter(
             Q(title__icontains=search) |
@@ -718,10 +894,11 @@ def listings_view(request):
 
         results.append({
             "id": listing.id,
-            "type": listing.type,
+            "type": normalize_listing_type(listing.type),
             "title": listing.title,
             "price": str(listing.price),
             "utilitiesFee": str(listing.utilities_fee),
+            "isActive": listing.is_active,
             "region": listing.region,
             "address": listing.address,
             "size": listing.size,
@@ -816,6 +993,9 @@ def create_home_invite(request, listing_id):
 def join_home_by_invite(request, token):
     invite = get_object_or_404(ListingInvite, token=token)
 
+    def joined_redirect_response():
+        return redirect("/profile?tab=myHome&joined=1")
+
     if not invite.is_active:
         return JsonResponse({"detail": "Invite inactive"}, status=400)
     if invite.expires_at <= timezone.now():
@@ -827,6 +1007,8 @@ def join_home_by_invite(request, token):
         return JsonResponse({"detail": "Already resident in another home"}, status=400)
 
     if ListingResident.objects.filter(listing=invite.listing, profile=profile).exists():
+        if request.method == "GET":
+            return joined_redirect_response()
         return JsonResponse({"detail": "Already joined"}, status=200)
 
     current_count = ListingResident.objects.filter(listing=invite.listing).count()
@@ -838,6 +1020,9 @@ def join_home_by_invite(request, token):
     invite.accepted_at = timezone.now()
     invite.is_active = False
     invite.save(update_fields=["accepted_by", "accepted_at", "is_active"])
+
+    if request.method == "GET":
+        return joined_redirect_response()
 
     return JsonResponse({"detail": "Joined", "listingId": invite.listing_id})
 
@@ -858,7 +1043,7 @@ def my_home(request):
         "listing": {
             "id": listing.id,
             "title": listing.title,
-            "type": listing.type,
+            "type": normalize_listing_type(listing.type),
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
             "address": listing.address,
             "region": listing.region,
@@ -1220,7 +1405,7 @@ def get_favorites(request):
                 "title": listing.title,
                 "description": listing.description,
                 "price": str(listing.price),
-                "room_type": listing.type,
+                "room_type": normalize_listing_type(listing.type),
                 "city": listing.address,
                 "region": listing.region,
                 "area": listing.size,

@@ -164,6 +164,7 @@ export default function ProfilePage() {
         // Общее
         image_url?: string | null;
         is_favorite?: boolean;
+        is_active?: boolean;
     };
     const [favListings, setFavListings] = useState<FavoriteListing[]>([]);
     const [favLoading, setFavLoading] = useState(false);
@@ -183,6 +184,7 @@ export default function ProfilePage() {
     const [myHomeError, setMyHomeError] = useState<string | null>(null);
     const [leavingHome, setLeavingHome] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
     useEffect(() => {
@@ -203,32 +205,43 @@ export default function ProfilePage() {
                 setMyListingsPage(1);
             }
         }
+
+        if (!hash && !tab) {
+            const returnTab = window.sessionStorage.getItem("profileReturnTab");
+            if (returnTab === "myListings") {
+                setActiveSection("myListings");
+                setMyListingsPage(1);
+                window.sessionStorage.removeItem("profileReturnTab");
+            }
+        }
     }, [location.hash, location.search]);
 
-    // Нормализуем URL: сохраняем только ?tab=<section> и убираем хэш, чтобы повторные клики по «Избранное» работали
+    useEffect(() => {
+        const state = location.state as { profileTab?: string } | null;
+        const rawStateTab = (state?.profileTab || "").toLowerCase();
+        const stateTab = rawStateTab === "mylistings" ? "myListings" : rawStateTab;
+        const validSections: Array<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome"> = ["basic", "social", "status", "favorites", "myListings", "myHome"];
+        if (validSections.includes(stateTab as typeof validSections[number])) {
+            setActiveSection(stateTab as typeof validSections[number]);
+            if (stateTab === "myListings") {
+                setMyListingsPage(1);
+            }
+        }
+    }, [location.state]);
+
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const currentTab = (params.get("tab") || "").toLowerCase();
-        const normalizedCurrent = currentTab === "favourites" ? "favorites" : currentTab;
-        const desiredTab = activeSection === "basic" ? "" : activeSection;
-        const hasHash = Boolean(location.hash);
-        const needsUpdate = normalizedCurrent !== desiredTab || hasHash;
+        const joined = params.get("joined");
+        const joinedSuccessfully = joined === "1" || joined === "true";
 
-        if (needsUpdate) {
-            const nextParams = new URLSearchParams(location.search);
-            if (desiredTab) {
-                nextParams.set("tab", desiredTab);
-            } else {
-                nextParams.delete("tab");
-            }
+        setShowJoinedHomeNotice((prev) => prev || joinedSuccessfully);
 
-            const search = nextParams.toString();
-            navigate({
-                pathname: location.pathname,
-                search: search ? `?${search}` : "",
-            }, { replace: true });
+        if (joinedSuccessfully) {
+            params.delete("joined");
+            const nextQuery = params.toString();
+            navigate(`${location.pathname}${nextQuery ? `?${nextQuery}` : ""}${location.hash}`, { replace: true });
         }
-    }, [activeSection, location.hash, location.pathname, location.search, navigate]);
+    }, [location.search, location.pathname, location.hash, navigate]);
 
     const fetchFavorites = async (page = 1) => {
         if (!user) return;
@@ -256,20 +269,27 @@ export default function ProfilePage() {
             if (!res.ok) throw new Error("Failed to load my listings");
             const data = await res.json();
             // Transform data to match FavoriteListing type
-            const listings = (data.results || []).map((listing: any) => ({
-                id: listing.id,
-                type: "LISTING" as const,
-                title: listing.title,
-                description: listing.description,
-                price: listing.price,
-                room_type: listing.property_type === "APARTMENT" ? "APARTMENT" : "ROOM",
-                city: listing.city,
-                region: listing.region,
-                area: listing.usable_area,
-                amenities: listing.amenities || [],
-                image_url: listing.image || null,
-                is_favorite: listing.is_favorite || false,
-            }));
+            const listings = (data.results || []).map((listing: any) => {
+                const normalizedRoomType = ["APARTMENT", "BYT", "DUM"].includes(String(listing.type || listing.property_type || "").toUpperCase())
+                    ? "APARTMENT"
+                    : "ROOM";
+
+                return {
+                    id: listing.id,
+                    type: "LISTING" as const,
+                    title: listing.title,
+                    description: listing.description,
+                    price: listing.price,
+                    room_type: normalizedRoomType,
+                    city: listing.city,
+                    region: listing.region,
+                    area: listing.usable_area,
+                    amenities: listing.amenities || [],
+                    image_url: listing.image || null,
+                    is_favorite: listing.is_favorite || false,
+                    is_active: listing.isActive !== false,
+                };
+            });
             setMyListings(listings);
             setMyListingsTotalPages(data.total_pages || 1);
             setMyListingsError(null);
@@ -377,6 +397,10 @@ export default function ProfilePage() {
             .join("") || "?";
     };
 
+    const handleMyListingsCardClick = () => {
+        window.sessionStorage.setItem("profileReturnTab", "myListings");
+    };
+
     useEffect(() => {
         if (activeSection === "favorites") {
             fetchFavorites(favPage);
@@ -400,8 +424,8 @@ export default function ProfilePage() {
                 from: favorite.city,
                 image: getImageUrl(favorite.image_url),
                 badges: [
-                    ...(favorite.verified ? ["Verified"] : []),
-                    ...(favorite.looking_for_housing ? ["Looking for housing"] : []),
+                    ...(favorite.verified ? [t("badges.verified")] : []),
+                    ...(favorite.looking_for_housing ? [t("badges.lookingForHousing")] : []),
                 ],
                 is_favorite: favorite.is_favorite ?? false,
             };
@@ -417,6 +441,7 @@ export default function ProfilePage() {
             size: favorite.area?.toString() || "N/A",
             amenities: favorite.amenities,
             is_favorite: favorite.is_favorite ?? false,
+            is_active: favorite.is_active ?? true,
         };
     };
 
@@ -1134,10 +1159,16 @@ export default function ProfilePage() {
                                 <>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
                                         {myListings.map((listing) => (
-                                            <SaleCard
+                                            <div
                                                 key={listing.id}
-                                                {...convertToSaleCardType(listing)}
-                                            />
+                                                onClick={handleMyListingsCardClick}
+                                                className={listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""}
+                                            >
+                                                <SaleCard
+                                                    {...convertToSaleCardType(listing)}
+                                                    linkState={{ profileTab: "myListings" }}
+                                                />
+                                            </div>
                                         ))}
                                     </div>
                                     {myListingsTotalPages > 1 && (
@@ -1185,6 +1216,15 @@ export default function ProfilePage() {
                                     {t("profile.sections.myHome")}
                                 </h2>
                             </div>
+
+                            {showJoinedHomeNotice && (
+                                <div className="flex items-center gap-3 rounded-xl border border-[#08D3E2]/40 bg-gradient-to-r from-[#BA00F8]/10 to-[#08D3E2]/10 px-4 py-3">
+                                    <CheckCircle className="w-5 h-5 text-[#08D3E2]" />
+                                    <span className="text-sm font-semibold text-[#333333] dark:text-white">
+                                        {t("profile.joinedHomeSuccess")}
+                                    </span>
+                                </div>
+                            )}
 
                             {myHomeLoading && <div className="text-center py-10">{t("loading")}</div>}
                             {myHomeError && (

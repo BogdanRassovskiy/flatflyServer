@@ -183,9 +183,8 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
     ].filter(Boolean) as { title: string; subTitle: string }[];
 
     const propertyTypes = [
-        {value: "ROOM", label: t("filter.propertyTypeRoom")},
-      {value: "BYT", label: t("filter.propertyTypeApartment")},
       {value: "DUM", label: t("filter.propertyTypeHouse")},
+      {value: "BYT", label: t("filter.propertyTypeApartment")},
       {value: "NEIGHBOUR", label: t("filter.propertyTypeNeighbour")},
     ];
 

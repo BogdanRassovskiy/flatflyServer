@@ -1,7 +1,7 @@
 {
   "header": {
     "home": "Главная",
-    "apartments": "Квартиры/Комнаты",
+    "apartments": "Все",
     "rooms": "Комнаты",
     "neighbours": "Соседи",
     "blog": "Блог",
@@ -50,7 +50,7 @@
     "offerType": "Тип предложения",
     "offerTypeValue": "Все / Аренда / Продажа",
     "property": "Недвижимость",
-    "propertyValue": "Квартиры / Комнаты",
+    "propertyValue": "Все",
     "propertyType": "Тип недвижимости",
     "propertyTypeRoom": "Комната",
     "propertyTypeApartment": "Квартира",
@@ -194,7 +194,34 @@
     "hasSupermarket": "Супермаркет",
     "hasSmallShop": "Магазин",
     "hasRestaurant": "Ресторан",
-    "hasPlayground": "Детская площадка"
+    "hasPlayground": "Детская площадка",
+    "maxResidents": "Макс. жителей",
+    "location": "Локация",
+    "rentalPeriod": "Срок аренды",
+    "moveInDate": "Дата заселения",
+    "utilitiesFee": "Коммунальные платежи",
+    "conditions": "Условия",
+    "amenities": "Оснащение",
+    "video": "Видео",
+    "tour3d": "3D-тур",
+    "floorplan": "Планировка",
+    "scores": "Оценки",
+    "preferences": "Предпочтения",
+    "manageActions": "Управление объявлением",
+    "edit": "Редактировать",
+    "deactivate": "Деактивировать",
+    "activate": "Активировать",
+    "delete": "Удалить",
+    "confirmDelete": "Удалить это объявление? Действие необратимо.",
+    "actionFailed": "Не удалось выполнить действие",
+    "editTitlePrompt": "Введите новое название объявления",
+    "editDescriptionPrompt": "Введите новое описание объявления",
+    "editPricePrompt": "Введите новую цену",
+    "invalidPrice": "Некорректная цена"
+    ,"deactivated": "Деактивировано"
+    ,"removeFromHome": "Удалить из дома"
+    ,"removeFromHomeConfirm": "Удалить этого человека из дома?"
+    ,"removedFromHomeSuccess": "Пользователь удалён из дома"
   },
   "pagination": {
     "next": "Далее"
@@ -257,6 +284,8 @@
     "price": "Цена (крон/месяц)",
     "pricePlaceholder": "напр. 12 000",
     "publish": "Опубликовать объявление",
+    "update": "Сохранить изменения",
+    "updatedSuccessfully": "Объявление успешно обновлено",
     "fileTooLarge": "Файл {fileName} слишком большой. Максимальный размер 10 МБ.",
     "selectAdType": "Выберите тип объявления",
     "fillRequiredFields": "Заполните обязательные поля",
@@ -461,6 +490,7 @@
     "copyLink": "Копировать ссылку",
     "copied": "Ссылка скопирована",
     "inviteFailed": "Не удалось создать приглашение",
+    "joinedHomeSuccess": "Вы успешно присоединились к дому!",
     "errorUploadingAvatar": "Ошибка загрузки аватара",
     "errorSavingProfile": "Ошибка сохранения профиля"
   },

@@ -8,7 +8,7 @@ import { getImageUrl } from "../../utils/defaultImage";
 
 export type SaleCardTypes = {
     id?: string | number;
-    type: "APARTMENT" | "ROOM" | "NEIGHBOUR";
+    type: "APARTMENT" | "ROOM" | "NEIGHBOUR" | "BYT" | "DUM";
     price?: number | string;
     utilitiesFee?: number | string;
     address?: string;
@@ -27,6 +27,8 @@ export type SaleCardTypes = {
     region?: string;
     title?: string;
     description?: string;
+    is_active?: boolean;
+    linkState?: unknown;
 };
 
 interface SaleCardProps extends SaleCardTypes {
@@ -48,11 +50,17 @@ export default function SaleCard({
     from,
     badges = [],
     is_favorite,
+    is_active = true,
+    linkState,
     onRemoveFavorite
 }: SaleCardProps) {
     const { t } = useLanguage();
     const [isLike, setLike] = useState(!!is_favorite);
     const [isProcessing, setProcessing] = useState(false);
+    const parsedUtilitiesFee = Number(utilitiesFee || 0);
+    const utilitiesFeeLabel = Number.isFinite(parsedUtilitiesFee) && parsedUtilitiesFee > 0
+        ? ` (+${parsedUtilitiesFee.toLocaleString("cs-CZ")} Kč)`
+        : "";
 
     // Поддерживать актуальность при изменении пропса
     useEffect(() => {
@@ -112,9 +120,11 @@ export default function SaleCard({
             setProcessing(false);
         }
     };
+    const normalizedType = (type === "BYT" || type === "DUM") ? "APARTMENT" : type;
+
     const getListingUrl = () => {
         if (!id) return null;
-        switch (type) {
+        switch (normalizedType) {
             case "APARTMENT":
                 return `/apartments/${id}`;
             case "ROOM":
@@ -129,7 +139,7 @@ export default function SaleCard({
     const listingUrl = getListingUrl();
 
     const SaleCardTypeHandler = ()=>{
-        switch (type) {
+        switch (normalizedType) {
             case "ROOM":
                 return(
                     <div className={`w-full h-full flex flex-col items-start py-1.5 px-3 gap-1`}>
@@ -137,7 +147,7 @@ export default function SaleCard({
                             <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
                             <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
                                 {price} {t("saleCard.perMonth")}
-                                {Number(utilitiesFee || 0) > 0 ? ` (+${t("saleCard.utilitiesPayments")})` : ""}
+                                {utilitiesFeeLabel}
                             </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
@@ -179,7 +189,7 @@ export default function SaleCard({
                             <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
                             <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
                                 {price} {t("saleCard.perMonth")}
-                                {Number(utilitiesFee || 0) > 0 ? ` (+${t("saleCard.utilitiesPayments")})` : ""}
+                                {utilitiesFeeLabel}
                             </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
@@ -198,12 +208,21 @@ export default function SaleCard({
     };
 
     const CardContent = (
-        <div className={`flex flex-col items-center max-[1220px]:w-[254px] max-[1220px]:h-[290px] w-[384px] h-[420px] bg-white dark:bg-gray-800 rounded-xl shadow-md dark:shadow-gray-900/50 border border-[#E5E5E5] dark:border-gray-700 interFont overflow-hidden relative ${listingUrl ? 'cursor-pointer hover:shadow-xl dark:hover:shadow-gray-900/70 hover:scale-[1.02] duration-300' : ''}`}>
+        <div className={`flex flex-col items-center max-[1220px]:w-[254px] max-[1220px]:h-[290px] w-[384px] h-[420px] rounded-xl shadow-md dark:shadow-gray-900/50 border interFont overflow-hidden relative ${
+            is_active
+                ? "bg-white dark:bg-gray-800 border-[#E5E5E5] dark:border-gray-700"
+                : "bg-gray-100 dark:bg-gray-700 border-gray-400 dark:border-gray-500"
+        } ${listingUrl ? 'cursor-pointer hover:shadow-xl dark:hover:shadow-gray-900/70 hover:scale-[1.02] duration-300' : ''}`}>
+            {!is_active && (
+                <div className={`absolute top-3 left-3 z-20 px-2 py-1 rounded bg-black/70 text-white text-[10px] font-semibold`}>
+                    {t("listing.deactivated")}
+                </div>
+            )}
             <div className={`w-full h-[282px] max-[1220px]:h-[182px] flex-shrink-0 flex flex-col items-start overflow-hidden relative`}>
-                <img className={`w-full h-full object-cover absolute top-0 left-0`} src={getImageUrl(image)} alt={address}/>
+                <img className={`w-full h-full object-cover absolute top-0 left-0 ${!is_active ? 'grayscale' : ''}`} src={getImageUrl(image)} alt={address}/>
                 <div className={`w-full flex flex-col items-start p-3 absolute top-0 left-0`}>
                     <div className={`w-full flex items-start justify-between`}>
-                        {(type==="ROOM" || type==="APARTMENT")?
+                        {(normalizedType==="ROOM" || normalizedType==="APARTMENT")?
                             <div className={`flex flex-col items-start gap-3 max-[1220px]:gap-1 `}>
                                 {amenities.map((value, index)=>
                                     <div key={index} className={`p-1 max-[1220px]:p-0.5 rounded bg-[#08E2BE] border border-[#06B396] text-black text-[10px] max-[1220px]:text-[6px] font-bold`}>
@@ -216,7 +235,12 @@ export default function SaleCard({
                             className={`cursor-pointer z-10 ${isProcessing ? 'pointer-events-none opacity-70' : ''}`} 
                             onClick={toggleFavorite}
                         >
-                            <Icon icon="line-md:heart" width="24" height="24"  style={{color: isLike? `#C505EB` : `#ffffff`,transitionDuration:`0.3s`}} />
+                            <Icon
+                                icon={isLike ? "mdi:heart" : "mdi:heart-outline"}
+                                width="24"
+                                height="24"
+                                style={{color: isLike ? `#C505EB` : `#ffffff`, transitionDuration: `0.3s`}}
+                            />
                         </div>
                     </div>
                 </div>
@@ -228,7 +252,7 @@ export default function SaleCard({
 
     if (listingUrl) {
         return (
-            <Link to={listingUrl}>
+            <Link to={listingUrl} state={linkState}>
                 {CardContent}
             </Link>
         );

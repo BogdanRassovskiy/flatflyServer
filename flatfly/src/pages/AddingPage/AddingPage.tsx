@@ -2,11 +2,15 @@ import {Icon} from "@iconify/react";
 import {useState, useRef, useEffect} from "react";
 import {X, ChevronLeft, ChevronRight, CheckCircle, AlertCircle} from "lucide-react";
 import {useLanguage} from "../../contexts/LanguageContext";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
+import { getCsrfToken } from "../../utils/csrf";
 
 
 export default function AddingPage() {
     const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editListingId = searchParams.get("editListingId");
+  const isEditMode = Boolean(editListingId);
     
     // Основные поля
     const [region, setRegion] = useState("");
@@ -62,6 +66,7 @@ export default function AddingPage() {
     
     // Состояние для уведомлений
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+    const [isLoadingListing, setIsLoadingListing] = useState(false);
 
     // Функция показа уведомления
     const showNotification = (message: string, type: 'success' | 'error') => {
@@ -142,34 +147,24 @@ export default function AddingPage() {
       }
 
       try {
-        // 1. создаём объявление
-        const res = await fetch("/api/listings/", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const payload = {
               property_type: typeAd,
+              type: typeAd,
               creatorRole,
               title,
               description,
               price,
               currency,
               
-              // Локация
               region,
               city,
               address,
               
-              // Площадь и комнаты
               rooms: layout,
               
-              // Состояние и энергетика
               condition_state: conditionState || null,
               energy_class: energyClass || null,
               
-              // POI инфраструктура
               has_bus_stop: hasBusStop,
               has_train_station: hasTrainStation,
               has_metro: hasMetro,
@@ -184,8 +179,7 @@ export default function AddingPage() {
               has_restaurant: hasRestaurant,
               has_playground: hasPlayground,
               
-              // Условия проживания
-              rental_period: rentalPeriod,
+              rental_period: rentalPeriod === "short" ? "SHORT" : rentalPeriod === "long" ? "LONG" : "BOTH",
               max_residents: maxResidents,
               maxResidents,
               amenities,
@@ -196,15 +190,27 @@ export default function AddingPage() {
               pets_allowed: petsAllowed,
               smoking_allowed: smokingAllowed,
               move_in_date: moveInDate || null,
-            }),
+            };
+
+        const endpoint = isEditMode ? `/api/listings/${editListingId}/` : "/api/listings/";
+        const method = isEditMode ? "PATCH" : "POST";
+
+        const res = await fetch(endpoint, {
+          method,
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: JSON.stringify(payload),
         });
 
-        if (!res.ok) throw new Error(t("add.failedToCreateAd"));
+        if (!res.ok) throw new Error(isEditMode ? t("add.publishFailed") : t("add.failedToCreateAd"));
 
         const data = await res.json();
-        const adId = data.id;
+        const adId = isEditMode ? editListingId : data.id;
 
-        // 2. загружаем изображения
+        // загружаем только новые изображения
         for (const file of selectedFiles) {
           const formData = new FormData();
           formData.append("image", file);
@@ -220,7 +226,7 @@ export default function AddingPage() {
           }
         }
 
-        showNotification(t("add.adSuccessfullyPublished"), 'success');
+        showNotification(isEditMode ? t("add.updatedSuccessfully") : t("add.adSuccessfullyPublished"), 'success');
 
         // Редирект на страницу профиля с вкладкой "Мои объявления"
         setTimeout(() => {
@@ -245,6 +251,88 @@ export default function AddingPage() {
         showNotification(t("add.publishFailed"), 'error');
       }
     };
+
+    useEffect(() => {
+      if (!isEditMode || !editListingId) {
+        return;
+      }
+
+      const loadExistingListing = async () => {
+        try {
+          setIsLoadingListing(true);
+          const response = await fetch(`/api/listings/${editListingId}/`, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load listing");
+          }
+
+          const data = await response.json();
+
+          const normalizedType = (() => {
+            const rawType = String(data.type || data.property_type || "BYT").toUpperCase();
+            if (rawType === "APARTMENT") return "BYT";
+            if (rawType === "ROOM") return "ROOM";
+            if (rawType === "NEIGHBOUR") return "NEIGHBOUR";
+            if (rawType === "DUM") return "BYT";
+            return "BYT";
+          })();
+
+          setTypeAd(normalizedType);
+          setTitle(data.title || "");
+          setDescription(data.description || "");
+          setLayout(data.rooms !== null && data.rooms !== undefined ? String(data.rooms) : "");
+          setPrice(data.price !== null && data.price !== undefined ? Number(data.price) : null);
+          setCurrency(data.currency || "CZK");
+
+          setRegion(data.region || "");
+          setCity(data.city || "");
+          setAddress(data.address || "");
+
+          setConditionState(data.condition_state || "");
+          setEnergyClass(data.energy_class || "");
+
+          const normalizedAmenities = Array.isArray(data.amenities) ? data.amenities : [];
+          setAmenities(normalizedAmenities);
+          setInternet(Boolean(data.internet) || normalizedAmenities.includes("internet"));
+
+          setUtilitiesIncluded(Boolean(data.utilities_included));
+          setUtilitiesFee(Number(data.utilitiesFee || 0));
+
+          setPetsAllowed(Boolean(data.pets_allowed));
+          setSmokingAllowed(Boolean(data.smoking_allowed));
+          setRentalPeriod(data.rental_period === "SHORT" ? "short" : data.rental_period === "LONG" ? "long" : "flexible");
+          setMaxResidents(Number(data.maxResidents || 1));
+          setMoveInDate(data.move_in_date || "");
+
+          setHasBusStop(Boolean(data.has_bus_stop));
+          setHasTrainStation(Boolean(data.has_train_station));
+          setHasMetro(Boolean(data.has_metro));
+          setHasPostOffice(Boolean(data.has_post_office));
+          setHasAtm(Boolean(data.has_atm));
+          setHasGeneralPractitioner(Boolean(data.has_general_practitioner));
+          setHasVet(Boolean(data.has_vet));
+          setHasPrimarySchool(Boolean(data.has_primary_school));
+          setHasKindergarten(Boolean(data.has_kindergarten));
+          setHasSupermarket(Boolean(data.has_supermarket));
+          setHasSmallShop(Boolean(data.has_small_shop));
+          setHasRestaurant(Boolean(data.has_restaurant));
+          setHasPlayground(Boolean(data.has_playground));
+
+          const existingImages = Array.isArray(data.images) ? data.images : [];
+          setUploadedImages(existingImages);
+          setSelectedFiles([]);
+        } catch (error) {
+          console.error("Failed to preload listing for editing", error);
+          showNotification(t("add.publishFailed"), "error");
+        } finally {
+          setIsLoadingListing(false);
+        }
+      };
+
+      loadExistingListing();
+    }, [isEditMode, editListingId, t]);
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         setIsDragging(false);
@@ -798,10 +886,11 @@ export default function AddingPage() {
                       {/* PUBLISH */}
                       <button
                         onClick={handlePublish}
+                        disabled={isLoadingListing}
                         className={`mt-12 max-[770px]:mt-4 w-full h-11 flex items-center justify-center rounded-full 
-                                    text-white text-xl font-semibold bg-[#C505EB] hover:bg-[#BA00F8] transition`}
+                                    text-white text-xl font-semibold bg-[#C505EB] hover:bg-[#BA00F8] transition disabled:opacity-60 disabled:cursor-not-allowed`}
                       >
-                        {t("add.publish")}
+                        {isLoadingListing ? t("loading") : (isEditMode ? t("add.update") : t("add.publish"))}
                       </button>
 
                     </div>
