@@ -5,6 +5,7 @@ import re
 import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+import unicodedata
 from django.http import JsonResponse, HttpResponse
 import requests
 from django.conf import settings
@@ -12,10 +13,10 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 import jwt
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
-from django.db.models import Q
+from django.db.models import Q, Avg, Count
 from django.utils import timezone
-from users.models import Profile
-from listings.models import Listing, ListingImage, ListingInvite, ListingResident
+from users.models import Profile, ProfileReview
+from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality
 from article.models import LaunchSettings, default_launch_date
 from django.core.paginator import Paginator
 
@@ -38,6 +39,455 @@ def normalize_listing_type(value):
     if normalized == "NEIGHBOUR":
         return "NEIGHBOUR"
     return normalized or "APARTMENT"
+
+
+def normalize_text(value):
+    return unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+
+
+def is_valid_municipality_name(city_name, region_code=None):
+    city_text = str(city_name or "").strip()
+    if not city_text:
+        return False
+
+    normalized_city = normalize_text(city_text)
+    qs = CzechMunicipality.objects.filter(
+        Q(name__iexact=city_text) | Q(normalized_name=normalized_city)
+    )
+    if region_code:
+        qs = qs.filter(region_code=str(region_code).upper())
+    return qs.exists()
+
+
+def _is_meaningful_text(value):
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return re.search(r"[A-Za-zА-Яа-я0-9]", text) is not None
+
+
+def _safe_listing_title(listing):
+    title = str(listing.title or "").strip()
+    if _is_meaningful_text(title):
+        return title
+
+    address = str(listing.address or "").strip()
+    if _is_meaningful_text(address):
+        return address
+
+    return f"Listing #{listing.id}"
+
+
+def _safe_listing_description(listing):
+    description = str(listing.description or "").strip()
+    if _is_meaningful_text(description):
+        return description
+    return ""
+
+
+@require_http_methods(["GET"])
+def municipalities_search(request):
+    query = str(request.GET.get("q") or "").strip()
+    region = str(request.GET.get("region") or "").strip().upper()
+
+    try:
+        limit = int(request.GET.get("limit", 12))
+    except (TypeError, ValueError):
+        limit = 12
+    limit = max(1, min(limit, 30))
+
+    qs = CzechMunicipality.objects.all()
+    if region:
+        qs = qs.filter(region_code=region)
+
+    if query:
+        normalized_query = normalize_text(query)
+        qs = qs.filter(
+            Q(name__icontains=query) | Q(normalized_name__contains=normalized_query)
+        )
+    else:
+        qs = qs.none()
+
+    items = list(qs.order_by("name").values("name", "region_code", "municipality_type")[:limit])
+    return JsonResponse({"results": items})
+
+
+def _parse_bool_choice(raw_value):
+    value = str(raw_value or "").strip().lower()
+    if value in ["yes", "true", "1"]:
+        return True
+    if value in ["no", "false", "0", "not"]:
+        return False
+    return None
+
+
+def _parse_float_safe(raw_value):
+    if raw_value is None or raw_value == "":
+        return None
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_price_histogram(qs, buckets_count=28):
+    prices = []
+    for value in qs.values_list("price", flat=True):
+        parsed = _parse_float_safe(value)
+        if parsed is None:
+            continue
+        prices.append(float(parsed))
+
+    if not prices:
+        return {
+            "min": 0,
+            "max": 0,
+            "total": 0,
+            "max_count": 0,
+            "buckets": [],
+        }
+
+    min_price = min(prices)
+    max_price = max(prices)
+    safe_buckets_count = max(8, min(int(buckets_count or 28), 48))
+
+    if max_price <= min_price:
+        bucket_items = []
+        for index in range(safe_buckets_count):
+            bucket_items.append({
+                "from": round(min_price, 2),
+                "to": round(max_price, 2),
+                "count": len(prices) if index == 0 else 0,
+            })
+        return {
+            "min": round(min_price, 2),
+            "max": round(max_price, 2),
+            "total": len(prices),
+            "max_count": len(prices),
+            "buckets": bucket_items,
+        }
+
+    bucket_size = (max_price - min_price) / safe_buckets_count
+    counts = [0] * safe_buckets_count
+    for price in prices:
+        bucket_index = int((price - min_price) / bucket_size)
+        if bucket_index >= safe_buckets_count:
+            bucket_index = safe_buckets_count - 1
+        counts[bucket_index] += 1
+
+    bucket_items = []
+    for index in range(safe_buckets_count):
+        bucket_start = min_price + index * bucket_size
+        bucket_end = min_price + (index + 1) * bucket_size
+        if index == safe_buckets_count - 1:
+            bucket_end = max_price
+        bucket_items.append({
+            "from": round(bucket_start, 2),
+            "to": round(bucket_end, 2),
+            "count": counts[index],
+        })
+
+    return {
+        "min": round(min_price, 2),
+        "max": round(max_price, 2),
+        "total": len(prices),
+        "max_count": max(counts) if counts else 0,
+        "buckets": bucket_items,
+    }
+
+
+def _normalize_rooms_filter(raw_value):
+    value = str(raw_value or "").strip()
+    if not value:
+        return None
+    if value.endswith("+"):
+        base = parse_int_value(value[:-1])
+        return {"mode": "gte", "value": base}
+    parsed = parse_int_value(value)
+    if parsed is None:
+        return None
+    return {"mode": "eq", "value": parsed}
+
+
+def _build_requested_listing_filters(request):
+    requested = {
+        "property_type": None,
+        "region": request.GET.get("region") or None,
+        "price_from": _parse_float_safe(request.GET.get("priceFrom")),
+        "price_to": _parse_float_safe(request.GET.get("priceTo")),
+        "currency": request.GET.get("currency") or None,
+        "sort_by": request.GET.get("sortBy") or "price_asc",
+        "rooms": _normalize_rooms_filter(request.GET.get("rooms")),
+        "has_roommates": _parse_bool_choice(request.GET.get("hasRoommates")),
+        "rental_period": request.GET.get("rentalPeriod") or None,
+        "condition_state": request.GET.get("conditionState") or None,
+        "energy_class": request.GET.get("energyClass") or None,
+        "internet": _parse_bool_choice(request.GET.get("internet")),
+        "utilities": _parse_bool_choice(request.GET.get("utilities")),
+        "pets_allowed": _parse_bool_choice(request.GET.get("petsAllowed")),
+        "smoking_allowed": _parse_bool_choice(request.GET.get("smokingAllowed")),
+        "move_in_date": parse_date_safe(request.GET.get("moveInDate")),
+        "amenities": [x for x in request.GET.getlist("amenities[]") if x],
+        "infrastructure": [x for x in request.GET.getlist("infrastructure[]") if x],
+    }
+
+    listing_type = request.GET.get("propertyType")
+    if listing_type:
+        requested["property_type"] = normalize_listing_type(listing_type)
+
+    return requested
+
+
+def _rooms_match(rooms_value, room_filter):
+    if room_filter is None:
+        return True
+    if rooms_value is None:
+        return False
+    mode = room_filter.get("mode")
+    target = room_filter.get("value")
+    if target is None:
+        return False
+    if mode == "gte":
+        return rooms_value >= target
+    return rooms_value == target
+
+
+def _listing_filter_match_ratio(listing, code, expected_value):
+    if expected_value is None:
+        return None
+
+    if code == "property_type":
+        expected_type = normalize_listing_type(expected_value)
+        if expected_type == "APARTMENT":
+            return 1.0 if listing.type in ["APARTMENT", "BYT", "DUM"] else 0.0
+        return 1.0 if listing.type == expected_type else 0.0
+
+    if code == "region":
+        return 1.0 if str(listing.region or "") == str(expected_value) else 0.0
+
+    if code == "price_from":
+        value = _parse_float_safe(expected_value)
+        if value is None:
+            return None
+        return 1.0 if float(listing.price) >= value else 0.0
+
+    if code == "price_to":
+        value = _parse_float_safe(expected_value)
+        if value is None:
+            return None
+        return 1.0 if float(listing.price) <= value else 0.0
+
+    if code == "currency":
+        return 1.0 if str(listing.currency or "") == str(expected_value) else 0.0
+
+    if code == "rooms":
+        return 1.0 if _rooms_match(listing.rooms, expected_value) else 0.0
+
+    if code == "has_roommates":
+        return 1.0 if bool(listing.has_roommates) == bool(expected_value) else 0.0
+
+    if code == "rental_period":
+        return 1.0 if str(listing.rental_period or "") == str(expected_value) else 0.0
+
+    if code == "condition_state":
+        return 1.0 if str(listing.condition_state or "") == str(expected_value) else 0.0
+
+    if code == "energy_class":
+        return 1.0 if str(listing.energy_class or "") == str(expected_value) else 0.0
+
+    if code == "internet":
+        return 1.0 if bool(listing.internet) == bool(expected_value) else 0.0
+
+    if code == "utilities":
+        return 1.0 if bool(listing.utilities_included) == bool(expected_value) else 0.0
+
+    if code == "pets_allowed":
+        return 1.0 if bool(listing.pets_allowed) == bool(expected_value) else 0.0
+
+    if code == "smoking_allowed":
+        return 1.0 if bool(listing.smoking_allowed) == bool(expected_value) else 0.0
+
+    if code == "move_in_date":
+        if expected_value is None or listing.move_in_date is None:
+            return 0.0
+        return 1.0 if listing.move_in_date <= expected_value else 0.0
+
+    if code == "amenities":
+        if not expected_value:
+            return None
+        listing_amenities = set(listing.amenities or [])
+        expected = [item for item in expected_value if item]
+        if not expected:
+            return None
+        matched = sum(1 for item in expected if item in listing_amenities)
+        return matched / len(expected)
+
+    if code == "infrastructure":
+        expected = [item for item in expected_value if item]
+        if not expected:
+            return None
+        matched = sum(1 for field_name in expected if getattr(listing, field_name, False))
+        return matched / len(expected)
+
+    return None
+
+
+def _option_match_ratio(listing, parent_code, option_key):
+    option = str(option_key or "").strip()
+    if not option:
+        return 0.0
+
+    if parent_code == "amenities":
+        return 1.0 if option in set(listing.amenities or []) else 0.0
+
+    if parent_code == "infrastructure":
+        return 1.0 if bool(getattr(listing, option, False)) else 0.0
+
+    return 0.0
+
+
+def _apply_hard_filters(qs, requested_filters, config_by_code, option_configs_by_parent):
+    for code, expected_value in requested_filters.items():
+        config = config_by_code.get(code)
+        if not config or not config.enabled or not config.hard_filter:
+            continue
+        if expected_value is None:
+            continue
+        if isinstance(expected_value, list) and not expected_value:
+            continue
+
+        if code == "property_type":
+            expected_type = normalize_listing_type(expected_value)
+            if expected_type == "APARTMENT":
+                qs = qs.filter(type__in=["APARTMENT", "BYT", "DUM"])
+            else:
+                qs = qs.filter(type=expected_type)
+
+        elif code == "region":
+            qs = qs.filter(region=expected_value)
+
+        elif code == "price_from":
+            qs = qs.filter(price__gte=expected_value)
+
+        elif code == "price_to":
+            qs = qs.filter(price__lte=expected_value)
+
+        elif code == "currency":
+            qs = qs.filter(currency=expected_value)
+
+        elif code == "rooms":
+            if expected_value.get("mode") == "gte":
+                qs = qs.filter(rooms__gte=expected_value.get("value"))
+            else:
+                qs = qs.filter(rooms=expected_value.get("value"))
+
+        elif code == "has_roommates":
+            qs = qs.filter(has_roommates=expected_value)
+
+        elif code == "rental_period":
+            qs = qs.filter(rental_period=expected_value)
+
+        elif code == "condition_state":
+            qs = qs.filter(condition_state=expected_value)
+
+        elif code == "energy_class":
+            qs = qs.filter(energy_class=expected_value)
+
+        elif code == "internet":
+            qs = qs.filter(internet=expected_value)
+
+        elif code == "utilities":
+            qs = qs.filter(utilities_included=expected_value)
+
+        elif code == "pets_allowed":
+            qs = qs.filter(pets_allowed=expected_value)
+
+        elif code == "smoking_allowed":
+            qs = qs.filter(smoking_allowed=expected_value)
+
+        elif code == "move_in_date":
+            qs = qs.filter(move_in_date__isnull=False, move_in_date__lte=expected_value)
+
+        elif code == "amenities":
+            option_map = option_configs_by_parent.get("amenities", {})
+            if option_map:
+                for amenity in expected_value:
+                    option_cfg = option_map.get(amenity)
+                    if option_cfg and option_cfg.enabled and option_cfg.hard_filter:
+                        qs = qs.filter(amenities__contains=[amenity])
+                continue
+
+            for amenity in expected_value:
+                qs = qs.filter(amenities__contains=[amenity])
+
+        elif code == "infrastructure":
+            option_map = option_configs_by_parent.get("infrastructure", {})
+            if option_map:
+                for infra_field in expected_value:
+                    option_cfg = option_map.get(infra_field)
+                    if option_cfg and option_cfg.enabled and option_cfg.hard_filter:
+                        qs = qs.filter(**{infra_field: True})
+                continue
+
+            for infra_field in expected_value:
+                qs = qs.filter(**{infra_field: True})
+
+    return qs
+
+
+def _calculate_listing_score(listing, requested_filters, config_by_code, option_configs_by_parent):
+    total_weight = 0.0
+    matched_weight = 0.0
+
+    for code, expected_value in requested_filters.items():
+        config = config_by_code.get(code)
+        if not config or not config.enabled:
+            continue
+        if expected_value is None:
+            continue
+        if isinstance(expected_value, list) and not expected_value:
+            continue
+
+        if code in ["amenities", "infrastructure"] and isinstance(expected_value, list):
+            option_map = option_configs_by_parent.get(code, {})
+            if option_map:
+                for option_key in expected_value:
+                    option_cfg = option_map.get(option_key)
+                    if not option_cfg or not option_cfg.enabled:
+                        continue
+                    option_weight = float(option_cfg.weight or 0)
+                    if option_weight <= 0:
+                        continue
+                    ratio = _option_match_ratio(listing, code, option_key)
+                    total_weight += option_weight
+                    matched_weight += option_weight * ratio
+                continue
+
+        weight = float(config.weight or 0)
+        if weight <= 0:
+            continue
+
+        ratio = _listing_filter_match_ratio(listing, code, expected_value)
+        if ratio is None:
+            continue
+
+        ratio = max(0.0, min(1.0, float(ratio)))
+        total_weight += weight
+        matched_weight += weight * ratio
+
+    if total_weight <= 0:
+        return 0.0, 0
+
+    percent = int(round((matched_weight / total_weight) * 100))
+    return matched_weight, max(0, min(100, percent))
+
+
+def are_profiles_co_residents(profile_a, profile_b):
+    residency_a = ListingResident.objects.select_related("listing").filter(profile=profile_a).first()
+    residency_b = ListingResident.objects.select_related("listing").filter(profile=profile_b).first()
+    if not residency_a or not residency_b:
+        return False
+    return residency_a.listing_id == residency_b.listing_id
 
 
 @ensure_csrf_cookie
@@ -80,7 +530,10 @@ def me(request):
         "last_name": user.last_name,
     })
 def neighbours_list(request):
-    qs = Profile.objects.all()
+    qs = Profile.objects.all().annotate(
+        rating_average=Avg("received_reviews__rating"),
+        rating_count=Count("received_reviews"),
+    )
 
     # SEARCH
     search = request.GET.get("search")
@@ -124,6 +577,13 @@ def neighbours_list(request):
     work_from_home = request.GET.get("workFromHome")
     if work_from_home:
         qs = qs.filter(work_from_home=work_from_home)
+
+    rating_min = request.GET.get("ratingMin")
+    if rating_min:
+        try:
+            qs = qs.filter(rating_average__gte=float(rating_min))
+        except ValueError:
+            pass
 
     # LANGUAGES (languages[]=cz&languages[]=en)
     languages = request.GET.getlist("languages[]")
@@ -176,6 +636,8 @@ def neighbours_list(request):
             "work_from_home": p.work_from_home,
             "verified": p.verified,
             "looking_for_housing": p.looking_for_housing,
+            "ratingAverage": float(p.rating_average or 0),
+            "ratingCount": int(p.rating_count or 0),
             "is_favorite": p.id in favorite_profile_ids,
         })
 
@@ -202,11 +664,31 @@ def neighbour_detail(request, profile_id):
         can_remove_from_home = (same_home_resident or is_home_owner) and requester_profile.id != profile.id
 
     is_favorite = False
+    can_review = False
+    my_review = None
+    requester_profile = None
     if request.user.is_authenticated:
         try:
             is_favorite = request.user.profile.favorite_profiles.filter(id=profile.id).exists()
         except Exception:
             is_favorite = False
+        requester_profile, _ = Profile.objects.get_or_create(user=request.user)
+        my_review = ProfileReview.objects.filter(reviewer=requester_profile, target=profile).first()
+        can_review = requester_profile.id != profile.id and (
+            are_profiles_co_residents(requester_profile, profile) or my_review is not None
+        )
+
+    review_stats = ProfileReview.objects.filter(target=profile).aggregate(
+        average=Avg("rating"),
+        count=Count("id"),
+    )
+    reviews_qs = ProfileReview.objects.filter(target=profile).select_related("reviewer__user").order_by("-updated_at")
+    if requester_profile:
+        viewer_reviews = list(reviews_qs.filter(reviewer=requester_profile))
+        other_reviews = list(reviews_qs.exclude(reviewer=requester_profile))
+        reviews = viewer_reviews + other_reviews
+    else:
+        reviews = list(reviews_qs)
 
     payload = {
         "id": profile.id,
@@ -234,6 +716,23 @@ def neighbour_detail(request, profile_id):
         "avatar": request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
         "is_favorite": is_favorite,
         "canRemoveFromHome": can_remove_from_home,
+        "ratingAverage": float(review_stats["average"] or 0),
+        "ratingCount": review_stats["count"] or 0,
+        "canReview": can_review,
+        "myRating": my_review.rating if my_review else None,
+        "myComment": my_review.comment if my_review else "",
+        "reviews": [
+            {
+                "id": review.id,
+                "rating": review.rating,
+                "comment": review.comment,
+                "reviewerId": review.reviewer_id,
+                "reviewerName": review.reviewer.name or review.reviewer.user.username,
+                "reviewerAvatar": request.build_absolute_uri(review.reviewer.avatar.url) if review.reviewer.avatar else None,
+                "updatedAt": review.updated_at.isoformat(),
+            }
+            for review in reviews
+        ],
     }
 
     if include_contacts and request.user.is_authenticated:
@@ -241,6 +740,66 @@ def neighbour_detail(request, profile_id):
         payload["email"] = profile.user.email
 
     return JsonResponse(payload)
+
+
+@login_required
+@require_POST
+def submit_profile_review(request, profile_id):
+    target_profile = get_object_or_404(Profile, id=profile_id)
+    reviewer_profile, _ = Profile.objects.get_or_create(user=request.user)
+
+    if target_profile.id == reviewer_profile.id:
+        return JsonResponse({"detail": "Cannot review yourself"}, status=400)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    rating = data.get("rating")
+    comment = (data.get("comment") or "").strip()
+
+    try:
+        rating = int(rating)
+    except (TypeError, ValueError):
+        return JsonResponse({"detail": "Rating must be an integer from 1 to 5"}, status=400)
+
+    if rating < 1 or rating > 5:
+        return JsonResponse({"detail": "Rating must be between 1 and 5"}, status=400)
+
+    review = ProfileReview.objects.filter(reviewer=reviewer_profile, target=target_profile).first()
+
+    if review is None and not are_profiles_co_residents(reviewer_profile, target_profile):
+        return JsonResponse({"detail": "Only co-residents can review"}, status=403)
+
+    if review is None:
+        review = ProfileReview.objects.create(
+            reviewer=reviewer_profile,
+            target=target_profile,
+            rating=rating,
+            comment=comment,
+        )
+    else:
+        review.rating = rating
+        review.comment = comment
+        review.save(update_fields=["rating", "comment", "updated_at"])
+
+    stats = ProfileReview.objects.filter(target=target_profile).aggregate(
+        average=Avg("rating"),
+        count=Count("id"),
+    )
+
+    return JsonResponse({
+        "detail": "Review saved",
+        "review": {
+            "id": review.id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "updatedAt": review.updated_at.isoformat(),
+        },
+        "ratingAverage": float(stats["average"] or 0),
+        "ratingCount": stats["count"] or 0,
+    })
 
 
 @login_required
@@ -485,6 +1044,16 @@ def listing_detail(request, listing_id):
             return JsonResponse({"detail": "Deleted"})
 
         data = json.loads(request.body or "{}")
+
+        if "city" in data or "region" in data:
+            next_region = data.get("region", listing.region)
+            next_city = data.get("city", listing.city)
+            next_city_text = str(next_city or "").strip()
+
+            if not next_city_text:
+                return JsonResponse({"detail": "City is required"}, status=400)
+            if not is_valid_municipality_name(next_city_text, next_region):
+                return JsonResponse({"detail": "City must be selected from Czech municipality list"}, status=400)
         editable_fields = {
             "title": "title",
             "description": "description",
@@ -494,6 +1063,7 @@ def listing_detail(request, listing_id):
             "city": "city",
             "address": "address",
             "price": "price",
+            "deposit": "deposit",
             "currency": "currency",
             "rooms": "rooms",
             "beds": "beds",
@@ -561,7 +1131,7 @@ def listing_detail(request, listing_id):
                 value = parse_int_value(value)
             elif model_field == "move_in_date":
                 value = parse_date_safe(value)
-            elif model_field == "utilities_fee":
+            elif model_field in ["utilities_fee", "deposit"]:
                 value = parse_decimal_value(value, Decimal("0"))
             elif model_field in [
                 "utilities_included",
@@ -620,9 +1190,10 @@ def listing_detail(request, listing_id):
     return JsonResponse({
         "id": listing.id,
         "type": normalize_listing_type(listing.type),
-        "title": listing.title,
-        "description": listing.description,
+        "title": _safe_listing_title(listing),
+        "description": _safe_listing_description(listing),
         "price": str(listing.price),
+        "deposit": str(listing.deposit),
         "currency": listing.currency,
         "region": listing.region,
         "city": listing.city,
@@ -705,6 +1276,12 @@ def listings_view(request):
         if not region_value or region_value in ["ALL", "ALL_CR"]:
             return JsonResponse({"detail": "Region is required"}, status=400)
 
+        city_value = str(data.get("city") or "").strip()
+        if not city_value:
+            return JsonResponse({"detail": "City is required"}, status=400)
+        if not is_valid_municipality_name(city_value, region_value):
+            return JsonResponse({"detail": "City must be selected from Czech municipality list"}, status=400)
+
         rooms_value = parse_int_value(data.get("rooms"))
         size_value = parse_int_value(data.get("size"))
 
@@ -725,6 +1302,10 @@ def listings_view(request):
             data.get("utilitiesFee", data.get("utilities_fee", 0)),
             Decimal("0"),
         )
+        deposit_value = parse_decimal_value(
+            data.get("deposit", data.get("depositAmount", 0)),
+            Decimal("0"),
+        )
         if utilities_included_value:
             utilities_fee_value = Decimal("0")
 
@@ -735,7 +1316,7 @@ def listings_view(request):
             description=data.get("description"),
 
             region=region_value,
-            city=data.get("city", ""),
+            city=city_value,
             address=data.get("address", ""),
 
             price=data.get("price"),
@@ -774,6 +1355,7 @@ def listings_view(request):
 
             max_residents=max_residents_value,
             utilities_fee=utilities_fee_value,
+            deposit=deposit_value,
         )
 
         ListingResident.objects.create(listing=listing, profile=profile)
@@ -794,89 +1376,95 @@ def listings_view(request):
         profile, _ = Profile.objects.get_or_create(user=request.user)
         qs = Listing.objects.filter(
             Q(owner=request.user) | Q(residents__profile=profile)
-        ).distinct().order_by("-created_at")
+        ).exclude(type="NEIGHBOUR").distinct().order_by("-created_at")
     else:
-        qs = Listing.objects.filter(is_active=True).order_by("-created_at")
+        qs = Listing.objects.filter(is_active=True).exclude(type="NEIGHBOUR").order_by("-created_at")
+
+    filter_configs = list(ListingFilterConfig.objects.filter(enabled=True))
+    config_by_code = {cfg.code: cfg for cfg in filter_configs}
+    option_configs = list(
+        ListingFilterOptionConfig.objects.filter(
+            enabled=True,
+            parent_filter__code__in=["amenities", "infrastructure"],
+        ).select_related("parent_filter")
+    )
+    option_configs_by_parent = {"amenities": {}, "infrastructure": {}}
+    for option_cfg in option_configs:
+        parent_code = option_cfg.parent_filter.code
+        option_configs_by_parent.setdefault(parent_code, {})[option_cfg.option_key] = option_cfg
+
+    requested_filters = _build_requested_listing_filters(request)
 
     # Получаем фильтры
     search = request.GET.get("search")
     Type = request.GET.get("type")
-    region = request.GET.get("region")
-    min_price = request.GET.get("priceFrom")
-    max_price = request.GET.get("priceTo")
-    rooms = request.GET.get("rooms")
-    listing_type = request.GET.get("propertyType")
-
-    print(Type,listing_type,"<<<<")
-
-    has_roommates = request.GET.get("hasRoommates")
-    rental_period = request.GET.get("rentalPeriod")
-
-    internet = request.GET.get("internet")
-    utilities = request.GET.get("utilities")
-    pets_allowed = request.GET.get("petsAllowed")
-    smoking_allowed = request.GET.get("smokingAllowed")
-
-    move_in_date = request.GET.get("moveInDate")
-    amenities = request.GET.getlist("amenities[]")
 
     # ---- Фильтрация ----
 
-    if listing_type:
-        normalized_requested_type = normalize_listing_type(listing_type)
-        if normalized_requested_type == "APARTMENT":
+    if Type:
+        normalized_page_type = normalize_listing_type(Type)
+        if normalized_page_type == "APARTMENT":
             qs = qs.filter(type__in=["APARTMENT", "BYT", "DUM"])
         else:
-            qs = qs.filter(type=normalized_requested_type)
+            qs = qs.filter(type=normalized_page_type)
+
     if search:
         qs = qs.filter(
             Q(title__icontains=search) |
             Q(description__icontains=search)
         )
-    if region:
-        qs = qs.filter(region__icontains=region)
 
-    if min_price:
-        qs = qs.filter(price__gte=min_price)
+    histogram_filters = dict(requested_filters)
+    histogram_filters["price_from"] = None
+    histogram_filters["price_to"] = None
+    histogram_qs = _apply_hard_filters(qs, histogram_filters, config_by_code, option_configs_by_parent)
+    price_histogram = _build_price_histogram(histogram_qs)
 
-    if max_price:
-        qs = qs.filter(price__lte=max_price)
+    qs = _apply_hard_filters(qs, requested_filters, config_by_code, option_configs_by_parent)
 
-    if rooms:
-        qs = qs.filter(rooms=rooms)
+    ranked_items = []
+    for listing in qs:
+        score_value, match_percent = _calculate_listing_score(listing, requested_filters, config_by_code, option_configs_by_parent)
+        ranked_items.append((listing, score_value, match_percent))
 
-    if has_roommates == "yes":
-        qs = qs.filter(has_roommates=True)
+    selected_sort = str(requested_filters.get("sort_by") or "price_asc").strip().lower()
+    allowed_sort_modes = {"price_asc", "price_desc", "date_desc", "date_asc"}
+    if selected_sort not in allowed_sort_modes:
+        selected_sort = "price_asc"
 
-    if rental_period:
-        qs = qs.filter(rental_period=rental_period)
+    if selected_sort == "price_desc":
+        # Primary: relevance, secondary: price high->low, tertiary: newer first.
+        ranked_items.sort(
+            key=lambda item: (-float(item[1]), -float(item[0].price), -item[0].created_at.timestamp()),
+        )
+    elif selected_sort == "date_desc":
+        # Primary: relevance, secondary: newer first, tertiary: cheaper first.
+        ranked_items.sort(
+            key=lambda item: (-float(item[1]), -item[0].created_at.timestamp(), float(item[0].price)),
+        )
+    elif selected_sort == "date_asc":
+        # Primary: relevance, secondary: older first, tertiary: cheaper first.
+        ranked_items.sort(
+            key=lambda item: (-float(item[1]), item[0].created_at.timestamp(), float(item[0].price)),
+        )
+    else:
+        # Default: primary relevance, secondary price low->high, tertiary newer first.
+        ranked_items.sort(
+            key=lambda item: (-float(item[1]), float(item[0].price), -item[0].created_at.timestamp()),
+        )
 
-    if internet == "yes":
-        qs = qs.filter(internet=True)
-
-    if utilities == "yes":
-        qs = qs.filter(utilities_included=True)
-
-    if pets_allowed == "yes":
-        qs = qs.filter(pets_allowed=True)
-
-    if smoking_allowed == "yes":
-        qs = qs.filter(smoking_allowed=True)
-
-    if move_in_date:
-        qs = qs.filter(move_in_date__lte=move_in_date)
-
-    
-    if amenities:
-        qs = list(qs)  # превращаем QuerySet в список
-        qs = [
-            l for l in qs
-            if all(a in l.amenities for a in amenities)
-        ]
+    ranked_listings = [item[0] for item in ranked_items]
+    listing_scores = {
+        item[0].id: {
+            "relevance_score": round(item[1], 4),
+            "match_percentage": item[2],
+        }
+        for item in ranked_items
+    }
 
     # ---- Пагинация ----
 
-    paginator = Paginator(qs, 9)
+    paginator = Paginator(ranked_listings, 9)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
 
@@ -891,15 +1479,18 @@ def listings_view(request):
     results = []
     for listing in page_obj:
         main_image = listing.images.first()
+        ranking_data = listing_scores.get(listing.id, {"relevance_score": 0.0, "match_percentage": 0})
 
         results.append({
             "id": listing.id,
             "type": normalize_listing_type(listing.type),
-            "title": listing.title,
+            "title": _safe_listing_title(listing),
             "price": str(listing.price),
+            "deposit": str(listing.deposit),
             "utilitiesFee": str(listing.utilities_fee),
             "isActive": listing.is_active,
             "region": listing.region,
+            "city": listing.city,
             "address": listing.address,
             "size": listing.size,
             "rooms": listing.rooms,
@@ -917,6 +1508,8 @@ def listings_view(request):
 
             "amenities": listing.amenities,
             "moveInDate": listing.move_in_date,
+            "relevanceScore": ranking_data["relevance_score"],
+            "matchPercentage": ranking_data["match_percentage"],
 
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
             "is_favorite": listing.id in favorite_ids,
@@ -926,6 +1519,7 @@ def listings_view(request):
         "results": results,
         "total_pages": paginator.num_pages,
         "current_page": page_obj.number,
+        "price_histogram": price_histogram,
     })
 
 
@@ -1042,7 +1636,7 @@ def my_home(request):
     return JsonResponse({
         "listing": {
             "id": listing.id,
-            "title": listing.title,
+            "title": _safe_listing_title(listing),
             "type": normalize_listing_type(listing.type),
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
             "address": listing.address,
@@ -1402,8 +1996,8 @@ def get_favorites(request):
             all_favorites.append({
                 "id": listing.id,
                 "type": "LISTING",
-                "title": listing.title,
-                "description": listing.description,
+                "title": _safe_listing_title(listing),
+                "description": _safe_listing_description(listing),
                 "price": str(listing.price),
                 "room_type": normalize_listing_type(listing.type),
                 "city": listing.address,

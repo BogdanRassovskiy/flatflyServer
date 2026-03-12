@@ -1,5 +1,6 @@
 import {useState, useEffect} from "react";
 import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, Phone, Mail, X} from "lucide-react";
+import {Icon} from "@iconify/react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
@@ -25,6 +26,14 @@ export default function ListingDetailPage() {
     };
     
     const type = getListingType();
+
+    const getRegionLabel = (regionCode?: string) => {
+        const code = String(regionCode || "").trim().toUpperCase();
+        if (!code) return "";
+
+        const translated = t(`listing.regions.${code}`);
+        return translated !== `listing.regions.${code}` ? translated : code;
+    };
     
     // Состояние для данных листинга
     const [listingData, setListingData] = useState<{
@@ -64,6 +73,7 @@ export default function ListingDetailPage() {
         looking_for_housing?: boolean;
         languages?: string[];
         currency?: string;
+        deposit?: string | number;
         rental_period?: string;
         move_in_date?: string;
         amenities?: string[];
@@ -94,6 +104,20 @@ export default function ListingDetailPage() {
         canManage?: boolean;
         isActive?: boolean;
         canRemoveFromHome?: boolean;
+        ratingAverage?: number;
+        ratingCount?: number;
+        canReview?: boolean;
+        myRating?: number | null;
+        myComment?: string;
+        reviews?: Array<{
+            id: number;
+            rating: number;
+            comment: string;
+            reviewerId: number;
+            reviewerName: string;
+            reviewerAvatar?: string | null;
+            updatedAt: string;
+        }>;
         residents?: Array<{
             profileId: number;
             name: string;
@@ -244,6 +268,14 @@ export default function ListingDetailPage() {
                     looking_for_housing: data.looking_for_housing,
                     languages: data.languages,
                     canRemoveFromHome: Boolean(data.canRemoveFromHome),
+                    ratingAverage: Number(data.ratingAverage || 0),
+                    ratingCount: Number(data.ratingCount || 0),
+                    canReview: Boolean(data.canReview),
+                    myRating: typeof data.myRating === "number" ? data.myRating : null,
+                    myComment: data.myComment || "",
+                    reviews: Array.isArray(data.reviews) ? data.reviews : [],
+                    contactPhone: data.phone,
+                    contactEmail: data.email,
                 });
                 return;
             }
@@ -271,6 +303,7 @@ export default function ListingDetailPage() {
                 contactPhone: data.contact_phone,
                 contactEmail: data.contact_email,
                 currency: data.currency,
+                deposit: data.deposit,
                 rental_period: data.rental_period,
                 move_in_date: data.move_in_date,
                 amenities: data.amenities || [],
@@ -410,6 +443,7 @@ export default function ListingDetailPage() {
         looking_for_housing,
         languages,
         currency,
+        deposit,
         rental_period,
         move_in_date,
         amenities,
@@ -440,6 +474,12 @@ export default function ListingDetailPage() {
         canManage,
         isActive,
         canRemoveFromHome,
+        ratingAverage,
+        ratingCount,
+        canReview,
+        myRating,
+        myComment,
+        reviews,
         residents,
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -450,6 +490,11 @@ export default function ListingDetailPage() {
     const [contactsLoading, setContactsLoading] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [removingFromHome, setRemovingFromHome] = useState(false);
+    const [reviewRating, setReviewRating] = useState<number>(0);
+    const [reviewComment, setReviewComment] = useState("");
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewError, setReviewError] = useState<string | null>(null);
+    const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
     const allImages = safeImages.length > 0
@@ -514,6 +559,77 @@ export default function ListingDetailPage() {
         }
 
         setShowContacts(true);
+    };
+
+    useEffect(() => {
+        if (type !== "NEIGHBOUR") {
+            return;
+        }
+        setReviewRating(typeof myRating === "number" ? myRating : 0);
+        setReviewComment(myComment || "");
+    }, [type, myRating, myComment]);
+
+    const handleSubmitReview = async () => {
+        if (!id || type !== "NEIGHBOUR") return;
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+        if (reviewRating < 1 || reviewRating > 5) {
+            setReviewError(t("listing.selectRating"));
+            return;
+        }
+
+        try {
+            setReviewSubmitting(true);
+            setReviewError(null);
+            const response = await fetch(`/api/neighbours/${id}/review/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                body: JSON.stringify({
+                    rating: reviewRating,
+                    comment: reviewComment,
+                }),
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result.detail || t("listing.reviewFailed"));
+            }
+
+            setReviewComment("");
+            setReviewRating(0);
+
+            const refreshResponse = await fetch(`/api/neighbours/${id}/${showContacts ? "?include_contacts=1" : ""}`, {
+                credentials: "include",
+            });
+            if (refreshResponse.ok) {
+                const refreshed = await refreshResponse.json();
+                setListingData((prev) => ({
+                    ...prev,
+                    ratingAverage: Number(refreshed.ratingAverage || 0),
+                    ratingCount: Number(refreshed.ratingCount || 0),
+                    canReview: Boolean(refreshed.canReview),
+                    reviews: Array.isArray(refreshed.reviews) ? refreshed.reviews : [],
+                    contactPhone: refreshed.phone ?? prev.contactPhone,
+                    contactEmail: refreshed.email ?? prev.contactEmail,
+                }));
+            }
+        } catch (error) {
+            setReviewError(error instanceof Error ? error.message : t("listing.reviewFailed"));
+        } finally {
+            setReviewSubmitting(false);
+        }
+    };
+
+    const getStarIcon = (value: number, starIndex: number) => {
+        if (value >= starIndex) return "mdi:star";
+        if (value >= starIndex - 0.5) return "mdi:star-half-full";
+        return "mdi:star-outline";
     };
 
     const nextImage = () => {
@@ -997,7 +1113,11 @@ export default function ListingDetailPage() {
                                         <MapPin size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.location")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{city || region}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {city && region
+                                                    ? `${city}, ${getRegionLabel(region)}`
+                                                    : (city || getRegionLabel(region))}
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -1010,12 +1130,12 @@ export default function ListingDetailPage() {
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && energy_class && (
+                                {type !== "NEIGHBOUR" && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.energyClass")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{energy_class}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{energy_class || "-"}</span>
                                         </div>
                                     </div>
                                 )}
@@ -1044,6 +1164,17 @@ export default function ListingDetailPage() {
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.utilitiesFee")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>
                                                 {Number(utilitiesFee || 0).toLocaleString("cs-CZ")} {currency || "CZK"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && Number(deposit || 0) > 0 && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.deposit")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>
+                                                {Number(deposit || 0).toLocaleString("cs-CZ")} {currency || "CZK"}
                                             </span>
                                         </div>
                                     </div>
@@ -1417,6 +1548,109 @@ export default function ListingDetailPage() {
                                         {t("listing.loginToContact")}
                                     </button>
                                 </>
+                            )}
+
+                            {type === "NEIGHBOUR" && (
+                                <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
+                                    <h4 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white mb-2`}>
+                                        {t("listing.ratingAndReviews")}
+                                    </h4>
+
+                                    <div className={`flex items-center gap-2 mb-3`}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Icon
+                                                key={`avg-${star}`}
+                                                icon={getStarIcon(Number(ratingAverage || 0), star)}
+                                                className={`w-[18px] h-[18px]`}
+                                                style={{ color: star <= Math.ceil(Number(ratingAverage || 0)) ? "#F59E0B" : "#9CA3AF" }}
+                                            />
+                                        ))}
+                                        <span className={`text-sm font-semibold text-[#666666] dark:text-gray-300`}>
+                                            {(Number(ratingAverage || 0)).toFixed(1)} ({ratingCount || 0})
+                                        </span>
+                                    </div>
+
+                                    {isAuthenticated && canReview && (
+                                        <div className={`mb-4 p-3 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
+                                            <span className={`text-sm font-semibold text-[#333333] dark:text-white`}>
+                                                {t("listing.yourRating")}
+                                            </span>
+                                            <div className={`flex items-center gap-1 mt-2 mb-2`}>
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <button
+                                                        key={`set-${star}`}
+                                                        type="button"
+                                                        onClick={() => setReviewRating(star)}
+                                                        className={`p-0.5`}
+                                                    >
+                                                        <Icon
+                                                            icon={star <= reviewRating ? "mdi:star" : "mdi:star-outline"}
+                                                            className={`w-[22px] h-[22px]`}
+                                                            style={{ color: star <= reviewRating ? "#F59E0B" : "#9CA3AF" }}
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea
+                                                value={reviewComment}
+                                                onChange={(e) => setReviewComment(e.target.value)}
+                                                rows={3}
+                                                className={`w-full border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-2 text-sm outline-0 focus:border-[#C505EB] duration-300`}
+                                                placeholder={t("listing.commentPlaceholder")}
+                                            />
+                                            {reviewError && (
+                                                <p className={`mt-2 text-sm text-red-600 dark:text-red-400`}>{reviewError}</p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={handleSubmitReview}
+                                                disabled={reviewSubmitting}
+                                                className={`mt-3 w-full py-2 rounded-lg bg-[#C505EB] text-white font-semibold hover:bg-[#BA00F8] disabled:opacity-60 duration-300`}
+                                            >
+                                                {reviewSubmitting ? t("loading") : hasSubmittedReview ? t("listing.updateReview") : t("listing.submitReview")}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {isAuthenticated && !canReview && (
+                                        <p className={`mb-3 text-sm text-[#666666] dark:text-gray-400`}>
+                                            {t("listing.onlyCoResidentsCanReview")}
+                                        </p>
+                                    )}
+
+                                    <div className={`flex flex-col gap-3 max-h-[280px] overflow-y-auto pr-1`}>
+                                        {(reviews || []).length > 0 ? (
+                                            (reviews || []).map((review) => (
+                                                <div key={review.id} className={`p-3 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
+                                                    <div className={`flex items-center justify-between gap-2`}>
+                                                        <span className={`text-sm font-semibold text-[#333333] dark:text-white`}>
+                                                            {review.reviewerName}
+                                                        </span>
+                                                        <div className={`flex items-center gap-1`}>
+                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                <Icon
+                                                                    key={`${review.id}-${star}`}
+                                                                    icon={getStarIcon(Number(review.rating || 0), star)}
+                                                                    className={`w-[14px] h-[14px]`}
+                                                                    style={{ color: star <= Math.ceil(Number(review.rating || 0)) ? "#F59E0B" : "#9CA3AF" }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    {review.comment && (
+                                                        <p className={`mt-1 text-sm text-[#666666] dark:text-gray-300 whitespace-pre-line`}>
+                                                            {review.comment}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className={`text-sm text-[#666666] dark:text-gray-400`}>
+                                                {t("listing.noReviewsYet")}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>

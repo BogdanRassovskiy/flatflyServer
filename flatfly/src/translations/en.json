@@ -60,6 +60,7 @@
     "priceValue": "Unlimited",
     "priceFrom": "From",
     "priceTo": "To",
+    "foundInRange": "Found in range",
     "pricePlaceholder": "Enter amount",
     "rooms": "Number of Rooms",
     "roomsPlaceholder": "Select number",
@@ -111,6 +112,11 @@
     "smokingAllowedNo": "No",
     "moveInDate": "Move-in Date",
     "currency": "Currency",
+    "secondarySort": "Sorting (2nd-3rd level)",
+    "sortPriceAsc": "Cheapest first",
+    "sortPriceDesc": "Most expensive first",
+    "sortDateDesc": "Newest first",
+    "sortDateAsc": "Oldest first",
     "conditionState": "Condition",
     "conditionNew": "New",
     "conditionExcellent": "Excellent",
@@ -130,6 +136,7 @@
     "neighbourAge": "Age",
     "neighbourAgeFrom": "From",
     "neighbourAgeTo": "To",
+    "neighbourMinRating": "Minimum rating",
     "neighbourAgePlaceholder": "Enter age",
     "neighbourGender": "Gender",
     "neighbourGenderMale": "Male",
@@ -197,9 +204,26 @@
     "hasPlayground": "Playground",
     "maxResidents": "Max residents",
     "location": "Location",
+    "regions": {
+      "PRAGUE": "Prague",
+      "STREDOCESKY": "Central Bohemian Region",
+      "JIHOCESKY": "South Bohemian Region",
+      "PLZENSKY": "Pilsen Region",
+      "KARLOVARSKY": "Karlovy Vary Region",
+      "USTECKY": "Usti nad Labem Region",
+      "LIBERECKY": "Liberec Region",
+      "KRALOVEHRADECKY": "Hradec Kralove Region",
+      "PARDUBICKY": "Pardubice Region",
+      "VYSOCINA": "Vysocina Region",
+      "JIHOMORAVSKY": "South Moravian Region",
+      "OLOMOUCKY": "Olomouc Region",
+      "ZLINSKY": "Zlin Region",
+      "MORAVSKOSLEZSKY": "Moravian-Silesian Region"
+    },
     "rentalPeriod": "Rental period",
     "moveInDate": "Move-in date",
     "utilitiesFee": "Utilities fee",
+    "deposit": "Deposit",
     "conditions": "Conditions",
     "amenities": "Amenities",
     "video": "Video",
@@ -222,6 +246,16 @@
     ,"removeFromHome": "Remove from home"
     ,"removeFromHomeConfirm": "Remove this person from home?"
     ,"removedFromHomeSuccess": "User removed from home"
+    ,"ratingAndReviews": "Rating and reviews"
+    ,"yourRating": "Your rating"
+    ,"selectRating": "Select a rating from 1 to 5"
+    ,"commentPlaceholder": "Leave a comment..."
+    ,"submitReview": "Save review"
+    ,"updateReview": "Update review"
+    ,"reviewFailed": "Failed to save review"
+    ,"alreadyReviewed": "You have already submitted a review"
+    ,"onlyCoResidentsCanReview": "Only people who live together can leave ratings"
+    ,"noReviewsYet": "No reviews yet"
   },
   "pagination": {
     "next": "Next"
@@ -280,7 +314,12 @@
     "maxResidents": "Max neighbours",
     "conditions": "Conditions",
     "selectRegionRequired": "Please select a region",
+    "selectCityFromList": "Please select a city from the list",
+    "cityLoading": "Searching cities...",
+    "cityNoResults": "City not found in municipality list",
     "utilitiesFeePlaceholder": "Utilities fee",
+    "deposit": "Deposit amount",
+    "depositPlaceholder": "Enter deposit amount",
     "price": "Price (CZK/month)",
     "pricePlaceholder": "e.g. 12 000",
     "publish": "Publish listing",

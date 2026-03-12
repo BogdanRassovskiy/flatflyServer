@@ -2,6 +2,7 @@ import {Icon} from "@iconify/react";
 import {useState, useRef, useEffect} from "react";
 import {X} from "lucide-react";
 import {useLanguage} from "../../contexts/LanguageContext";
+import "./FilterPanel.css";
 
 export interface FilterState {
       propertyType: string;
@@ -9,6 +10,7 @@ export interface FilterState {
       priceFrom: string;
       priceTo: string;
       currency: string;
+  sortBy: string;
       rooms: string;
       hasRoommates: string;
       rentalPeriod: string;
@@ -23,14 +25,89 @@ export interface FilterState {
       infrastructure: string[];
     }
 
+export interface PriceHistogramBucket {
+  from: number;
+  to: number;
+  count: number;
+}
+
+export interface PriceHistogram {
+  min: number;
+  max: number;
+  total: number;
+  max_count: number;
+  buckets: PriceHistogramBucket[];
+}
+
 interface FilterPanelProps {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
+  priceHistogram?: PriceHistogram | null;
 }
-export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
+export default function FilterPanel({ filters, onChange, priceHistogram }: FilterPanelProps) {
     const { t } = useLanguage();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
+
+    const parsePriceNumber = (rawValue: string) => {
+      if (!rawValue) {
+        return null;
+      }
+      const parsed = Number(rawValue);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const histogramMin = Number.isFinite(priceHistogram?.min) ? Number(priceHistogram?.min) : 0;
+    const histogramMax = Number.isFinite(priceHistogram?.max) ? Number(priceHistogram?.max) : 0;
+    const currentFrom = parsePriceNumber(filters.priceFrom);
+    const currentTo = parsePriceNumber(filters.priceTo);
+
+    const sliderMinBase = Math.min(histogramMin, currentFrom ?? histogramMin);
+    const sliderMin = Math.floor(Math.max(0, sliderMinBase));
+
+    const sliderMaxCandidate = Math.max(histogramMax, currentTo ?? histogramMax, sliderMin + 1000);
+    const sliderMax = Math.ceil(sliderMaxCandidate);
+    const sliderSpan = Math.max(1, sliderMax - sliderMin);
+
+    const normalizedFrom = Math.max(sliderMin, Math.min(currentFrom ?? sliderMin, sliderMax));
+    const normalizedTo = Math.max(normalizedFrom, Math.min(currentTo ?? sliderMax, sliderMax));
+
+    const selectedFromPercent = ((normalizedFrom - sliderMin) / sliderSpan) * 100;
+    const selectedToPercent = ((normalizedTo - sliderMin) / sliderSpan) * 100;
+    const histogramBars = Array.isArray(priceHistogram?.buckets) ? priceHistogram!.buckets : [];
+    const histogramMaxCount = Math.max(1, Number(priceHistogram?.max_count || 0));
+    const listingsInSelectedRange = histogramBars.reduce((sum, bucket) => {
+      const intersectsSelectedRange = bucket.to >= normalizedFrom && bucket.from <= normalizedTo;
+      return intersectsSelectedRange ? sum + Number(bucket.count || 0) : sum;
+    }, 0);
+
+    const formatPriceValue = (value: number | null, fallback = "") => {
+      if (value === null) {
+        return fallback;
+      }
+      return String(Math.round(value));
+    };
+
+    const applyPriceRange = (nextFrom: number | null, nextTo: number | null) => {
+      let safeFrom = nextFrom;
+      let safeTo = nextTo;
+
+      if (safeFrom !== null) {
+        safeFrom = Math.max(sliderMin, Math.min(Math.round(safeFrom), sliderMax));
+      }
+      if (safeTo !== null) {
+        safeTo = Math.max(sliderMin, Math.min(Math.round(safeTo), sliderMax));
+      }
+      if (safeFrom !== null && safeTo !== null && safeFrom > safeTo) {
+        safeTo = safeFrom;
+      }
+
+      onChange({
+        ...filters,
+        priceFrom: formatPriceValue(safeFrom),
+        priceTo: formatPriceValue(safeTo),
+      });
+    };
     
     const regions = [
       { value: "", label: "-" },
@@ -105,87 +182,192 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         return map[key] || key;
     };
 
+    const translateSortBy = (value: string) => {
+      const map: Record<string, string> = {
+        "price_asc": t("filter.sortPriceAsc"),
+        "price_desc": t("filter.sortPriceDesc"),
+        "date_desc": t("filter.sortDateDesc"),
+        "date_asc": t("filter.sortDateAsc"),
+      };
+      return map[value] || value;
+    };
+
+    const translateInfrastructure = (key: string) => {
+        const map: Record<string, string> = {
+            "has_bus_stop": t("filter.infraBusStop"),
+            "has_train_station": t("filter.infraTrainStation"),
+            "has_metro": t("filter.infraMetro"),
+            "has_post_office": t("filter.infraPostOffice"),
+            "has_atm": t("filter.infraAtm"),
+            "has_general_practitioner": t("filter.infraDoctor"),
+            "has_vet": t("filter.infraVet"),
+            "has_primary_school": t("filter.infraSchool"),
+            "has_kindergarten": t("filter.infraKindergarten"),
+            "has_supermarket": t("filter.infraSupermarket"),
+            "has_small_shop": t("filter.infraShop"),
+            "has_restaurant": t("filter.infraRestaurant"),
+            "has_playground": t("filter.infraPlayground"),
+        };
+        return map[key] || key;
+    };
+
+    const clearSingleFilter = (key: keyof FilterState, optionKey?: string) => {
+      if (key === "priceFrom" || key === "priceTo") {
+        onChange({
+          ...filters,
+          priceFrom: "",
+          priceTo: "",
+        });
+        return;
+      }
+
+      if (key === "amenities") {
+        onChange({
+          ...filters,
+          amenities: optionKey ? filters.amenities.filter(item => item !== optionKey) : [],
+        });
+        return;
+      }
+
+      if (key === "infrastructure") {
+        onChange({
+          ...filters,
+          infrastructure: optionKey ? filters.infrastructure.filter(item => item !== optionKey) : [],
+        });
+        return;
+      }
+
+      if (key === "sortBy") {
+        onChange({
+          ...filters,
+          sortBy: "price_asc",
+        });
+        return;
+      }
+
+      onChange({
+        ...filters,
+        [key]: "",
+      });
+    };
+
     const RoomsCategories = [
       filters.propertyType && {
+        id: `propertyType-${filters.propertyType}`,
         title: t("filter.propertyType"),
         subTitle: translatePropertyType(filters.propertyType),
+        onRemove: () => clearSingleFilter("propertyType"),
       },
 
       filters.region && {
+        id: `region-${filters.region}`,
         title: t("filter.region"),
         subTitle: translateRegion(filters.region),
+        onRemove: () => clearSingleFilter("region"),
       },
 
       (filters.priceFrom || filters.priceTo) && {
+        id: "price-range",
         title: t("filter.price"),
         subTitle: `${filters.priceFrom || "0"} – ${filters.priceTo || "∞"} ${filters.currency || "CZK"}`,
+        onRemove: () => clearSingleFilter("priceFrom"),
+      },
+
+      filters.sortBy && filters.sortBy !== "price_asc" && {
+        id: `sortBy-${filters.sortBy}`,
+        title: t("filter.secondarySort"),
+        subTitle: translateSortBy(filters.sortBy),
+        onRemove: () => clearSingleFilter("sortBy"),
       },
 
       filters.rooms && {
+        id: `rooms-${filters.rooms}`,
         title: t("filter.rooms"),
         subTitle: filters.rooms,
+        onRemove: () => clearSingleFilter("rooms"),
       },
 
       filters.conditionState && {
+        id: `condition-${filters.conditionState}`,
         title: t("filter.conditionState"),
         subTitle: filters.conditionState,
+        onRemove: () => clearSingleFilter("conditionState"),
       },
 
       filters.energyClass && {
+        id: `energy-${filters.energyClass}`,
         title: t("filter.energyClass"),
         subTitle: filters.energyClass,
+        onRemove: () => clearSingleFilter("energyClass"),
       },
 
       filters.hasRoommates && {
+        id: `roommates-${filters.hasRoommates}`,
         title: t("filter.hasRoommates"),
         subTitle: translateYesNo(filters.hasRoommates, "filter.hasRoommatesYes", "filter.hasRoommatesNo"),
+        onRemove: () => clearSingleFilter("hasRoommates"),
       },
 
       filters.rentalPeriod && {
+        id: `rental-${filters.rentalPeriod}`,
         title: t("filter.rentalPeriod"),
         subTitle: translateRentalPeriod(filters.rentalPeriod),
+        onRemove: () => clearSingleFilter("rentalPeriod"),
       },
 
       filters.internet && {
+        id: `internet-${filters.internet}`,
         title: t("filter.internet"),
         subTitle: translateYesNo(filters.internet, "filter.internetYes", "filter.internetNo"),
+        onRemove: () => clearSingleFilter("internet"),
       },
 
       filters.utilities && {
+        id: `utilities-${filters.utilities}`,
         title: t("filter.utilities"),
         subTitle: translateUtilities(filters.utilities),
+        onRemove: () => clearSingleFilter("utilities"),
       },
 
       filters.petsAllowed && {
+        id: `pets-${filters.petsAllowed}`,
         title: t("filter.petsAllowed"),
         subTitle: translateYesNo(filters.petsAllowed, "filter.petsAllowedYes", "filter.petsAllowedNo"),
+        onRemove: () => clearSingleFilter("petsAllowed"),
       },
 
       filters.smokingAllowed && {
+        id: `smoking-${filters.smokingAllowed}`,
         title: t("filter.smokingAllowed"),
         subTitle: translateYesNo(filters.smokingAllowed, "filter.smokingAllowedYes", "filter.smokingAllowedNo"),
+        onRemove: () => clearSingleFilter("smokingAllowed"),
       },
 
       filters.moveInDate && {
+        id: `moveInDate-${filters.moveInDate}`,
         title: t("filter.moveInDate"),
         subTitle: filters.moveInDate,
+        onRemove: () => clearSingleFilter("moveInDate"),
       },
-
-      filters.amenities.length > 0 && {
+      ...filters.amenities.map((amenity) => ({
+        id: `amenity-${amenity}`,
         title: t("filter.amenities"),
-        subTitle: filters.amenities.map(a => translateAmenity(a)).join(", "),
-      },
+        subTitle: translateAmenity(amenity),
+        onRemove: () => clearSingleFilter("amenities", amenity),
+      })),
 
-      filters.infrastructure.length > 0 && {
+      ...filters.infrastructure.map((infra) => ({
+        id: `infra-${infra}`,
         title: t("filter.infrastructure"),
-        subTitle: `${filters.infrastructure.length} ${t("filter.selected")}`,
-      },
-    ].filter(Boolean) as { title: string; subTitle: string }[];
+        subTitle: translateInfrastructure(infra),
+        onRemove: () => clearSingleFilter("infrastructure", infra),
+      })),
+    ].filter(Boolean) as { id: string; title: string; subTitle: string; onRemove: () => void }[];
 
     const propertyTypes = [
+      {value: "ROOM", label: t("filter.propertyTypeRoom")},
       {value: "DUM", label: t("filter.propertyTypeHouse")},
       {value: "BYT", label: t("filter.propertyTypeApartment")},
-      {value: "NEIGHBOUR", label: t("filter.propertyTypeNeighbour")},
     ];
 
     const roomOptions = ["1", "2", "3", "4", "5+"];
@@ -238,6 +420,13 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         {value: "CZK", label: "CZK"},
         {value: "EUR", label: "EUR"},
         {value: "USD", label: "USD"},
+    ];
+
+    const sortByOptions = [
+      {value: "price_asc", label: t("filter.sortPriceAsc")},
+      {value: "price_desc", label: t("filter.sortPriceDesc")},
+      {value: "date_desc", label: t("filter.sortDateDesc")},
+      {value: "date_asc", label: t("filter.sortDateAsc")},
     ];
 
     const infrastructureOptions = [
@@ -314,6 +503,7 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         priceFrom: "",
         priceTo: "",
         currency: "CZK",
+        sortBy: "price_asc",
         rooms: "",
         hasRoommates: "",
         rentalPeriod: "",
@@ -349,18 +539,24 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                       </div>
                     ) : (
                       RoomsCategories.map((value, index) => (
-                        <div
-                          key={index}
-                          className={`h-full flex-shrink-0 flex flex-col items-center justify-center px-10
+                        <button
+                          key={value.id}
+                          type="button"
+                          onClick={value.onRemove}
+                          className={`h-full flex-shrink-0 flex items-center justify-center gap-3 px-6 text-left cursor-pointer
+                            hover:bg-[#F7F7F7] dark:hover:bg-gray-700/70 duration-200
                             ${index + 1 === RoomsCategories.length ? "" : "border-r border-[#E5E5E5] dark:border-gray-700"}`}
                         >
-                          <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
-                            {value.title}
-                          </span>
-                          <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
-                            {value.subTitle}
-                          </span>
-                        </div>
+                          <div className="flex flex-col items-start">
+                            <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
+                              {value.title}
+                            </span>
+                            <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
+                              {value.subTitle}
+                            </span>
+                          </div>
+                          <X size={12} className="text-[#8C8C8C] dark:text-gray-400" />
+                        </button>
                       ))
                     )}
                   </div>
@@ -390,18 +586,24 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                   </div>
                 ) : (
                   RoomsCategories.map((value, index) => (
-                    <div
-                      key={index}
-                      className={`flex flex-col items-start px-4 py-3
+                    <button
+                      key={value.id}
+                      type="button"
+                      onClick={value.onRemove}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-left
+                        hover:bg-[#F7F7F7] dark:hover:bg-gray-700/70 duration-200
                         ${index + 1 === RoomsCategories.length ? "" : "border-b border-[#E5E5E5] dark:border-gray-700"}`}
                     >
-                      <span className="font-bold text-sm text-black dark:text-white">
-                        {value.title}
-                      </span>
-                      <span className="font-semibold text-xs text-[#666666] dark:text-gray-400">
-                        {value.subTitle}
-                      </span>
-                    </div>
+                      <div className="flex flex-col items-start">
+                        <span className="font-bold text-sm text-black dark:text-white">
+                          {value.title}
+                        </span>
+                        <span className="font-semibold text-xs text-[#666666] dark:text-gray-400">
+                          {value.subTitle}
+                        </span>
+                      </div>
+                      <X size={12} className="text-[#8C8C8C] dark:text-gray-400 flex-shrink-0" />
+                    </button>
                   ))
                 )}
               </div>
@@ -492,36 +694,91 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                                         </select>
                                     </div>
 
-                                    {/* Цена от */}
-                                    <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.price")} ({t("filter.priceFrom")})</label>
-                                        <input
-                                            type="number"
-                                            value={filters.priceFrom}
-                                            onChange={(e) => handleFilterChange("priceFrom", e.target.value)}
-                                            placeholder={t("filter.pricePlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
-                                    </div>
+                                    {/* Цена */}
+                                    <div className={`flex flex-col gap-3 md:col-span-2`}>
+                                      <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.price")}</label>
 
-                                    {/* Цена до */}
-                                    <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.price")} ({t("filter.priceTo")})</label>
-                                        <input
-                                            type="number"
-                                            value={filters.priceTo}
-                                            onChange={(e) => handleFilterChange("priceTo", e.target.value)}
-                                            placeholder={t("filter.pricePlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
+                                      <div className={`w-full rounded-2xl border border-[#E0E0E0] dark:border-gray-600 bg-[#F8FAFB] dark:bg-gray-900/60 px-4 py-4`}>
+                                        <div className={`h-24 w-full flex items-end gap-[3px]`}> 
+                                          {histogramBars.length > 0 ? (
+                                            histogramBars.map((bucket, index) => {
+                                              const heightPercent = Math.max(6, Math.round((bucket.count / histogramMaxCount) * 100));
+                                              const isSelected = bucket.to >= normalizedFrom && bucket.from <= normalizedTo;
+
+                                              return (
+                                                <div
+                                                  key={`bucket-${index}`}
+                                                  className={`flex-1 rounded-t-md transition-all duration-300 ${isSelected ? "bg-[#2E97A0]" : "bg-[#D4DAE0] dark:bg-gray-700"}`}
+                                                  style={{ height: `${heightPercent}%` }}
+                                                  title={`${Math.round(bucket.from)} - ${Math.round(bucket.to)}: ${bucket.count}`}
+                                                />
+                                              );
+                                            })
+                                          ) : (
+                                            <div className={`w-full h-full rounded-xl border border-dashed border-[#D4DAE0] dark:border-gray-700`} />
+                                          )}
+                                        </div>
+
+                                        <div className={`mt-4 relative h-9`}>
+                                          <div className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-[6px] rounded-full bg-[#D4DAE0] dark:bg-gray-700`}>
+                                            <div
+                                              className={`absolute h-full rounded-full bg-[#2E97A0]`}
+                                              style={{
+                                                left: `${selectedFromPercent}%`,
+                                                width: `${Math.max(2, selectedToPercent - selectedFromPercent)}%`,
+                                              }}
+                                            />
+                                          </div>
+
+                                          <input
+                                            type="range"
+                                            min={sliderMin}
+                                            max={sliderMax}
+                                            value={normalizedFrom}
+                                            onChange={(e) => applyPriceRange(Number(e.target.value), normalizedTo)}
+                                            className={`price-range-input z-20`}
+                                          />
+                                          <input
+                                            type="range"
+                                            min={sliderMin}
+                                            max={sliderMax}
+                                            value={normalizedTo}
+                                            onChange={(e) => applyPriceRange(normalizedFrom, Number(e.target.value))}
+                                            className={`price-range-input z-30`}
+                                          />
+                                        </div>
+
+                                        <div className={`mt-2 flex justify-end`}>
+                                          <div className={`px-3 py-1.5 rounded-full bg-[#2E97A0]/10 dark:bg-[#2E97A0]/20 border border-[#2E97A0]/25`}>
+                                            <span className={`text-xs font-semibold text-[#1F6A70] dark:text-[#84d6dd]`}>
+                                              {t("filter.foundInRange")}: {listingsInSelectedRange}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className={`mt-3 grid grid-cols-2 gap-3`}>
+                                          <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800`}>
+                                            <span className={`text-sm font-semibold text-[#5F6A76] dark:text-gray-300`}>{t("filter.priceFrom")}</span>
+                                            <input
+                                              type="number"
+                                              value={filters.priceFrom}
+                                              onChange={(e) => applyPriceRange(parsePriceNumber(e.target.value), currentTo)}
+                                              placeholder={t("filter.pricePlaceholder")}
+                                              className={`w-full bg-transparent outline-0 text-black dark:text-white font-semibold`}
+                                            />
+                                          </div>
+                                          <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800`}>
+                                            <span className={`text-sm font-semibold text-[#5F6A76] dark:text-gray-300`}>{t("filter.priceTo")}</span>
+                                            <input
+                                              type="number"
+                                              value={filters.priceTo}
+                                              onChange={(e) => applyPriceRange(currentFrom, parsePriceNumber(e.target.value))}
+                                              placeholder={t("filter.pricePlaceholder")}
+                                              className={`w-full bg-transparent outline-0 text-black dark:text-white font-semibold`}
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
 
                                     {/* Валюта */}
@@ -541,6 +798,24 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
                                             ))}
                                         </select>
                                     </div>
+
+                                        {/* Сортировка 2-3 уровня */}
+                                        <div className={`flex flex-col gap-2`}>
+                                          <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.secondarySort")}</label>
+                                          <select
+                                            value={filters.sortBy || "price_asc"}
+                                            onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                  focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                  focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                  outline-0 duration-300 transition-all bg-white text-black
+                                                  hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                          >
+                                            {sortByOptions.map((option) => (
+                                              <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                          </select>
+                                        </div>
 
                                     {/* Количество комнат */}
                                     <div className={`flex flex-col gap-2`}>

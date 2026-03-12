@@ -11,6 +11,7 @@ export type SaleCardTypes = {
     type: "APARTMENT" | "ROOM" | "NEIGHBOUR" | "BYT" | "DUM";
     price?: number | string;
     utilitiesFee?: number | string;
+    city?: string;
     address?: string;
     size?: string | number;
     rooms?: string;
@@ -23,12 +24,15 @@ export type SaleCardTypes = {
     // Доп. поля для NEIGHBOUR
     from?: string;
     badges?: string[];
+    ratingAverage?: number;
+    ratingCount?: number;
     // Возможные старые поля (сохраняем в типе, но не используем)
     region?: string;
     title?: string;
     description?: string;
     is_active?: boolean;
     linkState?: unknown;
+    matchPercentage?: number;
 };
 
 interface SaleCardProps extends SaleCardTypes {
@@ -37,8 +41,11 @@ interface SaleCardProps extends SaleCardTypes {
 
 export default function SaleCard({
     id,
+    title,
     price,
     utilitiesFee,
+    city,
+    region,
     address,
     size,
     amenities = [],
@@ -49,23 +56,73 @@ export default function SaleCard({
     age,
     from,
     badges = [],
+    ratingAverage,
+    ratingCount,
     is_favorite,
     is_active = true,
     linkState,
+    matchPercentage,
     onRemoveFavorite
 }: SaleCardProps) {
     const { t } = useLanguage();
     const [isLike, setLike] = useState(!!is_favorite);
     const [isProcessing, setProcessing] = useState(false);
+    const [isVisited, setIsVisited] = useState(false);
+    const VISITED_LISTINGS_STORAGE_KEY = "visitedListings";
     const parsedUtilitiesFee = Number(utilitiesFee || 0);
+    const normalizedType = (type === "BYT" || type === "DUM") ? "APARTMENT" : type;
     const utilitiesFeeLabel = Number.isFinite(parsedUtilitiesFee) && parsedUtilitiesFee > 0
         ? ` (+${parsedUtilitiesFee.toLocaleString("cs-CZ")} Kč)`
         : "";
+    const normalizedMatchPercentage = Number.isFinite(matchPercentage)
+        ? Math.max(0, Math.min(100, Math.round(Number(matchPercentage))))
+        : null;
+
+    const translateAmenity = (key: string) => {
+        const normalized = String(key || "").trim().toLowerCase();
+        const map: Record<string, string> = {
+            washing_machine: t("filter.amenityWashingMachine"),
+            dishwasher: t("filter.amenityDishwasher"),
+            microwave: t("filter.amenityMicrowave"),
+            oven: t("filter.amenityOven"),
+            refrigerator: t("filter.amenityRefrigerator"),
+            tv: t("filter.amenityTV"),
+            air_conditioning: t("filter.amenityAirConditioning"),
+            heating: t("filter.amenityHeating"),
+            balcony: t("filter.amenityBalcony"),
+            parking: t("filter.amenityParking"),
+            furnished: t("filter.amenityFurnished"),
+        };
+        return map[normalized] || key;
+    };
+
+    const getStarIcon = (value: number, starIndex: number) => {
+        if (value >= starIndex) return "mdi:star";
+        if (value >= starIndex - 0.5) return "mdi:star-half-full";
+        return "mdi:star-outline";
+    };
 
     // Поддерживать актуальность при изменении пропса
     useEffect(() => {
         setLike(!!is_favorite);
     }, [is_favorite]);
+
+    useEffect(() => {
+        const isListing = normalizedType === "APARTMENT" || normalizedType === "ROOM";
+        if (!isListing || !id) {
+            setIsVisited(false);
+            return;
+        }
+
+        try {
+            const raw = window.localStorage.getItem(VISITED_LISTINGS_STORAGE_KEY);
+            const parsed: Array<string | number> = raw ? JSON.parse(raw) : [];
+            const visited = Array.isArray(parsed) && parsed.some((entry) => String(entry) === String(id));
+            setIsVisited(visited);
+        } catch {
+            setIsVisited(false);
+        }
+    }, [id, normalizedType]);
 
     // Обработать profile_id для соседей (если нужно отправить как сосед)
     const favoritePayload = () => {
@@ -120,8 +177,6 @@ export default function SaleCard({
             setProcessing(false);
         }
     };
-    const normalizedType = (type === "BYT" || type === "DUM") ? "APARTMENT" : type;
-
     const getListingUrl = () => {
         if (!id) return null;
         switch (normalizedType) {
@@ -137,6 +192,40 @@ export default function SaleCard({
     };
 
     const listingUrl = getListingUrl();
+    const listingTextClass = isVisited ? "text-gray-500 dark:text-gray-400" : "text-black dark:text-gray-200";
+    const listingPriceClass = isVisited ? "text-gray-500 dark:text-gray-400" : "text-[#666666] dark:text-gray-300";
+    const isMeaningful = (value?: string) => /[A-Za-zА-Яа-я0-9]/.test(String(value || "").trim());
+    const getRegionLabel = (regionCode?: string) => {
+        const code = String(regionCode || "").trim().toUpperCase();
+        if (!code) return "";
+        const translated = t(`listing.regions.${code}`);
+        return translated !== `listing.regions.${code}` ? translated : code;
+    };
+    const listingLocation = [getRegionLabel(region), city, address]
+        .map((value) => String(value || "").trim())
+        .filter((value, index, array) => value && array.indexOf(value) === index)
+        .join(", ");
+    const listingMainTitle = isMeaningful(title)
+        ? String(title).trim()
+        : isMeaningful(address)
+            ? String(address).trim()
+            : "";
+
+    const markListingVisited = () => {
+        const isListing = normalizedType === "APARTMENT" || normalizedType === "ROOM";
+        if (!isListing || !id) return;
+
+        try {
+            const raw = window.localStorage.getItem(VISITED_LISTINGS_STORAGE_KEY);
+            const parsed: Array<string | number> = raw ? JSON.parse(raw) : [];
+            const existing = Array.isArray(parsed) ? parsed : [];
+            const next = existing.some((entry) => String(entry) === String(id)) ? existing : [id, ...existing].slice(0, 300);
+            window.localStorage.setItem(VISITED_LISTINGS_STORAGE_KEY, JSON.stringify(next));
+            setIsVisited(true);
+        } catch {
+            setIsVisited(true);
+        }
+    };
 
     const SaleCardTypeHandler = ()=>{
         switch (normalizedType) {
@@ -144,19 +233,22 @@ export default function SaleCard({
                 return(
                     <div className={`w-full h-full flex flex-col items-start py-1.5 px-3 gap-1`}>
                         <div className={`flex items-center justify-start gap-2`}>
-                            <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
-                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
-                                {price} {t("saleCard.perMonth")}
-                                {utilitiesFeeLabel}
-                            </span>
+                            <Icon icon="mdi:home-outline" className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
+                            <span className={`text-[18px] max-[1220px]:text-[12px] font-bold ${listingTextClass} truncate`}>{listingMainTitle}</span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold text-black dark:text-gray-200`}>{t("saleCard.roomRent")} {size} m²</span>
+                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold ${listingTextClass}`}>{t("saleCard.roomRent")} {size} m²</span>
+                        </div>
+                        <div className={`flex items-center justify-start gap-2`}>
+                            <Icon icon="ph:hand-coins-light" style={{color: `#666666`}} className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
+                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingPriceClass}`}>
+                                {price}{utilitiesFeeLabel}
+                            </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="qlementine-icons:location-16" className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold text-black dark:text-gray-200`}>{address} </span>
+                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingTextClass}`}>{listingLocation}</span>
                         </div>
                     </div>
                 );
@@ -173,6 +265,19 @@ export default function SaleCard({
                                 <span>{from}</span>
                             </div>
                         </div>
+                        <div className={`flex items-center gap-1 text-[#666666] dark:text-gray-300`}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <Icon
+                                    key={`card-rating-${id}-${star}`}
+                                    icon={getStarIcon(Number(ratingAverage || 0), star)}
+                                    className={`w-[14px] h-[14px]`}
+                                    style={{ color: "#F59E0B" }}
+                                />
+                            ))}
+                            <span className={`text-[12px] font-semibold`}>
+                                {(Number(ratingAverage || 0)).toFixed(1)} ({Number(ratingCount || 0)})
+                            </span>
+                        </div>
                         <div className={`w-full flex flex-wrap items-center justify-center content-center gap-4 mt-2`}>
                             {badges.map((value, index)=>
                                 <div key={index} className={`p-1 max-[1220px]:p-0.5 rounded border border-[#666666] dark:border-gray-500 text-[10px] max-[1220px]:text-[6px] text-[#08E2BE] dark:text-[#08E2BE] font-bold`}>
@@ -186,19 +291,22 @@ export default function SaleCard({
                 return(
                     <div className={`w-full h-full flex flex-col items-start py-1.5 px-3 gap-1`}>
                         <div className={`flex items-center justify-start gap-2`}>
-                            <Icon icon="ph:hand-coins-light" style={{color: `#C505EB`}} className={`w-[30px] h-[30px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
-                            <span className={`text-[24px] max-[1220px]:text-[16px] text-[#C505EB] font-bold`}>
-                                {price} {t("saleCard.perMonth")}
-                                {utilitiesFeeLabel}
-                            </span>
+                            <Icon icon="mdi:home-outline" className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
+                            <span className={`text-[18px] max-[1220px]:text-[12px] font-bold ${listingTextClass} truncate`}>{listingMainTitle}</span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold text-black dark:text-gray-200`}>{t("saleCard.apartmentRent")} {rooms} {` `} {size} m²</span>
+                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold ${listingTextClass}`}>{t("saleCard.apartmentRent")} {rooms} {` `} {size} m²</span>
+                        </div>
+                        <div className={`flex items-center justify-start gap-2`}>
+                            <Icon icon="ph:hand-coins-light" style={{color: `#666666`}} className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
+                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingPriceClass}`}>
+                                {price}{utilitiesFeeLabel}
+                            </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="qlementine-icons:location-16" className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold text-black dark:text-gray-200`}>{address} </span>
+                            <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingTextClass}`}>{listingLocation}</span>
                         </div>
                     </div>
                 );
@@ -224,9 +332,14 @@ export default function SaleCard({
                     <div className={`w-full flex items-start justify-between`}>
                         {(normalizedType==="ROOM" || normalizedType==="APARTMENT")?
                             <div className={`flex flex-col items-start gap-3 max-[1220px]:gap-1 `}>
+                                {normalizedMatchPercentage !== null && (
+                                    <div className={`p-1 max-[1220px]:p-0.5 rounded bg-black/70 text-white text-[10px] max-[1220px]:text-[6px] font-bold`}>
+                                        Match {normalizedMatchPercentage}%
+                                    </div>
+                                )}
                                 {amenities.map((value, index)=>
                                     <div key={index} className={`p-1 max-[1220px]:p-0.5 rounded bg-[#08E2BE] border border-[#06B396] text-black text-[10px] max-[1220px]:text-[6px] font-bold`}>
-                                        {value}
+                                        {translateAmenity(value)}
                                     </div>
                                 )}
                             </div>
@@ -252,7 +365,7 @@ export default function SaleCard({
 
     if (listingUrl) {
         return (
-            <Link to={listingUrl} state={linkState}>
+            <Link to={listingUrl} state={linkState} onClick={markListingVisited}>
                 {CardContent}
             </Link>
         );

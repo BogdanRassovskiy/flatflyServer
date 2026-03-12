@@ -88,7 +88,7 @@ function App() {
                     <Route path="/rooms">
                         <Route
                           index
-                          element={<ApartmentsPage listingType="APARTMENT" />}
+                                                    element={<ApartmentsPage />}
                         />
                         <Route path=":id" element={<ListingDetailPage />} />
                     </Route>
@@ -99,7 +99,7 @@ function App() {
                     <Route path="/apartments">
                         <Route
                           index
-                          element={<ApartmentsPage listingType="APARTMENT" />}
+                                                    element={<ApartmentsPage />}
                         />
                         <Route path=":id" element={<ListingDetailPage />} />
                     </Route>

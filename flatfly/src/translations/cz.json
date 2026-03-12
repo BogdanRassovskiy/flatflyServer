@@ -60,6 +60,7 @@
     "priceValue": "Neomezeno",
     "priceFrom": "Od",
     "priceTo": "Do",
+    "foundInRange": "Nalezeno v rozsahu",
     "pricePlaceholder": "Zadejte částku",
     "rooms": "Počet pokojů",
     "roomsPlaceholder": "Vyberte počet",
@@ -109,7 +110,13 @@
     "smokingAllowed": "Povoleno kouření",
     "smokingAllowedYes": "Ano",
     "smokingAllowedNo": "Ne",
-    "moveInDate": "Datum nastěhování",    "currency": "Měna",
+    "moveInDate": "Datum nastěhování",
+    "currency": "Měna",
+    "secondarySort": "Řazení (2.-3. úroveň)",
+    "sortPriceAsc": "Nejlevnější jako první",
+    "sortPriceDesc": "Nejdražší jako první",
+    "sortDateDesc": "Nejnovější jako první",
+    "sortDateAsc": "Nejstarší jako první",
     "conditionState": "Stav",
     "conditionNew": "Nový",
     "conditionExcellent": "Výborný",
@@ -128,6 +135,7 @@
     "neighbourAge": "Věk",
     "neighbourAgeFrom": "Od",
     "neighbourAgeTo": "Do",
+    "neighbourMinRating": "Minimální hodnocení",
     "neighbourAgePlaceholder": "Zadejte věk",
     "neighbourGender": "Pohlaví",
     "neighbourGenderMale": "Muž",
@@ -195,9 +203,26 @@
     "hasPlayground": "Dětské hřiště",
     "maxResidents": "Max. počet obyvatel",
     "location": "Lokalita",
+    "regions": {
+      "PRAGUE": "Praha",
+      "STREDOCESKY": "Středočeský kraj",
+      "JIHOCESKY": "Jihočeský kraj",
+      "PLZENSKY": "Plzeňský kraj",
+      "KARLOVARSKY": "Karlovarský kraj",
+      "USTECKY": "Ústecký kraj",
+      "LIBERECKY": "Liberecký kraj",
+      "KRALOVEHRADECKY": "Královéhradecký kraj",
+      "PARDUBICKY": "Pardubický kraj",
+      "VYSOCINA": "Vysočina",
+      "JIHOMORAVSKY": "Jihomoravský kraj",
+      "OLOMOUCKY": "Olomoucký kraj",
+      "ZLINSKY": "Zlínský kraj",
+      "MORAVSKOSLEZSKY": "Moravskoslezský kraj"
+    },
     "rentalPeriod": "Doba pronájmu",
     "moveInDate": "Datum nastěhování",
     "utilitiesFee": "Poplatek za energie",
+    "deposit": "Kauce",
     "conditions": "Podmínky",
     "amenities": "Vybavení",
     "video": "Video",
@@ -220,6 +245,16 @@
     ,"removeFromHome": "Odebrat z domova"
     ,"removeFromHomeConfirm": "Odebrat tohoto člověka z domova?"
     ,"removedFromHomeSuccess": "Uživatel byl odebrán z domova"
+    ,"ratingAndReviews": "Hodnocení a komentáře"
+    ,"yourRating": "Vaše hodnocení"
+    ,"selectRating": "Vyberte hodnocení od 1 do 5"
+    ,"commentPlaceholder": "Napište komentář..."
+    ,"submitReview": "Uložit hodnocení"
+    ,"updateReview": "Aktualizovat hodnocení"
+    ,"reviewFailed": "Nepodařilo se uložit hodnocení"
+    ,"alreadyReviewed": "Hodnocení jste už odeslali"
+    ,"onlyCoResidentsCanReview": "Hodnotit mohou jen lidé, kteří spolu bydlí"
+    ,"noReviewsYet": "Zatím bez hodnocení"
   },
   "pagination": {
     "next": "Další"
@@ -278,7 +313,12 @@
     "maxResidents": "Max. počet sousedů",
     "conditions": "Podmínky",
     "selectRegionRequired": "Vyberte kraj",
+    "selectCityFromList": "Vyberte město ze seznamu",
+    "cityLoading": "Vyhledávání měst...",
+    "cityNoResults": "Město nebylo v seznamu obcí nalezeno",
     "utilitiesFeePlaceholder": "Poplatek za energie",
+    "deposit": "Výše kauce",
+    "depositPlaceholder": "Zadejte výši kauce",
     "price": "Cena (Kč/měsíc)",
     "pricePlaceholder": "např. 12 000",
     "publish": "Zveřejnit inzerát",

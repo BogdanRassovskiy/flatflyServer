@@ -5,6 +5,12 @@ import {useLanguage} from "../../contexts/LanguageContext";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { getCsrfToken } from "../../utils/csrf";
 
+type MunicipalitySuggestion = {
+  name: string;
+  region_code: string;
+  municipality_type?: string;
+};
+
 
 export default function AddingPage() {
     const navigate = useNavigate();
@@ -16,6 +22,10 @@ export default function AddingPage() {
     const [region, setRegion] = useState("");
     const [city, setCity] = useState("");
     const [address, setAddress] = useState("");
+    const [citySuggestions, setCitySuggestions] = useState<MunicipalitySuggestion[]>([]);
+    const [isCityLoading, setIsCityLoading] = useState(false);
+    const [isCityFromList, setIsCityFromList] = useState(false);
+    const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
     
     // Состояние и энергетика
     const [conditionState, setConditionState] = useState("");
@@ -41,6 +51,7 @@ export default function AddingPage() {
     const [internet, setInternet] = useState(false);
     const [utilitiesIncluded, setUtilitiesIncluded] = useState(false);
     const [utilitiesFee, setUtilitiesFee] = useState<number>(0);
+    const [deposit, setDeposit] = useState<number>(0);
     const [petsAllowed, setPetsAllowed] = useState(false);
     const [smokingAllowed, setSmokingAllowed] = useState(false);
     const [rentalPeriod, setRentalPeriod] = useState("long");
@@ -59,6 +70,7 @@ export default function AddingPage() {
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
+    const cityAutocompleteRef = useRef<HTMLDivElement>(null);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [layout, setLayout] = useState("");
@@ -72,6 +84,19 @@ export default function AddingPage() {
     const showNotification = (message: string, type: 'success' | 'error') => {
         setNotification({message, type});
         setTimeout(() => setNotification(null), 4000);
+    };
+
+    const handleCityInputChange = (value: string) => {
+      setCity(value);
+      setIsCityFromList(false);
+      setIsCityDropdownOpen(true);
+    };
+
+    const handleCitySelect = (item: MunicipalitySuggestion) => {
+      setCity(item.name);
+      setIsCityFromList(true);
+      setCitySuggestions([]);
+      setIsCityDropdownOpen(false);
     };
 
     const CZECH_REGIONS = [
@@ -146,6 +171,11 @@ export default function AddingPage() {
         return;
       }
 
+      if (!city || !isCityFromList) {
+        showNotification(t("add.selectCityFromList"), 'error');
+        return;
+      }
+
       try {
         const payload = {
               property_type: typeAd,
@@ -187,6 +217,7 @@ export default function AddingPage() {
               utilities_included: utilitiesIncluded,
               utilities_fee: utilitiesIncluded ? 0 : utilitiesFee,
               utilitiesFee: utilitiesIncluded ? 0 : utilitiesFee,
+              deposit,
               pets_allowed: petsAllowed,
               smoking_allowed: smokingAllowed,
               move_in_date: moveInDate || null,
@@ -205,7 +236,10 @@ export default function AddingPage() {
           body: JSON.stringify(payload),
         });
 
-        if (!res.ok) throw new Error(isEditMode ? t("add.publishFailed") : t("add.failedToCreateAd"));
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData?.detail || (isEditMode ? t("add.publishFailed") : t("add.failedToCreateAd")));
+        }
 
         const data = await res.json();
         const adId = isEditMode ? editListingId : data.id;
@@ -245,6 +279,7 @@ export default function AddingPage() {
         setAddress("");
         setConditionState("");
         setEnergyClass("");
+        setDeposit(0);
 
       } catch (err) {
         console.error(err);
@@ -288,6 +323,7 @@ export default function AddingPage() {
 
           setRegion(data.region || "");
           setCity(data.city || "");
+          setIsCityFromList(Boolean(data.city));
           setAddress(data.address || "");
 
           setConditionState(data.condition_state || "");
@@ -299,6 +335,7 @@ export default function AddingPage() {
 
           setUtilitiesIncluded(Boolean(data.utilities_included));
           setUtilitiesFee(Number(data.utilitiesFee || 0));
+          setDeposit(Number(data.deposit || 0));
 
           setPetsAllowed(Boolean(data.pets_allowed));
           setSmokingAllowed(Boolean(data.smoking_allowed));
@@ -376,6 +413,77 @@ export default function AddingPage() {
         setCurrentImageIndex((prev) => (prev - 1 + uploadedImages.length) % uploadedImages.length);
         setTimeout(() => setIsTransitioning(false), 300);
     };
+
+    useEffect(() => {
+      if (!region) {
+        setCitySuggestions([]);
+        setIsCityLoading(false);
+        return;
+      }
+
+      const cityQuery = city.trim();
+      if (cityQuery.length < 2 || isCityFromList) {
+        setCitySuggestions([]);
+        setIsCityLoading(false);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(async () => {
+        try {
+          setIsCityLoading(true);
+          const params = new URLSearchParams({
+            q: cityQuery,
+            region,
+            limit: "12",
+          });
+
+          const response = await fetch(`/api/municipalities/search?${params.toString()}`, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load municipalities");
+          }
+
+          const payload = await response.json();
+          const results = Array.isArray(payload?.results) ? payload.results : [];
+          setCitySuggestions(results);
+          setIsCityDropdownOpen(true);
+
+          const exactMatch = results.some((item: MunicipalitySuggestion) =>
+            String(item?.name || "").toLowerCase() === cityQuery.toLowerCase()
+          );
+          if (exactMatch) {
+            setIsCityFromList(true);
+            setIsCityDropdownOpen(false);
+          }
+        } catch (error: any) {
+          if (error?.name !== "AbortError") {
+            setCitySuggestions([]);
+          }
+        } finally {
+          setIsCityLoading(false);
+        }
+      }, 250);
+
+      return () => {
+        controller.abort();
+        clearTimeout(timeout);
+      };
+    }, [city, region, isCityFromList]);
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (cityAutocompleteRef.current && !cityAutocompleteRef.current.contains(event.target as Node)) {
+          setIsCityDropdownOpen(false);
+        }
+      };
+
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -597,6 +705,19 @@ export default function AddingPage() {
                               placeholder={t("add.utilitiesFeePlaceholder")}
                             />
                           )}
+
+                          <span className={`mt-2 text-sm font-medium text-black dark:text-white`}>
+                            {t("add.deposit")}
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={deposit}
+                            onChange={(e) => setDeposit(Number(e.target.value || 0))}
+                            className={`mt-2 w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
+                            placeholder={t("add.depositPlaceholder")}
+                          />
                         </div>
 
                       </div>
@@ -682,7 +803,14 @@ export default function AddingPage() {
                             </span>
                             <select
                               value={region}
-                              onChange={(e) => setRegion(e.target.value)}
+                              onChange={(e) => {
+                                const nextRegion = e.target.value;
+                                setRegion(nextRegion);
+                                setCity("");
+                                setCitySuggestions([]);
+                                setIsCityFromList(false);
+                                setIsCityDropdownOpen(false);
+                              }}
                               className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                          focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
                             >
@@ -696,17 +824,43 @@ export default function AddingPage() {
                           </div>
 
                           {/* ADDRESS */}
-                          <div className={`w-full flex flex-col items-start gap-1`}>
+                          <div ref={cityAutocompleteRef} className={`w-full flex flex-col items-start gap-1 relative`}>
                             <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
                               {t("filter.city")}
                             </span>
                             <input
                               value={city}
-                              onChange={(e) => setCity(e.target.value)}
+                              onChange={(e) => handleCityInputChange(e.target.value)}
+                              onFocus={() => {
+                                if (!isCityFromList && citySuggestions.length > 0) {
+                                  setIsCityDropdownOpen(true);
+                                }
+                              }}
                               className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                         focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
                               placeholder={t("filter.cityPlaceholder")}
                             />
+                            {isCityLoading && (
+                              <span className={`text-xs text-[#666666] dark:text-gray-400 mt-1`}>{t("add.cityLoading")}</span>
+                            )}
+                            {!isCityFromList && city.length >= 2 && !isCityLoading && isCityDropdownOpen && (
+                              <div className={`absolute top-[82px] left-0 w-full z-20 max-h-[220px] overflow-y-auto rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg`}>
+                                {citySuggestions.length > 0 ? citySuggestions.map((item, index) => (
+                                  <button
+                                    key={`${item.name}-${index}`}
+                                    type="button"
+                                    onClick={() => handleCitySelect(item)}
+                                    className={`w-full text-left px-4 py-2 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                  >
+                                    {item.name}
+                                  </button>
+                                )) : (
+                                  <div className={`px-4 py-2 text-sm text-[#666666] dark:text-gray-400`}>
+                                    {t("add.cityNoResults")}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         

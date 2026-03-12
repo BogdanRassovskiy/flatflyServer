@@ -60,6 +60,7 @@
     "priceValue": "Неограничено",
     "priceFrom": "От",
     "priceTo": "До",
+    "foundInRange": "Найдено в диапазоне",
     "pricePlaceholder": "Введите сумму",
     "rooms": "Количество комнат",
     "roomsPlaceholder": "Выберите количество",
@@ -111,6 +112,11 @@
     "smokingAllowedNo": "Нет",
     "moveInDate": "Дата заселения",
     "currency": "Валюта",
+    "secondarySort": "Сортировка (2-3 уровень)",
+    "sortPriceAsc": "Сначала самые дешевые",
+    "sortPriceDesc": "Сначала самые дорогие",
+    "sortDateDesc": "Сначала самые новые",
+    "sortDateAsc": "Сначала самые старые",
     "conditionState": "Состояние",
     "conditionNew": "Новое",
     "conditionExcellent": "Отличное",
@@ -130,6 +136,7 @@
     "neighbourAge": "Возраст",
     "neighbourAgeFrom": "От",
     "neighbourAgeTo": "До",
+    "neighbourMinRating": "Минимальная оценка",
     "neighbourAgePlaceholder": "Введите возраст",
     "neighbourGender": "Пол",
     "neighbourGenderMale": "Мужской",
@@ -197,9 +204,26 @@
     "hasPlayground": "Детская площадка",
     "maxResidents": "Макс. жителей",
     "location": "Локация",
+    "regions": {
+      "PRAGUE": "Прага",
+      "STREDOCESKY": "Среднечешский край",
+      "JIHOCESKY": "Южночешский край",
+      "PLZENSKY": "Пльзеньский край",
+      "KARLOVARSKY": "Карловарский край",
+      "USTECKY": "Устецкий край",
+      "LIBERECKY": "Либерецкий край",
+      "KRALOVEHRADECKY": "Краловеградецкий край",
+      "PARDUBICKY": "Пардубицкий край",
+      "VYSOCINA": "Край Высочина",
+      "JIHOMORAVSKY": "Южноморавский край",
+      "OLOMOUCKY": "Оломоуцкий край",
+      "ZLINSKY": "Злинский край",
+      "MORAVSKOSLEZSKY": "Моравскосилезский край"
+    },
     "rentalPeriod": "Срок аренды",
     "moveInDate": "Дата заселения",
     "utilitiesFee": "Коммунальные платежи",
+    "deposit": "Залог",
     "conditions": "Условия",
     "amenities": "Оснащение",
     "video": "Видео",
@@ -222,6 +246,16 @@
     ,"removeFromHome": "Удалить из дома"
     ,"removeFromHomeConfirm": "Удалить этого человека из дома?"
     ,"removedFromHomeSuccess": "Пользователь удалён из дома"
+    ,"ratingAndReviews": "Рейтинг и комментарии"
+    ,"yourRating": "Ваша оценка"
+    ,"selectRating": "Выберите оценку от 1 до 5"
+    ,"commentPlaceholder": "Оставьте комментарий..."
+    ,"submitReview": "Сохранить отзыв"
+    ,"updateReview": "Обновить отзыв"
+    ,"reviewFailed": "Не удалось сохранить отзыв"
+    ,"alreadyReviewed": "Вы уже оставили отзыв"
+    ,"onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе"
+    ,"noReviewsYet": "Пока нет отзывов"
   },
   "pagination": {
     "next": "Далее"
@@ -280,7 +314,12 @@
     "maxResidents": "Макс. число соседей",
     "conditions": "Условия",
     "selectRegionRequired": "Выберите регион",
+    "selectCityFromList": "Выберите город из списка",
+    "cityLoading": "Поиск городов...",
+    "cityNoResults": "Город не найден в справочнике",
     "utilitiesFeePlaceholder": "Платежи за коммунальные услуги",
+    "deposit": "Сумма залога",
+    "depositPlaceholder": "Введите сумму залога",
     "price": "Цена (крон/месяц)",
     "pricePlaceholder": "напр. 12 000",
     "publish": "Опубликовать объявление",

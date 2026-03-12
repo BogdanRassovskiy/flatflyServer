@@ -23,12 +23,15 @@ interface Neighbour {
 
   verified: boolean;
   looking_for_housing: boolean;
+  ratingAverage?: number;
+  ratingCount?: number;
   is_favorite?: boolean;
 }
 interface NeighbourFilterState {
   city: string;
   ageFrom: string;
   ageTo: string;
+  ratingMin: string;
   gender: string;
   smoking: string;
   alcohol: string;
@@ -50,6 +53,7 @@ export default function NeighboursPage() {
     city: "",
     ageFrom: "",
     ageTo: "",
+    ratingMin: "",
     gender: "",
     smoking: "",
     alcohol: "",
@@ -184,6 +188,8 @@ export default function NeighboursPage() {
                     from={regionValueToLabel(n.city)}
                     image={getImageUrl(n.avatar)}
                     badges={badges}
+                    ratingAverage={n.ratingAverage}
+                    ratingCount={n.ratingCount}
                     type="NEIGHBOUR"
                     is_favorite={n.is_favorite}
                   />

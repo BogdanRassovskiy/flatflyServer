@@ -11,6 +11,7 @@ interface NeighbourFilterState {
     city: string;
     ageFrom: string;
     ageTo: string;
+    ratingMin: string;
     gender: string;
     smoking: string;
     alcohol: string;
@@ -74,6 +75,11 @@ const NeighboursCategories = [
     title: t("filter.neighbourAge"),
     subTitle: `${filters.ageFrom || "0"} - ${filters.ageTo || "∞"}`,
   },
+
+    filters.ratingMin && {
+        title: t("filter.neighbourMinRating"),
+        subTitle: `${filters.ratingMin}+`,
+    },
 
   filters.gender && {
     title: t("filter.neighbourGender"),
@@ -144,6 +150,8 @@ const NeighboursCategories = [
         {key: "de", label: t("profile.languages.de")},
         {key: "sk", label: t("profile.languages.sk")},
     ];
+    const ratingOptions = ["1", "2", "3", "4", "5"];
+
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
       { value: "STREDOCESKY", label: "Středočeský kraj" },
@@ -203,6 +211,7 @@ const NeighboursCategories = [
         city: "",
         ageFrom: "",
         ageTo: "",
+                ratingMin: "",
         gender: "",
         smoking: "",
         alcohol: "",
@@ -340,6 +349,25 @@ const NeighboursCategories = [
                                                         outline-0 duration-300 transition-all bg-white text-black
                                                         hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
                                         />
+                                    </div>
+
+                                    {/* Минимальный рейтинг */}
+                                    <div className={`flex flex-col gap-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourMinRating")}</label>
+                                        <select
+                                            value={filters.ratingMin}
+                                            onChange={(e) => handleFilterChange("ratingMin", e.target.value)}
+                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                        outline-0 duration-300 transition-all bg-white text-black
+                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        >
+                                            <option value="">-</option>
+                                            {ratingOptions.map((option) => (
+                                                <option key={option} value={option}>{option}+</option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     {/* Пол */}

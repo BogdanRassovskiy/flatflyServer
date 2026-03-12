@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+import unicodedata
 
 
 class Listing(models.Model):
@@ -155,6 +156,7 @@ class Listing(models.Model):
 
     max_residents = models.PositiveSmallIntegerField(default=1)
     utilities_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    deposit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -216,3 +218,73 @@ class ListingInvite(models.Model):
     expires_at = models.DateTimeField()
     accepted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+
+
+class ListingFilterConfig(models.Model):
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+    weight = models.FloatField(default=1.0)
+    hard_filter = models.BooleanField(default=True)
+    relaxation_order = models.PositiveSmallIntegerField(default=0)
+    enabled = models.BooleanField(default=True)
+    value_type = models.CharField(max_length=32, default="string")
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["relaxation_order", "id"]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class ListingFilterOptionConfig(models.Model):
+    parent_filter = models.ForeignKey(
+        ListingFilterConfig,
+        on_delete=models.CASCADE,
+        related_name="option_configs",
+    )
+    option_key = models.CharField(max_length=128)
+    name = models.CharField(max_length=255)
+    weight = models.FloatField(default=0.5)
+    hard_filter = models.BooleanField(default=False)
+    relaxation_order = models.PositiveSmallIntegerField(default=0)
+    enabled = models.BooleanField(default=True)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["parent_filter", "relaxation_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["parent_filter", "option_key"],
+                name="uniq_filter_option_key",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.parent_filter.code}:{self.option_key}"
+
+
+class CzechMunicipality(models.Model):
+    osm_id = models.BigIntegerField(unique=True)
+    code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    name = models.CharField(max_length=255, db_index=True)
+    normalized_name = models.CharField(max_length=255, db_index=True)
+    region_code = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    municipality_type = models.CharField(max_length=32, blank=True, default="obec")
+    population = models.PositiveIntegerField(null=True, blank=True)
+    source = models.CharField(max_length=32, default="OSM")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = unicodedata.normalize("NFKD", (self.name or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

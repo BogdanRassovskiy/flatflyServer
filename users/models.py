@@ -102,3 +102,31 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+
+
+class ProfileReview(models.Model):
+    reviewer = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name="given_reviews",
+    )
+    target = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name="received_reviews",
+    )
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reviewer", "target"],
+                name="uniq_profile_review_reviewer_target",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.reviewer_id} -> {self.target_id} ({self.rating})"

@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getImageUrl } from "../../utils/defaultImage";
-
-
-type ListingType = "APARTMENT" | "ROOM";
+import { rankListings } from "../../utils/listingRanking";
+import type { FilterState } from "../../components/FilterPanel/FilterPanel";
+import type { PriceHistogram } from "../../components/FilterPanel/FilterPanel";
 
 interface Listing {
   id: number;
@@ -16,6 +16,7 @@ interface Listing {
   utilitiesFee?: number | string;
 
   region?: string;
+  city?: string;
   address?: string;
   size?: string;
   rooms?: string;
@@ -34,27 +35,20 @@ interface Listing {
 
   image?: string | null;
   is_favorite?: boolean;
-}
-interface Props {
-  listingType: ListingType;
+  matchPercentage?: number;
 }
 
-export default function ApartmentsPage({ listingType }: Props) {
+export default function ApartmentsPage() {
   const { t } = useLanguage();
 
-  const [pagination, setPagination] = useState(1);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalPages, setTotalPages] = useState(1);
-
-  // минимальный фильтр, дальше расширишь
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({
+  const STORAGE_KEY = "listingsState:LISTINGS";
+  const defaultFilters: FilterState = {
     propertyType: "",
     region: "",
     priceFrom: "",
     priceTo: "",
     currency: "CZK",
+    sortBy: "price_asc",
     rooms: "",
     hasRoommates: "",
     rentalPeriod: "",
@@ -65,9 +59,79 @@ export default function ApartmentsPage({ listingType }: Props) {
     petsAllowed: "",
     smokingAllowed: "",
     moveInDate: "",
-    amenities: [] as string[],
-    infrastructure: [] as string[],
-  });
+    amenities: [],
+    infrastructure: [],
+  };
+
+  const readSavedState = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      return {
+        pagination: typeof parsed?.pagination === "number" && parsed.pagination > 0 ? parsed.pagination : 1,
+        search: typeof parsed?.search === "string" ? parsed.search : "",
+        filters: {
+          ...defaultFilters,
+          ...(parsed?.filters || {}),
+          amenities: Array.isArray(parsed?.filters?.amenities) ? parsed.filters.amenities : [],
+          infrastructure: Array.isArray(parsed?.filters?.infrastructure) ? parsed.filters.infrastructure : [],
+        } as FilterState,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const savedState = readSavedState();
+
+  const [pagination, setPagination] = useState(savedState?.pagination || 1);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [priceHistogram, setPriceHistogram] = useState<PriceHistogram | null>(null);
+
+  const [search, setSearch] = useState(savedState?.search || "");
+  const [filters, setFilters] = useState<FilterState>(savedState?.filters || defaultFilters);
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage === pagination) {
+      return;
+    }
+    setPagination(nextPage);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPagination(1);
+  };
+
+  const handleFiltersChange = (nextFilters: FilterState) => {
+    setFilters(nextFilters);
+    setPagination(1);
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        pagination,
+        search,
+        filters,
+      })
+    );
+  }, [STORAGE_KEY, pagination, search, filters]);
 
   useEffect(() => {
     loadListings();
@@ -82,7 +146,6 @@ export default function ApartmentsPage({ listingType }: Props) {
       
       // обязательные
       params.append("page", String(pagination));
-      params.append("type", listingType);
       // поиск
       if (search) {
         params.append("search", search);
@@ -112,8 +175,9 @@ export default function ApartmentsPage({ listingType }: Props) {
       }
 
       const data = await res.json();
-      setListings(data.results || data);
+      setListings(rankListings(data.results || data));
       setTotalPages(data.total_pages || 1);
+      setPriceHistogram(data.price_histogram || null);
     } catch (e) {
       console.error("Listings loading error:", e);
     } finally {
@@ -130,7 +194,7 @@ export default function ApartmentsPage({ listingType }: Props) {
           <div className="w-full max-w-[450px] flex items-center h-12 relative mb-6">
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full h-12 rounded-full border border-[#DDDDDD] dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:border-[#999999] dark:focus:border-[#C505EB] pl-8 pr-12 duration-300 focus:shadow-md outline-0"
               placeholder={t("header.searchPlaceholder")}
             />
@@ -141,7 +205,8 @@ export default function ApartmentsPage({ listingType }: Props) {
 
           <FilterPanel
             filters={filters}
-            onChange={setFilters}
+            onChange={handleFiltersChange}
+            priceHistogram={priceHistogram}
           />
 
           {/* Карточки */}
@@ -157,8 +222,11 @@ export default function ApartmentsPage({ listingType }: Props) {
                 <SaleCard
                   key={listing.id}
                   id={listing.id}
+                  title={listing.title}
                   price={Number(listing.price)}
                   utilitiesFee={listing.utilitiesFee}
+                  region={listing.region}
+                  city={listing.city}
                   address={listing.address || ""}
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}
@@ -166,6 +234,7 @@ export default function ApartmentsPage({ listingType }: Props) {
                   image={getImageUrl(listing.image)}
                   type={listing.type as any}
                   is_favorite={listing.is_favorite}
+                  matchPercentage={listing.matchPercentage}
                 />
               ))}
             </div>
@@ -177,7 +246,7 @@ export default function ApartmentsPage({ listingType }: Props) {
               {Array.from({ length: totalPages }).map((_, index) => (
                 <div
                   key={index}
-                  onClick={() => setPagination(index + 1)}
+                  onClick={() => handlePageChange(index + 1)}
                   className={`flex items-center justify-center duration-300 cursor-pointer 
                               text-lg font-semibold w-8 h-8 rounded-full ${
                     index + 1 === pagination
@@ -192,7 +261,7 @@ export default function ApartmentsPage({ listingType }: Props) {
 
             {pagination < totalPages && (
               <div
-                onClick={() => setPagination(pagination + 1)}
+                onClick={() => handlePageChange(pagination + 1)}
                 className="flex items-center gap-1 cursor-pointer text-black dark:text-white"
               >
                 <span className="text-lg font-semibold">Další</span>

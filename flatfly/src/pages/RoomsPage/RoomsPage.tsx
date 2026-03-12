@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getImageUrl } from "../../utils/defaultImage";
+import type { FilterState } from "../../components/FilterPanel/FilterPanel";
+import type { PriceHistogram } from "../../components/FilterPanel/FilterPanel";
 
 interface Listing {
   id: number;
@@ -13,6 +15,7 @@ interface Listing {
   utilitiesFee?: number | string;
 
   region?: string;
+  city?: string;
   address?: string;
   size?: string;
   rooms?: string;
@@ -31,23 +34,20 @@ interface Listing {
 
   image?: string | null;
   is_favorite?: boolean;
+  matchPercentage?: number;
 }
 
 export default function RoomsPage() {
   const { t } = useLanguage();
 
-  const [pagination, setPagination] = useState(1);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // минимальный фильтр, дальше расширишь
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({
+  const STORAGE_KEY = "listingsState:ROOM";
+  const defaultFilters: FilterState = {
     propertyType: "",
     region: "",
     priceFrom: "",
     priceTo: "",
     currency: "CZK",
+    sortBy: "price_asc",
     rooms: "",
     hasRoommates: "",
     rentalPeriod: "",
@@ -58,9 +58,78 @@ export default function RoomsPage() {
     petsAllowed: "",
     smokingAllowed: "",
     moveInDate: "",
-    amenities: [] as string[],
-    infrastructure: [] as string[],
-  });
+    amenities: [],
+    infrastructure: [],
+  };
+
+  const readSavedState = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      return {
+        pagination: typeof parsed?.pagination === "number" && parsed.pagination > 0 ? parsed.pagination : 1,
+        search: typeof parsed?.search === "string" ? parsed.search : "",
+        filters: {
+          ...defaultFilters,
+          ...(parsed?.filters || {}),
+          amenities: Array.isArray(parsed?.filters?.amenities) ? parsed.filters.amenities : [],
+          infrastructure: Array.isArray(parsed?.filters?.infrastructure) ? parsed.filters.infrastructure : [],
+        } as FilterState,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const savedState = readSavedState();
+
+  const [pagination, setPagination] = useState(savedState?.pagination || 1);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [priceHistogram, setPriceHistogram] = useState<PriceHistogram | null>(null);
+
+  const [search, setSearch] = useState(savedState?.search || "");
+  const [filters, setFilters] = useState<FilterState>(savedState?.filters || defaultFilters);
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage === pagination) {
+      return;
+    }
+    setPagination(nextPage);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPagination(1);
+  };
+
+  const handleFiltersChange = (nextFilters: FilterState) => {
+    setFilters(nextFilters);
+    setPagination(1);
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        pagination,
+        search,
+        filters,
+      })
+    );
+  }, [pagination, search, filters]);
 
   useEffect(() => {
     loadListings();
@@ -106,6 +175,7 @@ export default function RoomsPage() {
 
       const data = await res.json();
       setListings(data.results || data);
+      setPriceHistogram(data.price_histogram || null);
 
     } catch (e) {
       console.error("Listings loading error:", e);
@@ -123,7 +193,7 @@ export default function RoomsPage() {
           <div className="w-full max-w-[450px] flex items-center h-12 relative mb-6">
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full h-12 rounded-full border border-[#DDDDDD] dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:border-[#999999] dark:focus:border-[#C505EB] pl-8 pr-12 duration-300 focus:shadow-md outline-0"
               placeholder={t("header.searchPlaceholder")}
             />
@@ -134,7 +204,8 @@ export default function RoomsPage() {
 
           <FilterPanel
             filters={filters}
-            onChange={setFilters}
+            onChange={handleFiltersChange}
+            priceHistogram={priceHistogram}
           />
 
           {/* Карточки */}
@@ -150,8 +221,11 @@ export default function RoomsPage() {
                 <SaleCard
                   key={listing.id}
                   id={String(listing.id)}
+                  title={listing.title}
                   price={Number(listing.price)}
                   utilitiesFee={listing.utilitiesFee}
+                  region={listing.region}
+                  city={listing.city}
                   address={listing.address || ""}
                   size={listing.size ? Number(listing.size) : undefined}
                   rooms={listing.rooms || ""}
@@ -159,6 +233,7 @@ export default function RoomsPage() {
                   image={getImageUrl(listing.image)}
                   type={listing.type as "APARTMENT" | "ROOM" | "NEIGHBOUR"}
                   is_favorite={listing.is_favorite}
+                  matchPercentage={listing.matchPercentage}
                 />
               ))}
             </div>
@@ -170,7 +245,7 @@ export default function RoomsPage() {
               {Array.from({ length: 10 }).map((_, index) => (
                 <div
                   key={index}
-                  onClick={() => setPagination(index + 1)}
+                  onClick={() => handlePageChange(index + 1)}
                   className={`flex items-center justify-center duration-300 cursor-pointer text-lg font-semibold w-8 h-8 rounded-full ${
                     index + 1 === pagination
                       ? "bg-[#C505EB] text-white"
@@ -181,7 +256,10 @@ export default function RoomsPage() {
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-1 text-black dark:text-white">
+            <div
+              onClick={() => handlePageChange(pagination + 1)}
+              className="flex items-center gap-1 text-black dark:text-white cursor-pointer"
+            >
               <span className="text-lg font-semibold">Další</span>
               <ChevronRight strokeWidth={1.7} />
             </div>
