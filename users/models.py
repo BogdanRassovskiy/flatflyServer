@@ -1,5 +1,66 @@
 from django.conf import settings
 from django.db import models
+import unicodedata
+
+
+def normalize_text(value: str) -> str:
+    return unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+
+
+class University(models.Model):
+    name = models.CharField(max_length=255)
+    normalized_name = models.CharField(max_length=255, unique=True, db_index=True)
+    short_name = models.CharField(max_length=64, blank=True, default="")
+    city = models.CharField(max_length=128, blank=True, default="")
+    address = models.CharField(max_length=255, blank=True, default="")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    osm_ref = models.CharField(max_length=64, blank=True, default="", unique=True)
+    source = models.CharField(max_length=32, default="OSM")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = normalize_text(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class UniversityFaculty(models.Model):
+    university = models.ForeignKey(
+        University,
+        on_delete=models.CASCADE,
+        related_name="faculties",
+    )
+    name = models.CharField(max_length=255)
+    normalized_name = models.CharField(max_length=255, db_index=True)
+    city = models.CharField(max_length=128, blank=True, default="")
+    address = models.CharField(max_length=255, blank=True, default="")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    osm_ref = models.CharField(max_length=64, blank=True, default="", unique=True)
+    source = models.CharField(max_length=32, default="OSM")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["university", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["university", "normalized_name", "address"],
+                name="uniq_university_faculty_name_address",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = normalize_text(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.university.name}: {self.name}"
 
 
 class Profile(models.Model):
@@ -43,8 +104,27 @@ class Profile(models.Model):
     gender = models.CharField(max_length=10, choices=SEX_CHOICES, blank=True)
 
     city = models.CharField(max_length=100, blank=True)
+    university = models.ForeignKey(
+        University,
+        on_delete=models.SET_NULL,
+        related_name="profiles",
+        null=True,
+        blank=True,
+    )
+    faculty = models.ForeignKey(
+        UniversityFaculty,
+        on_delete=models.SET_NULL,
+        related_name="profiles",
+        null=True,
+        blank=True,
+    )
     languages = models.CharField(max_length=200, blank=True)  
     profession = models.CharField(max_length=100, blank=True)
+    location_region = models.CharField(max_length=32, blank=True, default="")
+    location_city = models.CharField(max_length=128, blank=True, default="")
+    location_address = models.CharField(max_length=255, blank=True, default="")
+    location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     about = models.TextField(blank=True)
 
     # === SOCIAL HABITS ===

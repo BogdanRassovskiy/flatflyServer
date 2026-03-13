@@ -4,11 +4,23 @@ import {X, ChevronLeft, ChevronRight, CheckCircle, AlertCircle} from "lucide-rea
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { getCsrfToken } from "../../utils/csrf";
+import MapPicker from "../../components/MapPicker/MapPicker";
 
 type MunicipalitySuggestion = {
   name: string;
   region_code: string;
   municipality_type?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+type StreetSuggestion = {
+  name: string;
+  city_name: string;
+  region_code: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  full_address?: string;
 };
 
 
@@ -26,6 +38,14 @@ export default function AddingPage() {
     const [isCityLoading, setIsCityLoading] = useState(false);
     const [isCityFromList, setIsCityFromList] = useState(false);
     const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+    const [streetSuggestions, setStreetSuggestions] = useState<StreetSuggestion[]>([]);
+    const [isStreetLoading, setIsStreetLoading] = useState(false);
+    const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+    const [isAddressFromList, setIsAddressFromList] = useState(false);
+    const [geoLat, setGeoLat] = useState<number | null>(null);
+    const [geoLng, setGeoLng] = useState<number | null>(null);
+    const [mapCenter, setMapCenter] = useState<[number, number]>([50.0755, 14.4378]);
+    const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
     
     // Состояние и энергетика
     const [conditionState, setConditionState] = useState("");
@@ -71,6 +91,7 @@ export default function AddingPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
     const cityAutocompleteRef = useRef<HTMLDivElement>(null);
+    const addressAutocompleteRef = useRef<HTMLDivElement>(null);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [layout, setLayout] = useState("");
@@ -97,6 +118,82 @@ export default function AddingPage() {
       setIsCityFromList(true);
       setCitySuggestions([]);
       setIsCityDropdownOpen(false);
+      setAddress("");
+      setStreetSuggestions([]);
+      setIsAddressFromList(false);
+      setIsAddressDropdownOpen(false);
+      if (item.latitude !== null && item.latitude !== undefined && item.longitude !== null && item.longitude !== undefined) {
+        const lat = Number(item.latitude);
+        const lng = Number(item.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setMapCenter([lat, lng]);
+          if (geoLat === null || geoLng === null) {
+            setGeoLat(lat);
+            setGeoLng(lng);
+          }
+        }
+      }
+    };
+
+    const handleAddressInputChange = (value: string) => {
+      setAddress(value);
+      setIsAddressFromList(false);
+      setIsAddressDropdownOpen(true);
+    };
+
+    const handleAddressSelect = (item: StreetSuggestion) => {
+      setAddress(item.name);
+      setIsAddressFromList(true);
+      setStreetSuggestions([]);
+      setIsAddressDropdownOpen(false);
+
+      const lat = Number(item.latitude);
+      const lng = Number(item.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setGeoLat(lat);
+        setGeoLng(lng);
+        setMapCenter([lat, lng]);
+      }
+    };
+
+    const reverseGeocodePoint = async (lat: number, lng: number) => {
+      try {
+        setIsReverseGeocoding(true);
+        const params = new URLSearchParams({
+          lat: String(lat),
+          lng: String(lng),
+        });
+        const response = await fetch(`/api/geocode/reverse?${params.toString()}`, {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const nextRegion = String(payload?.region_code || "").trim();
+        const nextCity = String(payload?.city || "").trim();
+        const nextAddress = String(payload?.address || "").trim();
+
+        if (nextRegion) {
+          setRegion(nextRegion);
+        }
+
+        if (nextCity) {
+          setCity(nextCity);
+          setIsCityFromList(Boolean(payload?.city_in_dictionary));
+        }
+
+        if (nextAddress) {
+          setAddress(nextAddress);
+          // Street is advisory-only: never enforce list-only mode for publishing.
+          setIsAddressFromList(false);
+        }
+      } catch (error) {
+        console.error("Reverse geocoding failed", error);
+      } finally {
+        setIsReverseGeocoding(false);
+      }
     };
 
     const CZECH_REGIONS = [
@@ -189,6 +286,8 @@ export default function AddingPage() {
               region,
               city,
               address,
+              geo_lat: geoLat,
+              geo_lng: geoLng,
               
               rooms: layout,
               
@@ -277,6 +376,9 @@ export default function AddingPage() {
         setSelectedFiles([]);
         setCity("");
         setAddress("");
+        setIsAddressFromList(false);
+        setGeoLat(null);
+        setGeoLng(null);
         setConditionState("");
         setEnergyClass("");
         setDeposit(0);
@@ -325,6 +427,14 @@ export default function AddingPage() {
           setCity(data.city || "");
           setIsCityFromList(Boolean(data.city));
           setAddress(data.address || "");
+          setIsAddressFromList(Boolean(data.address));
+          const existingGeoLat = data.geo_lat !== null && data.geo_lat !== undefined ? Number(data.geo_lat) : null;
+          const existingGeoLng = data.geo_lng !== null && data.geo_lng !== undefined ? Number(data.geo_lng) : null;
+          setGeoLat(existingGeoLat);
+          setGeoLng(existingGeoLng);
+          if (existingGeoLat !== null && existingGeoLng !== null && Number.isFinite(existingGeoLat) && Number.isFinite(existingGeoLng)) {
+            setMapCenter([existingGeoLat, existingGeoLng]);
+          }
 
           setConditionState(data.condition_state || "");
           setEnergyClass(data.energy_class || "");
@@ -475,9 +585,73 @@ export default function AddingPage() {
     }, [city, region, isCityFromList]);
 
     useEffect(() => {
+      if (!region || !city || !isCityFromList) {
+        setStreetSuggestions([]);
+        setIsStreetLoading(false);
+        return;
+      }
+
+      const streetQuery = address.trim();
+      if (streetQuery.length < 2) {
+        setStreetSuggestions([]);
+        setIsStreetLoading(false);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(async () => {
+        try {
+          setIsStreetLoading(true);
+          const params = new URLSearchParams({
+            q: streetQuery,
+            city,
+            region,
+            limit: "12",
+          });
+
+          const response = await fetch(`/api/streets/search?${params.toString()}`, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load streets");
+          }
+
+          const payload = await response.json();
+          const results = Array.isArray(payload?.results) ? payload.results : [];
+          setStreetSuggestions(results);
+          setIsAddressDropdownOpen(true);
+
+          const exactMatch = results.some((item: StreetSuggestion) =>
+            String(item?.name || "").toLowerCase() === streetQuery.toLowerCase()
+          );
+          if (exactMatch) {
+            setIsAddressFromList(true);
+            setIsAddressDropdownOpen(false);
+          }
+        } catch (error: any) {
+          if (error?.name !== "AbortError") {
+            setStreetSuggestions([]);
+          }
+        } finally {
+          setIsStreetLoading(false);
+        }
+      }, 250);
+
+      return () => {
+        controller.abort();
+        clearTimeout(timeout);
+      };
+    }, [address, city, region, isCityFromList]);
+
+    useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (cityAutocompleteRef.current && !cityAutocompleteRef.current.contains(event.target as Node)) {
           setIsCityDropdownOpen(false);
+        }
+        if (addressAutocompleteRef.current && !addressAutocompleteRef.current.contains(event.target as Node)) {
+          setIsAddressDropdownOpen(false);
         }
       };
 
@@ -691,7 +865,7 @@ export default function AddingPage() {
                               }}
                               className={`w-4 h-4 rounded border-[#DDDDDD] dark:border-gray-600 text-[#C505EB] focus:ring-[#C505EB]`}
                             />
-                            {t("filter.utilitiesIncluded")}
+                            {t("add.utilitiesIncludedExplicit")}
                           </label>
 
                           {!utilitiesIncluded && (
@@ -748,7 +922,7 @@ export default function AddingPage() {
                         {/* CONDITION STATE */}
                         <div className={`w-full flex flex-col items-start gap-1`}>
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                            Stav nemovitosti
+                            {t("add.conditionState")}
                           </span>
                           <select
                             value={conditionState}
@@ -756,22 +930,22 @@ export default function AddingPage() {
                             className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
                           >
-                            <option value="">Vyberte stav</option>
-                            <option value="VELMI_DOBRY">Velmi dobrý</option>
-                            <option value="DOBRY">Dobrý</option>
-                            <option value="SPATNY">Špatný</option>
-                            <option value="NOVOSTAVBA">Novostavba</option>
-                            <option value="VE_VYSTAVBE">Ve výstavbě</option>
-                            <option value="PRED_REKONSTRUKCI">Před rekonstrukcí</option>
-                            <option value="V_REKONSTRUKCI">V rekonstrukci</option>
-                            <option value="PO_REKONSTRUKCI">Po rekonstrukci</option>
+                            <option value="">{t("add.selectConditionState")}</option>
+                            <option value="VELMI_DOBRY">{t("filter.conditionVeryGood")}</option>
+                            <option value="DOBRY">{t("filter.conditionGood")}</option>
+                            <option value="SPATNY">{t("filter.conditionSatisfactory")}</option>
+                            <option value="NOVOSTAVBA">{t("filter.conditionNew")}</option>
+                            <option value="VE_VYSTAVBE">{t("filter.conditionProject")}</option>
+                            <option value="PRED_REKONSTRUKCI">{t("filter.conditionNeedsRenovation")}</option>
+                            <option value="V_REKONSTRUKCI">{t("filter.conditionUnderReconstruction")}</option>
+                            <option value="PO_REKONSTRUKCI">{t("filter.conditionExcellent")}</option>
                           </select>
                         </div>
 
                         {/* ENERGY CLASS */}
                         <div className={`w-full flex flex-col items-start gap-1`}>
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                            Energetická třída
+                            {t("add.energyClass")}
                           </span>
                           <select
                             value={energyClass}
@@ -779,14 +953,14 @@ export default function AddingPage() {
                             className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                        focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
                           >
-                            <option value="">Vyberte třídu</option>
-                            <option value="A">A (nejlepší)</option>
+                            <option value="">{t("add.selectEnergyClass")}</option>
+                            <option value="A">{t("add.energyClassA")}</option>
                             <option value="B">B</option>
                             <option value="C">C</option>
                             <option value="D">D</option>
                             <option value="E">E</option>
                             <option value="F">F</option>
-                            <option value="G">G (nejhorší)</option>
+                            <option value="G">{t("add.energyClassG")}</option>
                           </select>
                         </div>
                       </div>
@@ -810,6 +984,12 @@ export default function AddingPage() {
                                 setCitySuggestions([]);
                                 setIsCityFromList(false);
                                 setIsCityDropdownOpen(false);
+                                setAddress("");
+                                setStreetSuggestions([]);
+                                setIsAddressFromList(false);
+                                setIsAddressDropdownOpen(false);
+                                setGeoLat(null);
+                                setGeoLng(null);
                               }}
                               className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                          focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 text-[14px]`}
@@ -865,17 +1045,72 @@ export default function AddingPage() {
                         </div>
                         
                         {/* ADDRESS DETAIL ROW */}
-                        <div className={`w-full flex flex-col items-start gap-1`}>
+                        <div ref={addressAutocompleteRef} className={`w-full flex flex-col items-start gap-1 relative`}>
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
-                            Adresa (ulice, číslo)
+                            {t("add.streetAddress")}
                           </span>
                           <input
                             value={address}
-                            onChange={(e) => setAddress(e.target.value)}
+                            onChange={(e) => handleAddressInputChange(e.target.value)}
+                            onFocus={() => {
+                              if (!isAddressFromList && streetSuggestions.length > 0) {
+                                setIsAddressDropdownOpen(true);
+                              }
+                            }}
                             className={`w-full h-[50px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
                                       focus:border-[#999999] dark:focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-4 py-1 text-[14px]`}
-                            placeholder="Např. Václavské náměstí 1"
+                            placeholder={t("add.streetAddressPlaceholder")}
                           />
+                          {isStreetLoading && (
+                            <span className={`text-xs text-[#666666] dark:text-gray-400 mt-1`}>{t("add.streetLoading")}</span>
+                          )}
+                          {!isAddressFromList && address.length >= 2 && !isStreetLoading && isAddressDropdownOpen && (
+                            <div className={`absolute top-[82px] left-0 w-full z-20 max-h-[220px] overflow-y-auto rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg`}>
+                              {streetSuggestions.length > 0 ? streetSuggestions.map((item, index) => (
+                                <button
+                                  key={`${item.name}-${item.city_name}-${index}`}
+                                  type="button"
+                                  onClick={() => handleAddressSelect(item)}
+                                  className={`w-full text-left px-4 py-2 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                >
+                                  {item.full_address || `${item.name}, ${item.city_name}`}
+                                </button>
+                              )) : (
+                                <div className={`px-4 py-2 text-sm text-[#666666] dark:text-gray-400`}>
+                                  {t("add.streetNoResults")}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className={`w-full flex flex-col items-start gap-2 mt-2`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            {t("add.locationOnMap")}
+                          </span>
+                          <MapPicker
+                            center={mapCenter}
+                            point={geoLat !== null && geoLng !== null ? [geoLat, geoLng] : null}
+                            onPointChange={(lat, lng) => {
+                              setGeoLat(lat);
+                              setGeoLng(lng);
+                              setMapCenter([lat, lng]);
+                              reverseGeocodePoint(lat, lng);
+                            }}
+                          />
+                          <span className={`text-sm text-[#666666] dark:text-gray-400`}>
+                            {t("add.mapHint")}
+                          </span>
+                          {isReverseGeocoding && (
+                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>
+                              {t("add.reverseGeocoding")}
+                            </span>
+                          )}
+                          <span className={`text-sm font-semibold text-black dark:text-white`}>
+                            {geoLat !== null && geoLng !== null
+                              ? `${t("add.selectedCoordinates")}: ${geoLat.toFixed(6)}, ${geoLng.toFixed(6)}`
+                              : t("add.coordinatesNotSelected")}
+                          </span>
                         </div>
 
                         {/* SIZE & ROOMS ROW - УДАЛЕНО */}

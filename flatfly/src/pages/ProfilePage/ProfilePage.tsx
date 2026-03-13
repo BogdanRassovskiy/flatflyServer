@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { getCsrfToken } from "../../utils/csrf";
 import SaleCard from "../../components/SaleCard/SaleCard";
 import { getImageUrl } from "../../utils/defaultImage";
+import MapPicker from "../../components/MapPicker/MapPicker";
 
 interface ProfileData {
     // Основная информация
@@ -17,7 +18,16 @@ interface ProfileData {
     age: string;
     gender: string;
     city: string;
+    locationRegion: string;
+    locationCity: string;
+    locationAddress: string;
+    locationLat: number | null;
+    locationLng: number | null;
     languages: string[];
+    universityId: number | null;
+    facultyId: number | null;
+    universityName: string;
+    facultyName: string;
     profession: string;
     about: string;
     
@@ -50,6 +60,31 @@ export default function ProfilePage() {
     const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome">("basic");
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [showAddressPicker, setShowAddressPicker] = useState(false);
+    const [addressInput, setAddressInput] = useState("");
+    const [addressSuggestions, setAddressSuggestions] = useState<Array<{
+        key: string;
+        type: "city" | "street";
+        label: string;
+        city: string;
+        region: string;
+        street?: string;
+        latitude?: number | null;
+        longitude?: number | null;
+    }>>([]);
+    const [addressDropdownOpen, setAddressDropdownOpen] = useState(false);
+    const [addressLoading, setAddressLoading] = useState(false);
+    const addressAutocompleteRef = useRef<HTMLDivElement>(null);
+    const [universityInput, setUniversityInput] = useState("");
+    const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
+    const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
+    const [universitiesLoading, setUniversitiesLoading] = useState(false);
+    const universityAutocompleteRef = useRef<HTMLDivElement>(null);
+    const [facultyInput, setFacultyInput] = useState("");
+    const [facultySuggestions, setFacultySuggestions] = useState<Array<{ id: number; name: string }>>([]);
+    const [facultyDropdownOpen, setFacultyDropdownOpen] = useState(false);
+    const [facultiesLoading, setFacultiesLoading] = useState(false);
+    const facultyAutocompleteRef = useRef<HTMLDivElement>(null);
     
     const [profileData, setProfileData] = useState<ProfileData>({
         photo: "",
@@ -58,7 +93,16 @@ export default function ProfilePage() {
         age: "",
         gender: "",
         city: "",
+        locationRegion: "",
+        locationCity: "",
+        locationAddress: "",
+        locationLat: null,
+        locationLng: null,
         languages: [],
+        universityId: null,
+        facultyId: null,
+        universityName: "",
+        facultyName: "",
         profession: "",
         about: "",
         smoking: "",
@@ -104,12 +148,221 @@ export default function ProfilePage() {
           setProfileData(prev => ({
             ...prev,
             ...data,
+            locationRegion: String(data.locationRegion || ""),
+            locationCity: String(data.locationCity || ""),
+            locationAddress: String(data.locationAddress || ""),
+            locationLat: typeof data.locationLat === "number" ? data.locationLat : null,
+            locationLng: typeof data.locationLng === "number" ? data.locationLng : null,
           }));
+
+          const loadedCity = String(data.locationCity || "").trim();
+          const loadedAddress = String(data.locationAddress || "").trim();
+          if (loadedAddress && loadedCity) {
+              setAddressInput(`${loadedAddress}, ${loadedCity}`);
+          } else {
+              setAddressInput(loadedAddress || loadedCity);
+          }
+
+                    const loadedUniversityName = String(data.universityName || "").trim();
+                    const loadedFacultyName = String(data.facultyName || "").trim();
+                    setUniversityInput(loadedUniversityName);
+                    setFacultyInput(loadedFacultyName);
         })
         .catch(() => {
           console.log("Profile not loaded");
         });
     }, []);
+
+    useEffect(() => {
+        const onClickOutside = (event: MouseEvent) => {
+            if (addressAutocompleteRef.current && !addressAutocompleteRef.current.contains(event.target as Node)) {
+                setAddressDropdownOpen(false);
+            }
+            if (universityAutocompleteRef.current && !universityAutocompleteRef.current.contains(event.target as Node)) {
+                setUniversityDropdownOpen(false);
+            }
+            if (facultyAutocompleteRef.current && !facultyAutocompleteRef.current.contains(event.target as Node)) {
+                setFacultyDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", onClickOutside);
+        return () => document.removeEventListener("mousedown", onClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const text = universityInput.trim();
+        if (!universityDropdownOpen || text.length < 2) {
+            setUniversitySuggestions([]);
+            setUniversitiesLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(async () => {
+            try {
+                setUniversitiesLoading(true);
+                const params = new URLSearchParams({ q: text });
+                const response = await fetch(`/api/universities/?${params.toString()}`, {
+                    credentials: "include",
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setUniversitySuggestions([]);
+                    return;
+                }
+                const payload = await response.json();
+                const rows = Array.isArray(payload?.results) ? payload.results : [];
+                setUniversitySuggestions(
+                    rows.map((item: any) => ({
+                        id: Number(item.id),
+                        name: String(item.name || "").trim(),
+                    })).filter((item: { id: number; name: string }) => item.id > 0 && item.name)
+                );
+            } catch (error: any) {
+                if (error?.name !== "AbortError") {
+                    setUniversitySuggestions([]);
+                }
+            } finally {
+                setUniversitiesLoading(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            clearTimeout(timeout);
+        };
+    }, [universityInput, universityDropdownOpen]);
+
+    useEffect(() => {
+        const universityId = profileData.universityId;
+        const text = facultyInput.trim();
+
+        if (!universityId || !facultyDropdownOpen) {
+            setFacultySuggestions([]);
+            setFacultiesLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(async () => {
+            try {
+                setFacultiesLoading(true);
+                const params = new URLSearchParams({ universityId: String(universityId) });
+                if (text) {
+                    params.set("q", text);
+                }
+                const response = await fetch(`/api/universities/faculties/?${params.toString()}`, {
+                    credentials: "include",
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setFacultySuggestions([]);
+                    return;
+                }
+                const payload = await response.json();
+                const rows = Array.isArray(payload?.results) ? payload.results : [];
+                setFacultySuggestions(
+                    rows.map((item: any) => ({
+                        id: Number(item.id),
+                        name: String(item.name || "").trim(),
+                    })).filter((item: { id: number; name: string }) => item.id > 0 && item.name)
+                );
+            } catch (error: any) {
+                if (error?.name !== "AbortError") {
+                    setFacultySuggestions([]);
+                }
+            } finally {
+                setFacultiesLoading(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            clearTimeout(timeout);
+        };
+    }, [facultyInput, facultyDropdownOpen, profileData.universityId]);
+
+    useEffect(() => {
+        const text = addressInput.trim();
+        if (!showAddressPicker || text.length < 2) {
+            setAddressSuggestions([]);
+            setAddressLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(async () => {
+            try {
+                setAddressLoading(true);
+
+                const cityParams = new URLSearchParams({ q: text, limit: "8" });
+                const cityResponse = await fetch(`/api/municipalities/search?${cityParams.toString()}`, {
+                    credentials: "include",
+                    signal: controller.signal,
+                });
+
+                let citySuggestions: Array<any> = [];
+                if (cityResponse.ok) {
+                    const cityData = await cityResponse.json();
+                    citySuggestions = Array.isArray(cityData?.results) ? cityData.results : [];
+                }
+
+                const selectedCity = profileData.locationCity || "";
+                const regionCode = profileData.locationRegion || "";
+                let streetSuggestions: Array<any> = [];
+
+                if (selectedCity) {
+                    const streetParams = new URLSearchParams({ q: text, city: selectedCity, limit: "8" });
+                    if (regionCode) {
+                        streetParams.set("region", regionCode);
+                    }
+                    const streetResponse = await fetch(`/api/streets/search?${streetParams.toString()}`, {
+                        credentials: "include",
+                        signal: controller.signal,
+                    });
+                    if (streetResponse.ok) {
+                        const streetData = await streetResponse.json();
+                        streetSuggestions = Array.isArray(streetData?.results) ? streetData.results : [];
+                    }
+                }
+
+                const mappedCities = citySuggestions.map((item: any) => ({
+                    key: `city-${item.name}-${item.region_code}`,
+                    type: "city" as const,
+                    label: `${item.name}, ${item.region_code}`,
+                    city: item.name,
+                    region: item.region_code || "",
+                    latitude: typeof item.latitude === "number" ? item.latitude : null,
+                    longitude: typeof item.longitude === "number" ? item.longitude : null,
+                }));
+
+                const mappedStreets = streetSuggestions.map((item: any) => ({
+                    key: `street-${item.name}-${item.city_name}-${item.region_code}`,
+                    type: "street" as const,
+                    label: `${item.name}, ${item.city_name}`,
+                    city: item.city_name || "",
+                    region: item.region_code || "",
+                    street: item.name,
+                    latitude: typeof item.latitude === "number" ? item.latitude : null,
+                    longitude: typeof item.longitude === "number" ? item.longitude : null,
+                }));
+
+                setAddressSuggestions([...mappedStreets, ...mappedCities]);
+                setAddressDropdownOpen(true);
+            } catch (error: any) {
+                if (error?.name !== "AbortError") {
+                    setAddressSuggestions([]);
+                }
+            } finally {
+                setAddressLoading(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            clearTimeout(timeout);
+        };
+    }, [addressInput, showAddressPicker, profileData.locationCity, profileData.locationRegion]);
     const availableLanguages = [
         { code: "cz", label: t("profile.languages.cz") || "Čeština" },
         { code: "en", label: t("profile.languages.en") || "English" },
@@ -514,6 +767,97 @@ export default function ProfilePage() {
         }));
     };
 
+    const handleAddressSuggestionSelect = (suggestion: {
+        type: "city" | "street";
+        label: string;
+        city: string;
+        region: string;
+        street?: string;
+        latitude?: number | null;
+        longitude?: number | null;
+    }) => {
+        if (suggestion.type === "city") {
+            setProfileData(prev => ({
+                ...prev,
+                locationCity: suggestion.city,
+                locationRegion: suggestion.region || prev.locationRegion,
+            }));
+            setAddressInput(suggestion.label);
+        } else {
+            const street = suggestion.street || "";
+            const city = suggestion.city || "";
+            setProfileData(prev => ({
+                ...prev,
+                locationAddress: street,
+                locationCity: city,
+                locationRegion: suggestion.region || prev.locationRegion,
+                locationLat: typeof suggestion.latitude === "number" ? suggestion.latitude : prev.locationLat,
+                locationLng: typeof suggestion.longitude === "number" ? suggestion.longitude : prev.locationLng,
+            }));
+            setAddressInput(suggestion.label);
+        }
+        setAddressDropdownOpen(false);
+    };
+
+    const handleUniversitySuggestionSelect = (suggestion: { id: number; name: string }) => {
+        setProfileData(prev => ({
+            ...prev,
+            universityId: suggestion.id,
+            universityName: suggestion.name,
+            facultyId: null,
+            facultyName: "",
+        }));
+        setUniversityInput(suggestion.name);
+        setFacultyInput("");
+        setUniversityDropdownOpen(false);
+        setFacultySuggestions([]);
+    };
+
+    const handleFacultySuggestionSelect = (suggestion: { id: number; name: string }) => {
+        setProfileData(prev => ({
+            ...prev,
+            facultyId: suggestion.id,
+            facultyName: suggestion.name,
+        }));
+        setFacultyInput(suggestion.name);
+        setFacultyDropdownOpen(false);
+    };
+
+    const handleMapPointChange = async (lat: number, lng: number) => {
+        setProfileData(prev => ({ ...prev, locationLat: lat, locationLng: lng }));
+
+        try {
+            const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+            const response = await fetch(`/api/geocode/reverse?${params.toString()}`, {
+                credentials: "include",
+            });
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            const street = String(data.address || "").trim();
+            const city = String(data.city || "").trim();
+            const region = String(data.region_code || "").trim();
+            const combined = [street, city].filter(Boolean).join(", ");
+
+            setProfileData(prev => ({
+                ...prev,
+                locationAddress: street || prev.locationAddress,
+                locationCity: city || prev.locationCity,
+                locationRegion: region || prev.locationRegion,
+                locationLat: lat,
+                locationLng: lng,
+            }));
+
+            if (combined) {
+                setAddressInput(combined);
+            }
+        } catch {
+            // No-op: map click still updates coordinates even if reverse geocoding fails.
+        }
+    };
+
     const handleSave = async () => {
         console.log("HANDLE SAVE CLICKED");
         console.log("PROFILE DATA:", profileData);
@@ -548,6 +892,16 @@ export default function ProfilePage() {
         setIsSaving(false);
       }
     };
+
+    const mapCenter: [number, number] =
+        profileData.locationLat !== null && profileData.locationLng !== null
+            ? [profileData.locationLat, profileData.locationLng]
+            : [50.0755, 14.4378];
+
+    const mapPoint: [number, number] | null =
+        profileData.locationLat !== null && profileData.locationLng !== null
+            ? [profileData.locationLat, profileData.locationLng]
+            : null;
 
     return (
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[120px] pb-[90px] max-[770px]:pb-[60px]`}>
@@ -727,6 +1081,188 @@ export default function ProfilePage() {
                               </select>
                             </div>
 
+                            <div className={`flex max-[770px]:flex-col gap-4`}>
+                                <div ref={universityAutocompleteRef} className={`flex-1 w-full flex flex-col gap-2 relative`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.university")}</label>
+                                    <input
+                                        type="text"
+                                        value={universityInput}
+                                        onFocus={() => setUniversityDropdownOpen(true)}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setUniversityInput(value);
+                                            setUniversityDropdownOpen(true);
+                                            setProfileData(prev => ({
+                                                ...prev,
+                                                universityId: null,
+                                                universityName: value,
+                                                facultyId: null,
+                                                facultyName: "",
+                                            }));
+                                            setFacultyInput("");
+                                        }}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.universityPlaceholder")}
+                                    />
+                                    {universitiesLoading && (
+                                        <span className={`text-xs text-gray-500 dark:text-gray-400 mt-1 block`}>{t("profile.loadingUniversities")}</span>
+                                    )}
+                                    {universityDropdownOpen && universityInput.trim().length >= 2 && !universitiesLoading && (
+                                        <div className={`absolute top-[92px] z-20 w-full max-h-[220px] overflow-y-auto rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg`}>
+                                            {universitySuggestions.length > 0 ? universitySuggestions.map((item) => (
+                                                <button
+                                                    key={`university-${item.id}`}
+                                                    type="button"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => handleUniversitySuggestionSelect(item)}
+                                                    className={`w-full text-left px-4 py-2 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                                >
+                                                    {item.name}
+                                                </button>
+                                            )) : (
+                                                <div className={`px-4 py-2 text-sm text-gray-500 dark:text-gray-400`}>
+                                                    {t("profile.universityNoResults")}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div ref={facultyAutocompleteRef} className={`flex-1 w-full flex flex-col gap-2 relative`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.faculty")}</label>
+                                    <input
+                                        type="text"
+                                        value={facultyInput}
+                                        disabled={!profileData.universityId}
+                                        onFocus={() => {
+                                            if (profileData.universityId) {
+                                                setFacultyDropdownOpen(true);
+                                            }
+                                        }}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setFacultyInput(value);
+                                            if (profileData.universityId) {
+                                                setFacultyDropdownOpen(true);
+                                            }
+                                            setProfileData(prev => ({
+                                                ...prev,
+                                                facultyId: null,
+                                                facultyName: value,
+                                            }));
+                                        }}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+                                        placeholder={profileData.universityId ? t("profile.facultyPlaceholder") : t("profile.selectUniversityFromList")}
+                                    />
+                                    {facultiesLoading && (
+                                        <span className={`text-xs text-gray-500 dark:text-gray-400 mt-1 block`}>{t("profile.loadingFaculties")}</span>
+                                    )}
+                                    {facultyDropdownOpen && profileData.universityId && !facultiesLoading && (
+                                        <div className={`absolute top-[92px] z-20 w-full max-h-[220px] overflow-y-auto rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg`}>
+                                            {facultySuggestions.length > 0 ? facultySuggestions.map((item) => (
+                                                <button
+                                                    key={`faculty-${item.id}`}
+                                                    type="button"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => handleFacultySuggestionSelect(item)}
+                                                    className={`w-full text-left px-4 py-2 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                                >
+                                                    {item.name}
+                                                </button>
+                                            )) : (
+                                                <div className={`px-4 py-2 text-sm text-gray-500 dark:text-gray-400`}>
+                                                    {t("profile.facultyNoResults")}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className={`flex max-[770px]:flex-col gap-4 items-end`}>
+                                <div className={`flex-1 w-full flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.profession")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.profession}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, profession: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.professionPlaceholder")}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddressPicker(prev => !prev)}
+                                    className={`h-[56px] max-[770px]:h-[48px] px-5 max-[770px]:px-4 rounded-xl border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB] hover:text-white duration-300 font-semibold`}
+                                >
+                                    {showAddressPicker ? t("profile.hideAddressPicker") : t("profile.setAddress")}
+                                </button>
+                            </div>
+
+                            {showAddressPicker && (
+                                <div className={`flex flex-col gap-3`}>
+                                    <div ref={addressAutocompleteRef} className={`relative z-40`}>
+                                        <label className={`text-lg max-[770px]:text-base font-bold mb-2 block`}>{t("profile.address")}</label>
+                                        <input
+                                            type="text"
+                                            value={addressInput}
+                                            onChange={(e) => {
+                                                setAddressInput(e.target.value);
+                                                setAddressDropdownOpen(true);
+                                            }}
+                                            onBlur={() => {
+                                                const raw = addressInput.trim();
+                                                if (!raw) {
+                                                    return;
+                                                }
+                                                const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+                                                const nextAddress = parts[0] || raw;
+                                                const nextCity = parts.length > 1 ? parts[parts.length - 1] : profileData.locationCity;
+                                                setProfileData(prev => ({
+                                                    ...prev,
+                                                    locationAddress: nextAddress,
+                                                    locationCity: nextCity,
+                                                }));
+                                            }}
+                                            className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                            placeholder={t("profile.addressPlaceholder")}
+                                        />
+
+                                        {addressLoading && (
+                                            <span className={`text-xs text-gray-500 dark:text-gray-400 mt-1 block`}>{t("profile.loadingAddress")}</span>
+                                        )}
+
+                                        {addressDropdownOpen && addressInput.trim().length >= 2 && !addressLoading && (
+                                            <div className={`absolute top-[92px] z-[120] w-full max-h-[220px] overflow-y-auto rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg`}>
+                                                {addressSuggestions.length > 0 ? addressSuggestions.map((item) => (
+                                                    <button
+                                                        key={item.key}
+                                                        type="button"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => handleAddressSuggestionSelect(item)}
+                                                        className={`w-full text-left px-4 py-2 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                                    >
+                                                        {item.label}
+                                                    </button>
+                                                )) : (
+                                                    <div className={`px-4 py-2 text-sm text-gray-500 dark:text-gray-400`}>
+                                                        {t("profile.addressNoResults")}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className={`relative z-0`}>
+                                        <MapPicker
+                                            center={mapCenter}
+                                            point={mapPoint}
+                                            onPointChange={handleMapPointChange}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Languages */}
                             <div className={`flex flex-col gap-2`}>
                                 <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.languages.title")}</label>
@@ -746,18 +1282,6 @@ export default function ProfilePage() {
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-
-                            {/* Profession */}
-                            <div className={`flex flex-col gap-2`}>
-                                <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.profession")}</label>
-                                <input
-                                    type="text"
-                                    value={profileData.profession}
-                                    onChange={(e) => setProfileData(prev => ({ ...prev, profession: e.target.value }))}
-                                    className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
-                                    placeholder={t("profile.professionPlaceholder")}
-                                />
                             </div>
 
                             {/* About */}

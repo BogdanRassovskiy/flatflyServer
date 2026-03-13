@@ -1,7 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile
+from .models import Profile, University, UniversityFaculty
+
+
+class UniversityFacultyInline(admin.TabularInline):
+    model = UniversityFaculty
+    extra = 0
+    fields = ("name", "city", "address", "latitude", "longitude", "source")
 
 
 class ProfileInline(admin.StackedInline):
@@ -12,7 +18,7 @@ class ProfileInline(admin.StackedInline):
     
     # Поля для отображения в инлайне
     fields = (
-        'avatar', 'name', 'phone', 'age', 'gender', 'city', 
+        'avatar', 'name', 'phone', 'age', 'gender', 'city', 'university', 'faculty',
         'verified', 'looking_for_housing',
         'languages', 'profession', 'about',
         'smoking', 'alcohol', 'sleep_schedule', 'gamer', 'work_from_home', 'pets'
@@ -81,7 +87,7 @@ class UserAdmin(BaseUserAdmin):
 class ProfileAdmin(admin.ModelAdmin):
     """Админка для отдельного просмотра профилей"""
     list_display = (
-        'get_username', 'name', 'phone', 'age', 'gender', 'city', 
+        'get_username', 'name', 'phone', 'age', 'gender', 'city', 'university', 'faculty',
         'verified', 'looking_for_housing', 'get_is_active', 'created_at'
     )
     list_filter = ('verified', 'looking_for_housing', 'gender', 'city', 'auth_provider')
@@ -91,7 +97,7 @@ class ProfileAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('user', 'avatar', 'name', 'phone', 'age', 'gender', 'city')
+            'fields': ('user', 'avatar', 'name', 'phone', 'age', 'gender', 'city', 'university', 'faculty')
         }),
         ('Статус', {
             'fields': ('verified', 'looking_for_housing', 'auth_provider')
@@ -157,3 +163,18 @@ class ProfileAdmin(admin.ModelAdmin):
 # Перерегистрируем User с кастомной админкой
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+
+
+@admin.register(University)
+class UniversityAdmin(admin.ModelAdmin):
+    list_display = ("name", "short_name", "city", "address", "latitude", "longitude", "source")
+    search_fields = ("name", "short_name", "city", "address")
+    list_filter = ("source", "city")
+    inlines = (UniversityFacultyInline,)
+
+
+@admin.register(UniversityFaculty)
+class UniversityFacultyAdmin(admin.ModelAdmin):
+    list_display = ("name", "university", "city", "address", "latitude", "longitude", "source")
+    search_fields = ("name", "university__name", "city", "address")
+    list_filter = ("source", "city", "university")

@@ -1,12 +1,54 @@
-import {useState, useEffect} from "react";
+import {useState, useEffect, useMemo} from "react";
 import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, Phone, Mail, X} from "lucide-react";
 import {Icon} from "@iconify/react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import {getCsrfToken} from "../../utils/csrf";
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 //import {ApartmentList, RoomsList, NeighboursList} from "../../data/mockData";
 //import type {ApartmentItem, RoomItem, NeighbourItem} from "../../data/mockData";
+
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+});
+
+const createPinIcon = (bgColor: string, svgPath: string) =>
+    L.divIcon({
+        className: "",
+        html: `<div style="width:30px;height:30px;border-radius:9999px;background:${bgColor};display:flex;align-items:center;justify-content:center;border:2px solid #ffffff;box-shadow:0 3px 10px rgba(0,0,0,0.28)"><svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="${svgPath}"/></svg></div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+    });
+
+const listingPinIcon = createPinIcon("#08D3E2", "M12 3l8 7h-2v9h-4v-6H10v6H6v-9H4l8-7z");
+const universityPinIcon = createPinIcon("#C505EB", "M12 3 1 9l11 6 9-4.91V17h2V9L12 3zm0 13L5 12.18V15l7 3.82L19 15v-2.82L12 16z");
+const workPinIcon = createPinIcon("#06B396", "M10 4h4v2h5a1 1 0 0 1 1 1v3H4V7a1 1 0 0 1 1-1h5V4zm-6 7h16v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7z");
+
+const haversineDistanceKm = (from: [number, number], to: [number, number]): number => {
+    const [lat1, lng1] = from;
+    const [lat2, lng2] = to;
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return 6371 * c;
+};
+
+const estimateDurationMinutes = (distanceKm: number): number => {
+    const avgCitySpeedKmH = 40;
+    return Math.max(1, Math.round((distanceKm / avgCitySpeedKmH) * 60));
+};
 
 type ListingType = "ROOM" | "NEIGHBOUR" | "APARTMENT";
 
@@ -41,6 +83,8 @@ export default function ListingDetailPage() {
         address?: string;
         city?: string;
         region?: string;
+        geo_lat?: number | string | null;
+        geo_lng?: number | string | null;
         size?: number;
         rooms?: string;
         image?: string | null;
@@ -286,6 +330,8 @@ export default function ListingDetailPage() {
                 address: data.address,
                 city: data.city,
                 region: data.region,
+                geo_lat: data.geo_lat,
+                geo_lng: data.geo_lng,
                 size: data.size,
                 rooms: data.rooms,
                 image: data.images?.[0] || null,
@@ -411,6 +457,8 @@ export default function ListingDetailPage() {
         address,
         city,
         region,
+        geo_lat,
+        geo_lng,
         size,
         rooms,
         image,
@@ -494,6 +542,16 @@ export default function ListingDetailPage() {
     const [reviewComment, setReviewComment] = useState("");
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewError, setReviewError] = useState<string | null>(null);
+    const [universityPoint, setUniversityPoint] = useState<[number, number] | null>(null);
+    const [workPoint, setWorkPoint] = useState<[number, number] | null>(null);
+    const [universityRoutePoints, setUniversityRoutePoints] = useState<Array<[number, number]>>([]);
+    const [workRoutePoints, setWorkRoutePoints] = useState<Array<[number, number]>>([]);
+    const [universityRouteLoading, setUniversityRouteLoading] = useState(false);
+    const [workRouteLoading, setWorkRouteLoading] = useState(false);
+    const [universityDistanceKm, setUniversityDistanceKm] = useState<number | null>(null);
+    const [workDistanceKm, setWorkDistanceKm] = useState<number | null>(null);
+    const [universityDurationMin, setUniversityDurationMin] = useState<number | null>(null);
+    const [workDurationMin, setWorkDurationMin] = useState<number | null>(null);
     const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
@@ -852,6 +910,179 @@ export default function ListingDetailPage() {
     const hasInternetAmenity = normalizedAmenities.some((amenity) => amenity.toLowerCase() === "internet");
     const shouldShowInternet = Boolean(internet) || hasInternetAmenity;
     const visibleAmenities = normalizedAmenities.filter((amenity) => amenity.toLowerCase() !== "internet");
+
+    const numericGeoLat = Number(geo_lat);
+    const numericGeoLng = Number(geo_lng);
+    const hasCoordinates = Number.isFinite(numericGeoLat) && Number.isFinite(numericGeoLng);
+
+    useEffect(() => {
+        if (!isAuthenticated || type === "NEIGHBOUR") {
+            setUniversityPoint(null);
+            setWorkPoint(null);
+            return;
+        }
+
+        let cancelled = false;
+        const loadProfilePoints = async () => {
+            try {
+                const response = await fetch("/api/profile/", { credentials: "include" });
+                if (!response.ok) {
+                    if (!cancelled) {
+                        setUniversityPoint(null);
+                        setWorkPoint(null);
+                    }
+                    return;
+                }
+
+                const data = await response.json();
+                const universityIdRaw = data?.universityId;
+                const hasUniversitySelected = universityIdRaw !== null && universityIdRaw !== undefined && universityIdRaw !== "" && universityIdRaw !== 0 && universityIdRaw !== "0";
+                const universityLat = Number(data?.universityLat);
+                const universityLng = Number(data?.universityLng);
+                const workLat = Number(data?.locationLat);
+                const workLng = Number(data?.locationLng);
+
+                if (!cancelled) {
+                    if (hasUniversitySelected && Number.isFinite(universityLat) && Number.isFinite(universityLng)) {
+                        setUniversityPoint([universityLat, universityLng]);
+                    } else {
+                        setUniversityPoint(null);
+                    }
+
+                    if (Number.isFinite(workLat) && Number.isFinite(workLng)) {
+                        setWorkPoint([workLat, workLng]);
+                    } else {
+                        setWorkPoint(null);
+                    }
+                }
+            } catch {
+                if (!cancelled) {
+                    setUniversityPoint(null);
+                    setWorkPoint(null);
+                }
+            }
+        };
+
+        loadProfilePoints();
+        return () => {
+            cancelled = true;
+        };
+    }, [isAuthenticated, type]);
+
+    useEffect(() => {
+        if (!hasCoordinates || type === "NEIGHBOUR") {
+            setUniversityRoutePoints([]);
+            setWorkRoutePoints([]);
+            setUniversityRouteLoading(false);
+            setWorkRouteLoading(false);
+            setUniversityDistanceKm(null);
+            setWorkDistanceKm(null);
+            setUniversityDurationMin(null);
+            setWorkDurationMin(null);
+            return;
+        }
+
+        const controller = new AbortController();
+        const fetchRoute = async (
+            sourcePoint: [number, number],
+            setLoading: (value: boolean) => void,
+            setPoints: (points: Array<[number, number]>) => void,
+            setDistanceKm: (value: number | null) => void,
+            setDurationMin: (value: number | null) => void
+        ) => {
+            try {
+                setLoading(true);
+                const [startLat, startLng] = sourcePoint;
+                const endLat = numericGeoLat;
+                const endLng = numericGeoLng;
+                const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) {
+                    setPoints([]);
+                    const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
+                    setDistanceKm(fallbackDistanceKm);
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    return;
+                }
+
+                const payload = await response.json();
+                const routeDistanceMeters = Number(payload?.routes?.[0]?.distance);
+                const routeDurationSeconds = Number(payload?.routes?.[0]?.duration);
+                const coordinates = payload?.routes?.[0]?.geometry?.coordinates;
+                if (!Array.isArray(coordinates)) {
+                    setPoints([]);
+                    const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
+                    setDistanceKm(fallbackDistanceKm);
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    return;
+                }
+
+                const mapped = coordinates
+                    .map((pair: any) => {
+                        const lng = Number(pair?.[0]);
+                        const lat = Number(pair?.[1]);
+                        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            return null;
+                        }
+                        return [lat, lng] as [number, number];
+                    })
+                    .filter((point: [number, number] | null): point is [number, number] => point !== null);
+
+                setPoints(mapped);
+                if (Number.isFinite(routeDistanceMeters) && routeDistanceMeters > 0) {
+                    const distanceKm = routeDistanceMeters / 1000;
+                    setDistanceKm(distanceKm);
+                    if (Number.isFinite(routeDurationSeconds) && routeDurationSeconds > 0) {
+                        setDurationMin(Math.max(1, Math.round(routeDurationSeconds / 60)));
+                    } else {
+                        setDurationMin(estimateDurationMinutes(distanceKm));
+                    }
+                } else {
+                    const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
+                    setDistanceKm(fallbackDistanceKm);
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                }
+            } catch (error: any) {
+                if (error?.name !== "AbortError") {
+                    setPoints([]);
+                    const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [numericGeoLat, numericGeoLng]);
+                    setDistanceKm(fallbackDistanceKm);
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (universityPoint) {
+            fetchRoute(universityPoint, setUniversityRouteLoading, setUniversityRoutePoints, setUniversityDistanceKm, setUniversityDurationMin);
+        } else {
+            setUniversityRoutePoints([]);
+            setUniversityRouteLoading(false);
+            setUniversityDistanceKm(null);
+            setUniversityDurationMin(null);
+        }
+
+        if (workPoint) {
+            fetchRoute(workPoint, setWorkRouteLoading, setWorkRoutePoints, setWorkDistanceKm, setWorkDurationMin);
+        } else {
+            setWorkRoutePoints([]);
+            setWorkRouteLoading(false);
+            setWorkDistanceKm(null);
+            setWorkDurationMin(null);
+        }
+
+        return () => controller.abort();
+    }, [hasCoordinates, universityPoint, workPoint, type, numericGeoLat, numericGeoLng]);
+
+    const mapData = useMemo(() => {
+        if (!hasCoordinates) {
+            return null;
+        }
+        const openLink = `https://www.openstreetmap.org/?mlat=${numericGeoLat}&mlon=${numericGeoLng}#map=14/${numericGeoLat}/${numericGeoLng}`;
+        const center: [number, number] = [numericGeoLat, numericGeoLng];
+        return { openLink, center };
+    }, [hasCoordinates, numericGeoLat, numericGeoLng]);
 
     return(
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[100px]`}>
@@ -1548,6 +1779,89 @@ export default function ListingDetailPage() {
                                         {t("listing.loginToContact")}
                                     </button>
                                 </>
+                            )}
+
+                            {type !== "NEIGHBOUR" && mapData && (
+                                <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
+                                    <div className={`flex items-center justify-between mb-3 gap-3`}>
+                                        <h4 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white`}>
+                                            {t("listing.mapTitle")}
+                                        </h4>
+                                        <a
+                                            href={mapData.openLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className={`text-sm font-semibold text-[#C505EB] hover:underline whitespace-nowrap`}
+                                        >
+                                            {t("listing.openMap")}
+                                        </a>
+                                    </div>
+                                    <div className={`w-full h-[220px] max-[770px]:h-[210px] rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-gray-700`}>
+                                        <MapContainer
+                                            center={mapData.center}
+                                            zoom={13}
+                                            className={`w-full h-full`}
+                                            scrollWheelZoom={true}
+                                        >
+                                            <TileLayer
+                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                            />
+                                            <Marker position={[numericGeoLat, numericGeoLng]} icon={listingPinIcon}>
+                                                <Tooltip direction="top" offset={[0, -12]}>{t("listing.pointListing")}</Tooltip>
+                                            </Marker>
+                                            {universityPoint && (
+                                                <Marker position={universityPoint} icon={universityPinIcon}>
+                                                    <Tooltip direction="top" offset={[0, -12]}>{t("listing.pointUniversity")}</Tooltip>
+                                                </Marker>
+                                            )}
+                                            {workPoint && (
+                                                <Marker position={workPoint} icon={workPinIcon}>
+                                                    <Tooltip direction="top" offset={[0, -12]}>{t("listing.pointWork")}</Tooltip>
+                                                </Marker>
+                                            )}
+
+                                            {universityRoutePoints.length > 1 && (
+                                                <>
+                                                    <Polyline positions={universityRoutePoints} pathOptions={{ color: "#C505EB", weight: 8, opacity: 0.22 }} />
+                                                    <Polyline positions={universityRoutePoints} pathOptions={{ color: "#C505EB", weight: 4, opacity: 0.9 }} />
+                                                </>
+                                            )}
+                                            {universityRoutePoints.length <= 1 && universityPoint && !universityRouteLoading && (
+                                                <Polyline positions={[universityPoint, [numericGeoLat, numericGeoLng]]} pathOptions={{ color: "#C505EB", weight: 3, opacity: 0.7, dashArray: "8 8" }} />
+                                            )}
+
+                                            {workRoutePoints.length > 1 && (
+                                                <>
+                                                    <Polyline positions={workRoutePoints} pathOptions={{ color: "#06B396", weight: 8, opacity: 0.18 }} />
+                                                    <Polyline positions={workRoutePoints} pathOptions={{ color: "#06B396", weight: 4, opacity: 0.9 }} />
+                                                </>
+                                            )}
+                                            {workRoutePoints.length <= 1 && workPoint && !workRouteLoading && (
+                                                <Polyline positions={[workPoint, [numericGeoLat, numericGeoLng]]} pathOptions={{ color: "#06B396", weight: 3, opacity: 0.7, dashArray: "8 8" }} />
+                                            )}
+                                        </MapContainer>
+                                    </div>
+                                    {(universityPoint || workPoint) && (
+                                        <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
+                                            <p className={`font-semibold`}>{t("listing.distanceTitle")}</p>
+                                            {universityPoint && (
+                                                <p className={`mt-1`}>
+                                                    {universityRouteLoading
+                                                        ? t("listing.routeLoadingUniversity")
+                                                        : `${t("listing.distanceToUniversity")}: ${Number(universityDistanceKm || 0).toFixed(1)} km (${Number(universityDurationMin || 0)} min)`}
+                                                </p>
+                                            )}
+                                            {workPoint && (
+                                                <p className={`mt-1`}>
+                                                    {workRouteLoading
+                                                        ? t("listing.routeLoadingWork")
+                                                        : `${t("listing.distanceToWork")}: ${Number(workDistanceKm || 0).toFixed(1)} km (${Number(workDurationMin || 0)} min)`}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {type === "NEIGHBOUR" && (

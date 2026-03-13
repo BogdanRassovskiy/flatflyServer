@@ -275,6 +275,8 @@ class CzechMunicipality(models.Model):
     normalized_name = models.CharField(max_length=255, db_index=True)
     region_code = models.CharField(max_length=32, blank=True, default="", db_index=True)
     municipality_type = models.CharField(max_length=32, blank=True, default="obec")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     population = models.PositiveIntegerField(null=True, blank=True)
     source = models.CharField(max_length=32, default="OSM")
     updated_at = models.DateTimeField(auto_now=True)
@@ -288,3 +290,30 @@ class CzechMunicipality(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CzechStreet(models.Model):
+    osm_id = models.BigIntegerField(unique=True)
+    name = models.CharField(max_length=255, db_index=True)
+    normalized_name = models.CharField(max_length=255, db_index=True)
+    city_name = models.CharField(max_length=255, db_index=True)
+    normalized_city_name = models.CharField(max_length=255, db_index=True)
+    region_code = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    source = models.CharField(max_length=32, default="OSM")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["city_name", "name", "id"]
+        indexes = [
+            models.Index(fields=["region_code", "city_name", "name"], name="idx_street_region_city_name"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = unicodedata.normalize("NFKD", (self.name or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+        self.normalized_city_name = unicodedata.normalize("NFKD", (self.city_name or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name}, {self.city_name}"

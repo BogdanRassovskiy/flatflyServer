@@ -188,6 +188,9 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         "price_desc": t("filter.sortPriceDesc"),
         "date_desc": t("filter.sortDateDesc"),
         "date_asc": t("filter.sortDateAsc"),
+        "distance_university": t("filter.sortDistanceUniversity"),
+        "distance_work": t("filter.sortDistanceWork"),
+        "distance_optimal": t("filter.sortDistanceOptimal"),
       };
       return map[value] || value;
     };
@@ -427,6 +430,9 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       {value: "price_desc", label: t("filter.sortPriceDesc")},
       {value: "date_desc", label: t("filter.sortDateDesc")},
       {value: "date_asc", label: t("filter.sortDateAsc")},
+      {value: "distance_university", label: t("filter.sortDistanceUniversity")},
+      {value: "distance_work", label: t("filter.sortDistanceWork")},
+      {value: "distance_optimal", label: t("filter.sortDistanceOptimal")},
     ];
 
     const infrastructureOptions = [

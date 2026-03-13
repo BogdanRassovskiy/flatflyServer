@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal, InvalidOperation
 import time
 import unicodedata
 import urllib.parse
@@ -39,7 +40,7 @@ def build_region_municipalities_query(region_name: str) -> str:
         f'relation["boundary"="administrative"]["admin_level"="4"]["name"="{escaped_name}"];'
         'map_to_area->.a;'
         'relation["boundary"="administrative"]["admin_level"="8"](area.a);'
-        'out tags;'
+        'out tags center;'
     )
 
 
@@ -48,8 +49,17 @@ def build_region_relation_query(region_name: str) -> str:
     return (
         '[out:json][timeout:120];'
         f'relation["boundary"="administrative"]["admin_level"="4"]["name"="{escaped_name}"];'
-        'out tags ids;'
+        'out tags ids center;'
     )
+
+
+def parse_decimal_coordinate(raw_value):
+    if raw_value is None or raw_value == "":
+        return None
+    try:
+        return Decimal(str(raw_value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
 
 
 def overpass_request(query: str) -> dict:
@@ -75,6 +85,43 @@ def overpass_request(query: str) -> dict:
         time.sleep(min(8, attempt * 2))
 
     raise RuntimeError(f"Overpass request failed after retries: {last_error}")
+
+
+def nominatim_geocode(name: str, region_name: str = ""):
+    if not name:
+        return None, None
+
+    query_parts = [str(name).strip()]
+    if region_name:
+        query_parts.append(str(region_name).strip())
+    query_parts.append("Czech Republic")
+    query = ", ".join(part for part in query_parts if part)
+
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({
+        "q": query,
+        "format": "jsonv2",
+        "limit": 1,
+    })
+
+    for attempt in range(1, 4):
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": "flatflyServer/municipality-import"},
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.load(response)
+            if not payload:
+                return None, None
+
+            first = payload[0]
+            lat = parse_decimal_coordinate(first.get("lat"))
+            lon = parse_decimal_coordinate(first.get("lon"))
+            return lat, lon
+        except (HTTPError, URLError, TimeoutError, ValueError, KeyError):
+            time.sleep(attempt)
+
+    return None, None
 
 
 class Command(BaseCommand):
@@ -132,6 +179,12 @@ class Command(BaseCommand):
                 except ValueError:
                     population = None
 
+                center = element.get("center") or {}
+                latitude = parse_decimal_coordinate(center.get("lat"))
+                longitude = parse_decimal_coordinate(center.get("lon"))
+                if latitude is None or longitude is None:
+                    latitude, longitude = nominatim_geocode(name, region_name)
+
                 CzechMunicipality.objects.update_or_create(
                     osm_id=osm_id,
                     defaults={
@@ -140,6 +193,8 @@ class Command(BaseCommand):
                         "normalized_name": normalize_text(name),
                         "region_code": region_code,
                         "municipality_type": municipality_type,
+                        "latitude": latitude,
+                        "longitude": longitude,
                         "population": population,
                         "source": "OSM",
                     },

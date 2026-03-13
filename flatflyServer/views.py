@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
 import re
 import uuid
+import math
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import unicodedata
@@ -15,8 +16,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
 from django.db.models import Q, Avg, Count
 from django.utils import timezone
-from users.models import Profile, ProfileReview
-from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality
+from users.models import Profile, ProfileReview, University, UniversityFaculty
+from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality, CzechStreet
 from article.models import LaunchSettings, default_launch_date
 from django.core.paginator import Paginator
 
@@ -108,8 +109,181 @@ def municipalities_search(request):
     else:
         qs = qs.none()
 
-    items = list(qs.order_by("name").values("name", "region_code", "municipality_type")[:limit])
+    items = list(qs.order_by("name").values("name", "region_code", "municipality_type", "latitude", "longitude")[:limit])
     return JsonResponse({"results": items})
+
+
+REGION_NAME_TO_CODE = {
+    "praha": "PRAGUE",
+    "hlavni mesto praha": "PRAGUE",
+    "stredocesky kraj": "STREDOCESKY",
+    "jihocesky kraj": "JIHOCESKY",
+    "plzensky kraj": "PLZENSKY",
+    "karlovarsky kraj": "KARLOVARSKY",
+    "ustecky kraj": "USTECKY",
+    "liberecky kraj": "LIBERECKY",
+    "kralovehradecky kraj": "KRALOVEHRADECKY",
+    "pardubicky kraj": "PARDUBICKY",
+    "vysocina": "VYSOCINA",
+    "kraj vysocina": "VYSOCINA",
+    "jihomoravsky kraj": "JIHOMORAVSKY",
+    "olomoucky kraj": "OLOMOUCKY",
+    "zlinsky kraj": "ZLINSKY",
+    "moravskoslezsky kraj": "MORAVSKOSLEZSKY",
+}
+
+
+def map_region_name_to_code(region_name):
+    normalized = normalize_text(region_name)
+    return REGION_NAME_TO_CODE.get(normalized)
+
+
+@require_http_methods(["GET"])
+def reverse_geocode(request):
+    lat = _parse_float_safe(request.GET.get("lat"))
+    lng = _parse_float_safe(request.GET.get("lng"))
+
+    if lat is None or lng is None:
+        return JsonResponse({"detail": "lat and lng are required"}, status=400)
+    if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+        return JsonResponse({"detail": "invalid coordinates"}, status=400)
+
+    url = "https://nominatim.openstreetmap.org/reverse"
+    try:
+        response = requests.get(
+            url,
+            params={
+                "lat": lat,
+                "lon": lng,
+                "format": "jsonv2",
+                "addressdetails": 1,
+                "zoom": 18,
+            },
+            headers={"User-Agent": "flatflyServer/reverse-geocode"},
+            timeout=12,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+    except Exception:
+        return JsonResponse({"detail": "reverse geocoding failed"}, status=502)
+
+    addr = payload.get("address") or {}
+    road = str(addr.get("road") or "").strip()
+    house_number = str(addr.get("house_number") or "").strip()
+
+    city_candidate = (
+        addr.get("city")
+        or addr.get("town")
+        or addr.get("village")
+        or addr.get("municipality")
+        or addr.get("city_district")
+        or ""
+    )
+    city_text = str(city_candidate or "").strip()
+
+    state_text = str(addr.get("state") or "").strip()
+    region_code = map_region_name_to_code(state_text)
+
+    municipality = None
+    if city_text:
+        municipality_qs = CzechMunicipality.objects.filter(
+            Q(name__iexact=city_text) | Q(normalized_name=normalize_text(city_text))
+        )
+        if region_code:
+            municipality_qs = municipality_qs.filter(region_code=region_code)
+        municipality = municipality_qs.order_by("id").first()
+
+        if municipality:
+            city_text = municipality.name
+            region_code = municipality.region_code or region_code
+
+    address_text = " ".join(part for part in [road, house_number] if part).strip()
+    street_in_dictionary = False
+    if address_text and city_text:
+        street_qs = CzechStreet.objects.filter(
+            Q(name__iexact=address_text) | Q(normalized_name=normalize_text(address_text)),
+            Q(city_name__iexact=city_text) | Q(normalized_city_name=normalize_text(city_text)),
+        )
+        if region_code:
+            street_qs = street_qs.filter(region_code=region_code)
+        street_in_dictionary = street_qs.exists()
+
+    return JsonResponse({
+        "region_code": region_code,
+        "city": city_text,
+        "address": address_text,
+        "city_in_dictionary": municipality is not None,
+        "street_in_dictionary": street_in_dictionary,
+    })
+
+
+@require_http_methods(["GET"])
+def streets_search(request):
+    query = str(request.GET.get("q") or "").strip()
+    city = str(request.GET.get("city") or "").strip()
+    region = str(request.GET.get("region") or "").strip().upper()
+
+    try:
+        limit = int(request.GET.get("limit", 12))
+    except (TypeError, ValueError):
+        limit = 12
+    limit = max(1, min(limit, 30))
+
+    if not city:
+        return JsonResponse({"results": []})
+
+    normalized_city = normalize_text(city)
+    qs = CzechStreet.objects.filter(
+        Q(city_name__iexact=city) | Q(normalized_city_name=normalized_city)
+    )
+
+    if region:
+        qs = qs.filter(region_code=region)
+
+    if query:
+        normalized_query = normalize_text(query)
+        qs = qs.filter(
+            Q(name__icontains=query) | Q(normalized_name__contains=normalized_query)
+        )
+
+    rows = qs.order_by("name").values("name", "city_name", "region_code", "latitude", "longitude")[:limit]
+    results = []
+    for item in rows:
+        lat = item.get("latitude")
+        lng = item.get("longitude")
+        results.append({
+            "name": item.get("name"),
+            "city_name": item.get("city_name"),
+            "region_code": item.get("region_code"),
+            "latitude": float(lat) if lat is not None else None,
+            "longitude": float(lng) if lng is not None else None,
+            "full_address": f"{item.get('name')}, {item.get('city_name')}",
+        })
+
+    return JsonResponse({"results": results})
+
+
+def resolve_street_coordinates(address, city, region):
+    address_text = str(address or "").strip()
+    city_text = str(city or "").strip()
+    region_text = str(region or "").strip().upper()
+    if not address_text or not city_text:
+        return None, None
+
+    normalized_address = normalize_text(address_text)
+    normalized_city = normalize_text(city_text)
+    qs = CzechStreet.objects.filter(
+        Q(name__iexact=address_text) | Q(normalized_name=normalized_address),
+        Q(city_name__iexact=city_text) | Q(normalized_city_name=normalized_city),
+    )
+    if region_text:
+        qs = qs.filter(region_code=region_text)
+
+    street = qs.order_by("id").first()
+    if not street or street.latitude is None or street.longitude is None:
+        return None, None
+
+    return street.latitude, street.longitude
 
 
 def _parse_bool_choice(raw_value):
@@ -128,6 +302,27 @@ def _parse_float_safe(raw_value):
         return float(raw_value)
     except (TypeError, ValueError):
         return None
+
+
+def _haversine_distance_km(point_a, point_b):
+    if not point_a or not point_b:
+        return None
+    lat1, lng1 = point_a
+    lat2, lng2 = point_b
+    if lat1 is None or lng1 is None or lat2 is None or lng2 is None:
+        return None
+
+    lat1_rad = math.radians(float(lat1))
+    lng1_rad = math.radians(float(lng1))
+    lat2_rad = math.radians(float(lat2))
+    lng2_rad = math.radians(float(lng2))
+
+    dlat = lat2_rad - lat1_rad
+    dlng = lng2_rad - lng1_rad
+
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlng / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return 6371.0 * c
 
 
 def _build_price_histogram(qs, buckets_count=28):
@@ -1062,6 +1257,10 @@ def listing_detail(request, listing_id):
             "region": "region",
             "city": "city",
             "address": "address",
+            "geoLat": "geo_lat",
+            "geoLng": "geo_lng",
+            "geo_lat": "geo_lat",
+            "geo_lng": "geo_lng",
             "price": "price",
             "deposit": "deposit",
             "currency": "currency",
@@ -1133,6 +1332,8 @@ def listing_detail(request, listing_id):
                 value = parse_date_safe(value)
             elif model_field in ["utilities_fee", "deposit"]:
                 value = parse_decimal_value(value, Decimal("0"))
+            elif model_field in ["geo_lat", "geo_lng"]:
+                value = parse_decimal_value(value, None)
             elif model_field in [
                 "utilities_included",
                 "internet",
@@ -1174,6 +1375,12 @@ def listing_detail(request, listing_id):
         if listing.utilities_included:
             listing.utilities_fee = Decimal("0")
 
+        if listing.geo_lat is None or listing.geo_lng is None:
+            resolved_lat, resolved_lng = resolve_street_coordinates(listing.address, listing.city, listing.region)
+            if resolved_lat is not None and resolved_lng is not None:
+                listing.geo_lat = resolved_lat
+                listing.geo_lng = resolved_lng
+
         listing.save()
         return JsonResponse({"detail": "Updated"})
 
@@ -1198,6 +1405,8 @@ def listing_detail(request, listing_id):
         "region": listing.region,
         "city": listing.city,
         "address": listing.address,
+        "geo_lat": float(listing.geo_lat) if listing.geo_lat is not None else None,
+        "geo_lng": float(listing.geo_lng) if listing.geo_lng is not None else None,
         "size": listing.size,
         "rooms": listing.rooms,
         "beds": listing.beds,
@@ -1318,6 +1527,8 @@ def listings_view(request):
             region=region_value,
             city=city_value,
             address=data.get("address", ""),
+            geo_lat=parse_decimal_value(data.get("geo_lat", data.get("geoLat")), None),
+            geo_lng=parse_decimal_value(data.get("geo_lng", data.get("geoLng")), None),
 
             price=data.get("price"),
             currency=data.get("currency", "CZK"),
@@ -1357,6 +1568,13 @@ def listings_view(request):
             utilities_fee=utilities_fee_value,
             deposit=deposit_value,
         )
+
+        if listing.geo_lat is None or listing.geo_lng is None:
+            resolved_lat, resolved_lng = resolve_street_coordinates(listing.address, listing.city, listing.region)
+            if resolved_lat is not None and resolved_lng is not None:
+                listing.geo_lat = resolved_lat
+                listing.geo_lng = resolved_lng
+                listing.save(update_fields=["geo_lat", "geo_lng"])
 
         ListingResident.objects.create(listing=listing, profile=profile)
 
@@ -1428,11 +1646,72 @@ def listings_view(request):
         ranked_items.append((listing, score_value, match_percent))
 
     selected_sort = str(requested_filters.get("sort_by") or "price_asc").strip().lower()
-    allowed_sort_modes = {"price_asc", "price_desc", "date_desc", "date_asc"}
+    allowed_sort_modes = {
+        "price_asc",
+        "price_desc",
+        "date_desc",
+        "date_asc",
+        "distance_university",
+        "distance_work",
+        "distance_optimal",
+    }
     if selected_sort not in allowed_sort_modes:
         selected_sort = "price_asc"
 
-    if selected_sort == "price_desc":
+    profile_university_point = None
+    profile_work_point = None
+    if selected_sort in {"distance_university", "distance_work", "distance_optimal"} and request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        university = profile.university
+
+        if university and university.latitude is not None and university.longitude is not None:
+            profile_university_point = (float(university.latitude), float(university.longitude))
+
+        work_lat = _parse_float_safe(profile.location_latitude)
+        work_lng = _parse_float_safe(profile.location_longitude)
+        if work_lat is not None and work_lng is not None:
+            profile_work_point = (work_lat, work_lng)
+
+    if selected_sort in {"distance_university", "distance_work", "distance_optimal"}:
+        ranking_with_distance = []
+        for listing, score_value, match_percent in ranked_items:
+            listing_lat = _parse_float_safe(listing.geo_lat)
+            listing_lng = _parse_float_safe(listing.geo_lng)
+
+            listing_point = None
+            if listing_lat is not None and listing_lng is not None:
+                listing_point = (listing_lat, listing_lng)
+
+            university_distance = _haversine_distance_km(listing_point, profile_university_point)
+            work_distance = _haversine_distance_km(listing_point, profile_work_point)
+
+            if selected_sort == "distance_university":
+                secondary_metric = university_distance if university_distance is not None else float("inf")
+            elif selected_sort == "distance_work":
+                secondary_metric = work_distance if work_distance is not None else float("inf")
+            else:
+                if university_distance is not None and work_distance is not None:
+                    secondary_metric = university_distance + work_distance
+                elif university_distance is not None:
+                    secondary_metric = university_distance
+                elif work_distance is not None:
+                    secondary_metric = work_distance
+                else:
+                    secondary_metric = float("inf")
+
+            ranking_with_distance.append((listing, score_value, match_percent, secondary_metric))
+
+        ranked_items = sorted(
+            ranking_with_distance,
+            key=lambda item: (
+                -float(item[1]),
+                float(item[3]),
+                float(item[0].price),
+                -item[0].created_at.timestamp(),
+            ),
+        )
+
+    elif selected_sort == "price_desc":
         # Primary: relevance, secondary: price high->low, tertiary: newer first.
         ranked_items.sort(
             key=lambda item: (-float(item[1]), -float(item[0].price), -item[0].created_at.timestamp()),
@@ -1746,6 +2025,17 @@ def profile_view(request):
             "age": profile.age,
             "gender": profile.gender,
             "city": profile.city,
+            "locationRegion": profile.location_region,
+            "locationCity": profile.location_city,
+            "locationAddress": profile.location_address,
+            "locationLat": float(profile.location_latitude) if profile.location_latitude is not None else None,
+            "locationLng": float(profile.location_longitude) if profile.location_longitude is not None else None,
+            "universityId": profile.university_id,
+            "facultyId": profile.faculty_id,
+            "universityName": profile.university.name if profile.university_id else "",
+            "facultyName": profile.faculty.name if profile.faculty_id else "",
+            "universityLat": float(profile.university.latitude) if profile.university_id and profile.university and profile.university.latitude is not None else None,
+            "universityLng": float(profile.university.longitude) if profile.university_id and profile.university and profile.university.longitude is not None else None,
             "languages": profile.languages.split(",") if profile.languages else [],
 
             "profession": profile.profession,
@@ -1779,6 +2069,9 @@ def profile_view(request):
         ("age", "age"),
         ("gender", "gender"),
         ("city", "city"),
+        ("locationRegion", "location_region"),
+        ("locationCity", "location_city"),
+        ("locationAddress", "location_address"),
         ("languages", "languages"),
         ("profession", "profession"),
         ("about", "about"),
@@ -1803,8 +2096,111 @@ def profile_view(request):
                 value = ",".join(value)
             setattr(profile, attr, value)
 
+    if "locationLat" in data:
+        profile.location_latitude = _parse_float_safe(data.get("locationLat"))
+
+    if "locationLng" in data:
+        profile.location_longitude = _parse_float_safe(data.get("locationLng"))
+
+    if "universityId" in data:
+        university_id = data.get("universityId")
+        if university_id in [None, "", 0, "0"]:
+            profile.university = None
+            profile.faculty = None
+        else:
+            try:
+                selected_university = University.objects.get(id=int(university_id))
+            except (ValueError, TypeError, University.DoesNotExist):
+                return JsonResponse({"detail": "Invalid university"}, status=400)
+            profile.university = selected_university
+
+            # If university changed, clear faculty unless it still belongs to selected university.
+            if profile.faculty_id and profile.faculty.university_id != selected_university.id:
+                profile.faculty = None
+
+    if "facultyId" in data:
+        faculty_id = data.get("facultyId")
+        if faculty_id in [None, "", 0, "0"]:
+            profile.faculty = None
+        else:
+            if not profile.university_id:
+                return JsonResponse({"detail": "University must be selected before faculty"}, status=400)
+            try:
+                selected_faculty = UniversityFaculty.objects.get(id=int(faculty_id), university_id=profile.university_id)
+            except (ValueError, TypeError, UniversityFaculty.DoesNotExist):
+                return JsonResponse({"detail": "Invalid faculty for selected university"}, status=400)
+            profile.faculty = selected_faculty
+
     profile.save()
     return JsonResponse({"detail": "Profile updated"})
+
+
+@require_http_methods(["GET"])
+def universities_list(request):
+    query = str(request.GET.get("q") or "").strip()
+    qs = University.objects.exclude(normalized_name__contains="fakulta").exclude(normalized_name__contains="faculty")
+
+    if query:
+        normalized = normalize_text(query)
+        qs = qs.filter(
+            Q(name__icontains=query)
+            | Q(short_name__icontains=query)
+            | Q(normalized_name__contains=normalized)
+        )
+
+    rows = qs.order_by("name").values("id", "name", "short_name", "city", "address", "latitude", "longitude")[:200]
+    results = []
+    for item in rows:
+        lat = item.get("latitude")
+        lng = item.get("longitude")
+        results.append({
+            "id": item.get("id"),
+            "name": item.get("name"),
+            "short_name": item.get("short_name"),
+            "city": item.get("city"),
+            "address": item.get("address"),
+            "latitude": float(lat) if lat is not None else None,
+            "longitude": float(lng) if lng is not None else None,
+        })
+
+    return JsonResponse({"results": results})
+
+
+@require_http_methods(["GET"])
+def university_faculties_list(request):
+    university_id = request.GET.get("universityId")
+    if not university_id:
+        return JsonResponse({"results": []})
+
+    try:
+        university_id_int = int(university_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"results": []})
+
+    query = str(request.GET.get("q") or "").strip()
+    qs = UniversityFaculty.objects.filter(university_id=university_id_int)
+
+    if query:
+        normalized = normalize_text(query)
+        qs = qs.filter(
+            Q(name__icontains=query) | Q(normalized_name__contains=normalized)
+        )
+
+    rows = qs.order_by("name").values("id", "name", "city", "address", "latitude", "longitude")[:300]
+    results = []
+    for item in rows:
+        lat = item.get("latitude")
+        lng = item.get("longitude")
+        results.append({
+            "id": item.get("id"),
+            "name": item.get("name"),
+            "city": item.get("city"),
+            "address": item.get("address"),
+            "latitude": float(lat) if lat is not None else None,
+            "longitude": float(lng) if lng is not None else None,
+        })
+
+    return JsonResponse({"results": results})
 
 
 def apple_callback(request):
