@@ -164,6 +164,9 @@ class Profile(models.Model):
     # === STATUS ===
     verified = models.BooleanField(default=False)
     looking_for_housing = models.BooleanField(default=True)
+    with_children = models.BooleanField(default=False)
+    with_disability = models.BooleanField(default=False)
+    pensioner = models.BooleanField(default=False)
 
     # === AUTH ===
     AUTH_PROVIDERS = [

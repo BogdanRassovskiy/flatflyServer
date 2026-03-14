@@ -20,11 +20,15 @@ interface Neighbour {
   sleep_schedule?: string;
   gamer?: string;
   work_from_home?: string;
+  with_children?: boolean;
+  with_disability?: boolean;
+  pensioner?: boolean;
 
   verified: boolean;
   looking_for_housing: boolean;
   ratingAverage?: number;
   ratingCount?: number;
+  matchPercentage?: number;
   is_favorite?: boolean;
 }
 interface NeighbourFilterState {
@@ -36,7 +40,11 @@ interface NeighbourFilterState {
   smoking: string;
   alcohol: string;
   sleepSchedule: string;
-  profession: string;
+  universityId: string;
+  universityName: string;
+  excludeWithChildren: boolean;
+  excludeWithDisability: boolean;
+  excludePensioner: boolean;
   workFromHome: string;
   languages: string[];
   interests: string;
@@ -58,7 +66,11 @@ export default function NeighboursPage() {
     smoking: "",
     alcohol: "",
     sleepSchedule: "",
-    profession: "",
+    universityId: "",
+    universityName: "",
+    excludeWithChildren: false,
+    excludeWithDisability: false,
+    excludePensioner: false,
     workFromHome: "",
     languages: [],
     interests: "",
@@ -80,6 +92,15 @@ export default function NeighboursPage() {
       }
 
       Object.entries(filters).forEach(([key, value]) => {
+        if (key === "universityName") {
+          return;
+        }
+        if (typeof value === "boolean") {
+          if (value) {
+            params.append(key, "true");
+          }
+          return;
+        }
         if (Array.isArray(value)) {
           value.forEach(v => params.append(`${key}[]`, v));
         } else if (value !== "" && value !== null && value !== undefined) {
@@ -171,6 +192,9 @@ export default function NeighboursPage() {
                   getBadgeValue("sleepSchedule", n.sleep_schedule),
                   getBadgeValue("gamer", n.gamer),
                   getBadgeValue("workFromHome", n.work_from_home),
+                  getBadgeValue("withChildren", n.with_children),
+                  getBadgeValue("withDisability", n.with_disability),
+                  getBadgeValue("pensioner", n.pensioner),
                 ];
 
                 // Фильтруем null и ограничиваем до 6
@@ -190,6 +214,7 @@ export default function NeighboursPage() {
                     badges={badges}
                     ratingAverage={n.ratingAverage}
                     ratingCount={n.ratingCount}
+                    matchPercentage={n.matchPercentage}
                     type="NEIGHBOUR"
                     is_favorite={n.is_favorite}
                   />

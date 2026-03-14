@@ -16,7 +16,11 @@ interface NeighbourFilterState {
     smoking: string;
     alcohol: string;
     sleepSchedule: string;
-    profession: string;
+    universityId: string;
+    universityName: string;
+    excludeWithChildren: boolean;
+    excludeWithDisability: boolean;
+    excludePensioner: boolean;
     workFromHome: string;
     languages: string[];
     interests: string;
@@ -29,6 +33,11 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const { t } = useLanguage();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
+    const universityAutocompleteRef = useRef<HTMLDivElement>(null);
+    const [universityInput, setUniversityInput] = useState(filters.universityName || "");
+    const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
+    const [universitiesLoading, setUniversitiesLoading] = useState(false);
+    const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
     
     // Функции для перевода значений фильтров
     const translateGender = (value: string) => {
@@ -101,10 +110,25 @@ const NeighboursCategories = [
     subTitle: translateSleepSchedule(filters.sleepSchedule),
   },
 
-  filters.profession && {
-    title: t("filter.neighbourProfession"),
-    subTitle: filters.profession,
+    filters.universityName && {
+        title: t("filter.neighbourUniversity"),
+        subTitle: filters.universityName,
   },
+
+    filters.excludeWithChildren && {
+        title: t("filter.neighbourExcludeWithChildren"),
+        subTitle: t("filter.active"),
+    },
+
+    filters.excludeWithDisability && {
+        title: t("filter.neighbourExcludeWithDisability"),
+        subTitle: t("filter.active"),
+    },
+
+    filters.excludePensioner && {
+        title: t("filter.neighbourExcludePensioner"),
+        subTitle: t("filter.active"),
+    },
 
   filters.workFromHome && {
     title: t("filter.neighbourWorkFromHome"),
@@ -173,6 +197,9 @@ const NeighboursCategories = [
             if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
                 setIsModalOpen(false);
             }
+            if (universityAutocompleteRef.current && !universityAutocompleteRef.current.contains(event.target as Node)) {
+                setUniversityDropdownOpen(false);
+            }
         };
 
         if (isModalOpen) {
@@ -190,12 +217,65 @@ const NeighboursCategories = [
         };
     }, [isModalOpen]);
 
+    useEffect(() => {
+        const text = universityInput.trim();
+        if (!universityDropdownOpen || text.length < 2) {
+            setUniversitySuggestions([]);
+            setUniversitiesLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(async () => {
+            try {
+                setUniversitiesLoading(true);
+                const params = new URLSearchParams({ q: text });
+                const response = await fetch(`/api/universities/?${params.toString()}`, {
+                    credentials: "include",
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setUniversitySuggestions([]);
+                    return;
+                }
+                const payload = await response.json();
+                const rows = Array.isArray(payload?.results) ? payload.results : [];
+                setUniversitySuggestions(
+                    rows
+                        .map((item: any) => ({
+                            id: Number(item.id),
+                            name: String(item.name || "").trim(),
+                        }))
+                        .filter((item: { id: number; name: string }) => item.id > 0 && item.name)
+                );
+            } catch (error: any) {
+                if (error?.name !== "AbortError") {
+                    setUniversitySuggestions([]);
+                }
+            } finally {
+                setUniversitiesLoading(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            clearTimeout(timeout);
+        };
+    }, [universityInput, universityDropdownOpen]);
+
     const handleFilterChange = (key: keyof NeighbourFilterState, value: string | string[]) => {
       onChange({
         ...filters,
         [key]: value,
       });
     };
+
+        const handleBooleanFilterChange = (key: keyof NeighbourFilterState, value: boolean) => {
+            onChange({
+                ...filters,
+                [key]: value,
+            });
+        };
 
     const toggleLanguage = (language: string) => {
       onChange({
@@ -207,6 +287,9 @@ const NeighboursCategories = [
     };
 
     const handleReset = () => {
+            setUniversityInput("");
+            setUniversityDropdownOpen(false);
+            setUniversitySuggestions([]);
       onChange({
         city: "",
         ageFrom: "",
@@ -216,7 +299,11 @@ const NeighboursCategories = [
         smoking: "",
         alcohol: "",
         sleepSchedule: "",
-        profession: "",
+                universityId: "",
+                universityName: "",
+                excludeWithChildren: false,
+                excludeWithDisability: false,
+                excludePensioner: false,
         workFromHome: "",
         languages: [],
                 interests: "",
@@ -224,8 +311,25 @@ const NeighboursCategories = [
     };
 
     const handleApply = () => {
+            if (universityInput.trim() && !filters.universityId) {
+                setUniversityInput("");
+                onChange({
+                    ...filters,
+                    universityName: "",
+                });
+            }
       setIsModalOpen(false);
     };
+
+        const handleUniversitySuggestionSelect = (suggestion: { id: number; name: string }) => {
+            setUniversityInput(suggestion.name);
+            onChange({
+                ...filters,
+                universityId: String(suggestion.id),
+                universityName: suggestion.name,
+            });
+            setUniversityDropdownOpen(false);
+        };
 
     return(
         <div className={`w-full flex flex-col interFont`}>
@@ -446,20 +550,63 @@ const NeighboursCategories = [
                                         </select>
                                     </div>
 
-                                    {/* Профессия / Университет */}
-                                    <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourProfession")}</label>
-                                        <input
-                                            type="text"
-                                            value={filters.profession}
-                                            onChange={(e) => handleFilterChange("profession", e.target.value)}
-                                            placeholder={t("filter.neighbourProfessionPlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
+                                                                        {/* Университет */}
+                                                                        <div ref={universityAutocompleteRef} className={`flex flex-col gap-2 relative`}>
+                                                                                <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourUniversity")}</label>
+                                                                                <input
+                                                                                        type="text"
+                                                                                        value={universityInput}
+                                                                                        onFocus={() => setUniversityDropdownOpen(true)}
+                                                                                        onChange={(e) => {
+                                                                                                const nextValue = e.target.value;
+                                                                                                setUniversityInput(nextValue);
+                                                                                                if (filters.universityId || filters.universityName) {
+                                                                                                        onChange({
+                                                                                                                ...filters,
+                                                                                                                universityId: "",
+                                                                                                                universityName: "",
+                                                                                                        });
+                                                                                                }
+                                                                                                setUniversityDropdownOpen(true);
+                                                                                        }}
+                                                                                        placeholder={t("profile.universityPlaceholder")}
+                                                                                        className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                                                                                                focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                                                                                                focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                                                                                                outline-0 duration-300 transition-all bg-white text-black
+                                                                                                                hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                                                                />
+
+                                                                                {universityDropdownOpen && (
+                                                                                    <div className={`absolute z-20 top-full mt-1 w-full rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg overflow-hidden`}>
+                                                                                        {universitiesLoading ? (
+                                                                                            <div className={`px-4 py-3 text-sm text-[#666666] dark:text-gray-300`}>{t("profile.loadingUniversities")}</div>
+                                                                                        ) : universityInput.trim().length < 2 ? (
+                                                                                            <div className={`px-4 py-3 text-sm text-[#666666] dark:text-gray-300`}>{t("profile.universityPlaceholder")}</div>
+                                                                                        ) : universitySuggestions.length === 0 ? (
+                                                                                            <div className={`px-4 py-3 text-sm text-[#666666] dark:text-gray-300`}>{t("profile.universityNoResults")}</div>
+                                                                                        ) : (
+                                                                                            <div className={`max-h-56 overflow-y-auto`}>
+                                                                                                {universitySuggestions.map((item) => (
+                                                                                                    <button
+                                                                                                        key={item.id}
+                                                                                                        type="button"
+                                                                                                        onClick={() => handleUniversitySuggestionSelect(item)}
+                                                                                                        className={`w-full text-left px-4 py-2.5 text-sm text-black dark:text-white hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-200`}
+                                                                                                    >
+                                                                                                        {item.name}
+                                                                                                    </button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {universityInput.trim() && !filters.universityId && (
+                                                                                    <div className={`text-xs text-[#C505EB] font-medium`}>
+                                                                                        {t("profile.selectUniversityFromList")}
+                                                                                    </div>
+                                                                                )}
                                     </div>
 
                                     {/* Удалённая работа */}
@@ -479,6 +626,42 @@ const NeighboursCategories = [
                                                 <option key={option.value} value={option.value}>{option.label}</option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    {/* Исключение категорий */}
+                                    <div className={`flex flex-col gap-2 md:col-span-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourExcludeStatuses")}</label>
+                                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-3`}>
+                                            <label className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#C505EB]/60`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filters.excludeWithChildren}
+                                                    onChange={(e) => handleBooleanFilterChange("excludeWithChildren", e.target.checked)}
+                                                    className={`w-5 h-5 accent-[#C505EB]`}
+                                                />
+                                                <span className={`text-sm font-medium text-black dark:text-white`}>{t("filter.neighbourExcludeWithChildren")}</span>
+                                            </label>
+
+                                            <label className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#C505EB]/60`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filters.excludeWithDisability}
+                                                    onChange={(e) => handleBooleanFilterChange("excludeWithDisability", e.target.checked)}
+                                                    className={`w-5 h-5 accent-[#C505EB]`}
+                                                />
+                                                <span className={`text-sm font-medium text-black dark:text-white`}>{t("filter.neighbourExcludeWithDisability")}</span>
+                                            </label>
+
+                                            <label className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#C505EB]/60`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filters.excludePensioner}
+                                                    onChange={(e) => handleBooleanFilterChange("excludePensioner", e.target.checked)}
+                                                    className={`w-5 h-5 accent-[#C505EB]`}
+                                                />
+                                                <span className={`text-sm font-medium text-black dark:text-white`}>{t("filter.neighbourExcludePensioner")}</span>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Языки общения */}

@@ -17,6 +17,7 @@ class NeighbourRankingConfig:
 
 DEFAULT_NEIGHBOUR_RANKING_CONFIGS = [
     NeighbourRankingConfig("city", "City", 6.0, True),
+    NeighbourRankingConfig("university", "University", 6.0, True),
     NeighbourRankingConfig("gender", "Gender", 6.0, True),
     NeighbourRankingConfig("age_range", "Age Range", 6.0, True),
     NeighbourRankingConfig("smoking", "Smoking", 4.0, False),
@@ -27,6 +28,9 @@ DEFAULT_NEIGHBOUR_RANKING_CONFIGS = [
     NeighbourRankingConfig("profession", "Profession", 3.0, False),
     NeighbourRankingConfig("interests", "Interests", 2.0, False),
     NeighbourRankingConfig("verified", "Verified", 5.0, False),
+    NeighbourRankingConfig("with_children", "With Children", 4.0, True),
+    NeighbourRankingConfig("with_disability", "With Disability", 4.0, True),
+    NeighbourRankingConfig("pensioner", "Pensioner", 4.0, True),
     NeighbourRankingConfig("looking_for_housing", "Looking For Housing", 3.0, True),
     NeighbourRankingConfig("rating_min", "Minimum Rating", 1.0, True),
 ]
@@ -55,6 +59,10 @@ def normalize_neighbour_ranking_configs(config_rows: list[Any]) -> list[Neighbou
         )
 
     if configs:
+        existing_codes = {cfg.code for cfg in configs}
+        for default_cfg in DEFAULT_NEIGHBOUR_RANKING_CONFIGS:
+            if default_cfg.code not in existing_codes:
+                configs.append(default_cfg)
         return [cfg for cfg in configs if cfg.is_active]
 
     return [cfg for cfg in DEFAULT_NEIGHBOUR_RANKING_CONFIGS if cfg.is_active]
@@ -69,6 +77,12 @@ def parse_neighbour_filters(request) -> dict[str, Any]:
         if text in {"true", "1", "yes"}:
             return True
         if text in {"false", "0", "no"}:
+            return False
+        return None
+
+    def _exclude_to_false(value: Any) -> bool | None:
+        exclude = _clean_bool(value)
+        if exclude is True:
             return False
         return None
 
@@ -95,6 +109,7 @@ def parse_neighbour_filters(request) -> dict[str, Any]:
 
     return {
         "city": _clean_text(request.GET.get("city")),
+        "university": _clean_int(request.GET.get("universityId")),
         "gender": _clean_text(request.GET.get("gender")).lower(),
         "age_range": {"from": age_from, "to": age_to},
         "smoking": _clean_text(request.GET.get("smoking")).lower(),
@@ -105,6 +120,9 @@ def parse_neighbour_filters(request) -> dict[str, Any]:
         "interests": _clean_text(request.GET.get("interests")).lower(),
         "languages": [str(item).strip().lower() for item in request.GET.getlist("languages[]") if str(item).strip()],
         "verified": _clean_bool(request.GET.get("verified")),
+        "with_children": _exclude_to_false(request.GET.get("excludeWithChildren")),
+        "with_disability": _exclude_to_false(request.GET.get("excludeWithDisability")),
+        "pensioner": _exclude_to_false(request.GET.get("excludePensioner")),
         "looking_for_housing": _clean_bool(request.GET.get("looking_for_housing")),
         "rating_min": _clean_float(request.GET.get("ratingMin")),
     }
@@ -122,6 +140,8 @@ def apply_neighbour_hard_filters(qs: QuerySet, filters: dict[str, Any], configs:
 
         if code == "city":
             qs = qs.filter(city__icontains=str(expected))
+        elif code == "university":
+            qs = qs.filter(university_id=int(expected))
         elif code == "gender":
             if expected != "any":
                 qs = qs.filter(gender=expected)
@@ -149,6 +169,12 @@ def apply_neighbour_hard_filters(qs: QuerySet, filters: dict[str, Any], configs:
             qs = qs.filter(about__icontains=expected)
         elif code == "verified":
             qs = qs.filter(verified=bool(expected))
+        elif code == "with_children":
+            qs = qs.filter(with_children=bool(expected))
+        elif code == "with_disability":
+            qs = qs.filter(with_disability=bool(expected))
+        elif code == "pensioner":
+            qs = qs.filter(pensioner=bool(expected))
         elif code == "looking_for_housing":
             qs = qs.filter(looking_for_housing=bool(expected))
         elif code == "rating_min":
@@ -180,6 +206,8 @@ def calculate_neighbour_relevance(profile, filters: dict[str, Any], configs: lis
 
         if config.code == "city":
             ratio = 1.0 if _safe_text(expected) in _safe_text(profile.city) else 0.0
+        elif config.code == "university":
+            ratio = 1.0 if int(getattr(profile, "university_id", 0) or 0) == int(expected) else 0.0
         elif config.code == "gender":
             ratio = 1.0 if _safe_text(profile.gender) == _safe_text(expected) else 0.0
         elif config.code == "age_range":
@@ -221,6 +249,12 @@ def calculate_neighbour_relevance(profile, filters: dict[str, Any], configs: lis
                 ratio = 0.0
         elif config.code == "verified":
             ratio = 1.0 if bool(profile.verified) == bool(expected) else 0.0
+        elif config.code == "with_children":
+            ratio = 1.0 if bool(profile.with_children) == bool(expected) else 0.0
+        elif config.code == "with_disability":
+            ratio = 1.0 if bool(profile.with_disability) == bool(expected) else 0.0
+        elif config.code == "pensioner":
+            ratio = 1.0 if bool(profile.pensioner) == bool(expected) else 0.0
         elif config.code == "looking_for_housing":
             ratio = 1.0 if bool(profile.looking_for_housing) == bool(expected) else 0.0
         elif config.code == "rating_min":

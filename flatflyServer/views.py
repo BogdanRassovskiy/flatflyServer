@@ -996,6 +996,9 @@ def neighbours_list(request):
             "work_from_home": p.work_from_home,
             "verified": p.verified,
             "looking_for_housing": p.looking_for_housing,
+            "with_children": p.with_children,
+            "with_disability": p.with_disability,
+            "pensioner": p.pensioner,
             "ratingAverage": float(p.rating_average or 0),
             "ratingCount": int(p.rating_count or 0),
             "is_favorite": p.id in favorite_profile_ids,
@@ -2240,6 +2243,9 @@ def profile_view(request):
 
             "verified": profile.verified,
             "lookingForHousing": profile.looking_for_housing,
+            "withChildren": profile.with_children,
+            "withDisability": profile.with_disability,
+            "pensioner": profile.pensioner,
             "profileCompletion": completion_data,
         })
 
@@ -2272,6 +2278,9 @@ def profile_view(request):
         ("preferredAgeRange", "preferred_age_range"),
         ("verified", "verified"),
         ("lookingForHousing", "looking_for_housing"),
+        ("withChildren", "with_children"),
+        ("withDisability", "with_disability"),
+        ("pensioner", "pensioner"),
     ]:
         if field in data:
             value = data[field]

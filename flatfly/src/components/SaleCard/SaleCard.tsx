@@ -322,7 +322,7 @@ export default function SaleCard({
                 <img className={`w-full h-full object-cover absolute top-0 left-0 ${!is_active ? 'grayscale' : ''}`} src={getImageUrl(image)} alt={address}/>
                 <div className={`w-full flex flex-col items-start p-3 absolute top-0 left-0`}>
                     <div className={`w-full flex items-start justify-between`}>
-                        {(normalizedType==="ROOM" || normalizedType==="APARTMENT")?
+                        {(normalizedType==="ROOM" || normalizedType==="APARTMENT" || normalizedType==="NEIGHBOUR")?
                             <div className={`flex flex-col items-start gap-3 max-[1220px]:gap-1 `}>
                                 {normalizedMatchPercentage !== null && (
                                     <div className={`p-1 max-[1220px]:p-0.5 rounded bg-black/70 text-white text-[10px] max-[1220px]:text-[6px] font-bold`}>

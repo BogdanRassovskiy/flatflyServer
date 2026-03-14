@@ -48,6 +48,9 @@ interface ProfileData {
     // Статус профиля
     verified: boolean;
     lookingForHousing: boolean;
+    withChildren: boolean;
+    withDisability: boolean;
+    pensioner: boolean;
 }
 
 interface ProfileCompletionData {
@@ -139,6 +142,9 @@ export default function ProfilePage() {
         preferredAgeRange: "",
         verified: false,
         lookingForHousing: true,
+        withChildren: false,
+        withDisability: false,
+        pensioner: false,
     });
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
@@ -1685,6 +1691,42 @@ export default function ProfilePage() {
                                     />
                                 </div>
                             </div>
+
+                            <div className={`pt-2`}>
+                                <h3 className={`text-xl max-[770px]:text-lg font-bold`}>{t("profile.statusSubheading")}</h3>
+                            </div>
+
+                            <div className={`grid grid-cols-1 md:grid-cols-3 gap-3`}>
+                                <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 cursor-pointer hover:border-[#C505EB]/60 transition-all duration-300`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={profileData.withChildren}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, withChildren: e.target.checked }))}
+                                        className={`w-5 h-5 accent-[#C505EB]`}
+                                    />
+                                    <span className={`text-sm font-semibold`}>{t("profile.withChildren")}</span>
+                                </label>
+
+                                <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 cursor-pointer hover:border-[#C505EB]/60 transition-all duration-300`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={profileData.withDisability}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, withDisability: e.target.checked }))}
+                                        className={`w-5 h-5 accent-[#C505EB]`}
+                                    />
+                                    <span className={`text-sm font-semibold`}>{t("profile.withDisability")}</span>
+                                </label>
+
+                                <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 cursor-pointer hover:border-[#C505EB]/60 transition-all duration-300`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={profileData.pensioner}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, pensioner: e.target.checked }))}
+                                        className={`w-5 h-5 accent-[#C505EB]`}
+                                    />
+                                    <span className={`text-sm font-semibold`}>{t("profile.pensioner")}</span>
+                                </label>
+                            </div>
                         </div>
                     )}
 
@@ -1749,6 +1791,7 @@ export default function ProfilePage() {
                                     {profileData.lookingForHousing ? t("profile.active") : t("profile.inactive")}
                                 </button>
                             </div>
+
                         </div>
                     )}
 
