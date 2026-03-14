@@ -50,6 +50,16 @@ interface ProfileData {
     lookingForHousing: boolean;
 }
 
+interface ProfileCompletionData {
+    percentage: number;
+    filledWeight: number;
+    totalWeight: number;
+    missingFields: string[];
+    missingFieldKeys: string[];
+    missingCount: number;
+    totalFields: number;
+}
+
 export default function ProfilePage() {
     const { t } = useLanguage();
     const { user } = useAuth();
@@ -59,6 +69,7 @@ export default function ProfilePage() {
     
     const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome">("basic");
     const [isSaving, setIsSaving] = useState(false);
+    const [isTogglingVerified, setIsTogglingVerified] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [addressInput, setAddressInput] = useState("");
@@ -85,6 +96,15 @@ export default function ProfilePage() {
     const [facultyDropdownOpen, setFacultyDropdownOpen] = useState(false);
     const [facultiesLoading, setFacultiesLoading] = useState(false);
     const facultyAutocompleteRef = useRef<HTMLDivElement>(null);
+    const [profileCompletion, setProfileCompletion] = useState<ProfileCompletionData>({
+        percentage: 0,
+        filledWeight: 0,
+        totalWeight: 0,
+        missingFields: [],
+        missingFieldKeys: [],
+        missingCount: 0,
+        totalFields: 0,
+    });
     
     const [profileData, setProfileData] = useState<ProfileData>({
         photo: "",
@@ -167,6 +187,18 @@ export default function ProfilePage() {
                     const loadedFacultyName = String(data.facultyName || "").trim();
                     setUniversityInput(loadedUniversityName);
                     setFacultyInput(loadedFacultyName);
+
+                    if (data.profileCompletion) {
+                        setProfileCompletion({
+                            percentage: Number(data.profileCompletion.percentage) || 0,
+                            filledWeight: Number(data.profileCompletion.filledWeight) || 0,
+                            totalWeight: Number(data.profileCompletion.totalWeight) || 0,
+                            missingFields: Array.isArray(data.profileCompletion.missingFields) ? data.profileCompletion.missingFields : [],
+                            missingFieldKeys: Array.isArray(data.profileCompletion.missingFieldKeys) ? data.profileCompletion.missingFieldKeys : [],
+                            missingCount: Number(data.profileCompletion.missingCount) || 0,
+                            totalFields: Number(data.profileCompletion.totalFields) || 0,
+                        });
+                    }
         })
         .catch(() => {
           console.log("Profile not loaded");
@@ -882,6 +914,19 @@ export default function ProfilePage() {
           throw new Error("Profile save failed");
         }
 
+                const responseData = await response.json();
+                if (responseData?.profileCompletion) {
+                        setProfileCompletion({
+                                percentage: Number(responseData.profileCompletion.percentage) || 0,
+                                filledWeight: Number(responseData.profileCompletion.filledWeight) || 0,
+                                totalWeight: Number(responseData.profileCompletion.totalWeight) || 0,
+                            missingFields: Array.isArray(responseData.profileCompletion.missingFields) ? responseData.profileCompletion.missingFields : [],
+                                missingFieldKeys: Array.isArray(responseData.profileCompletion.missingFieldKeys) ? responseData.profileCompletion.missingFieldKeys : [],
+                            missingCount: Number(responseData.profileCompletion.missingCount) || 0,
+                            totalFields: Number(responseData.profileCompletion.totalFields) || 0,
+                        });
+                }
+
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
 
@@ -893,6 +938,52 @@ export default function ProfilePage() {
       }
     };
 
+    const handleToggleVerified = async () => {
+        if (isTogglingVerified) {
+            return;
+        }
+
+        const nextVerified = !profileData.verified;
+
+        try {
+            setIsTogglingVerified(true);
+
+            const response = await fetch("/api/profile/", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                body: JSON.stringify({ verified: nextVerified }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Verified status update failed");
+            }
+
+            const responseData = await response.json();
+            setProfileData(prev => ({ ...prev, verified: nextVerified }));
+
+            if (responseData?.profileCompletion) {
+                setProfileCompletion({
+                    percentage: Number(responseData.profileCompletion.percentage) || 0,
+                    filledWeight: Number(responseData.profileCompletion.filledWeight) || 0,
+                    totalWeight: Number(responseData.profileCompletion.totalWeight) || 0,
+                    missingFields: Array.isArray(responseData.profileCompletion.missingFields) ? responseData.profileCompletion.missingFields : [],
+                    missingFieldKeys: Array.isArray(responseData.profileCompletion.missingFieldKeys) ? responseData.profileCompletion.missingFieldKeys : [],
+                    missingCount: Number(responseData.profileCompletion.missingCount) || 0,
+                    totalFields: Number(responseData.profileCompletion.totalFields) || 0,
+                });
+            }
+        } catch (err) {
+            console.error("Verified toggle error:", err);
+            alert(t("profile.errorSavingProfile"));
+        } finally {
+            setIsTogglingVerified(false);
+        }
+    };
+
     const mapCenter: [number, number] =
         profileData.locationLat !== null && profileData.locationLng !== null
             ? [profileData.locationLat, profileData.locationLng]
@@ -902,6 +993,11 @@ export default function ProfilePage() {
         profileData.locationLat !== null && profileData.locationLng !== null
             ? [profileData.locationLat, profileData.locationLng]
             : null;
+
+    const completionPercent = Math.max(0, Math.min(100, Math.round(profileCompletion.percentage || 0)));
+    const completionRadius = 58;
+    const completionCircumference = 2 * Math.PI * completionRadius;
+    const completionOffset = completionCircumference - (completionPercent / 100) * completionCircumference;
 
     return (
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[120px] pb-[90px] max-[770px]:pb-[60px]`}>
@@ -915,6 +1011,83 @@ export default function ProfilePage() {
                     <p className={`text-xl max-[1024px]:text-lg max-[770px]:text-base text-gray-600 dark:text-gray-400`}>
                         {t("profile.subtitle")}
                     </p>
+                </div>
+
+                <div className="mb-6 max-[770px]:mb-4 rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 p-5 max-[770px]:p-4">
+                    <div className="flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start">
+                        <div className="relative w-[140px] h-[140px] max-[770px]:w-[120px] max-[770px]:h-[120px] shrink-0">
+                            <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
+                                <defs>
+                                    <linearGradient id="profileCompletionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#08D3E2" />
+                                        <stop offset="50%" stopColor="#08E2BE" />
+                                        <stop offset="100%" stopColor="#C505EB" />
+                                    </linearGradient>
+                                </defs>
+                                <circle
+                                    cx="70"
+                                    cy="70"
+                                    r={completionRadius}
+                                    stroke="currentColor"
+                                    strokeWidth="12"
+                                    fill="none"
+                                    className="text-gray-200 dark:text-gray-700"
+                                />
+                                <circle
+                                    cx="70"
+                                    cy="70"
+                                    r={completionRadius}
+                                    stroke="url(#profileCompletionGradient)"
+                                    strokeWidth="12"
+                                    strokeLinecap="round"
+                                    fill="none"
+                                    strokeDasharray={completionCircumference}
+                                    strokeDashoffset={completionOffset}
+                                    className="transition-all duration-700 ease-out"
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-[34px] max-[770px]:text-[30px] font-extrabold leading-none text-[#C505EB]">{completionPercent}%</span>
+                                <span className="text-[11px] uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t("profile.completion")}</span>
+                            </div>
+                        </div>
+
+                        <div className="min-w-0">
+                            <h2 className="text-2xl max-[770px]:text-xl font-bold text-[#C505EB]">{t("profile.completionTitle")}</h2>
+                            <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                {t("profile.completionSubtitle")}
+                            </p>
+                            <p className="text-sm font-semibold text-[#08D3E2] mt-3">
+                                {t("profile.completionMissing")
+                                    .replace("{{missing}}", String(profileCompletion.missingCount || 0))
+                                    .replace("{{total}}", String(profileCompletion.totalFields || 0))}
+                            </p>
+                            {profileCompletion.missingFields.length > 0 ? (
+                                <div className="mt-3">
+                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2">
+                                        {t("profile.completionMissingListTitle")}
+                                    </p>
+                                    <ul className="grid grid-cols-1 min-[1025px]:grid-cols-2 gap-1.5 text-sm max-[770px]:text-xs text-gray-700 dark:text-gray-200">
+                                        {profileCompletion.missingFields.map((item, index) => {
+                                            const key = profileCompletion.missingFieldKeys[index] || "";
+                                            const localized = key ? t(`profile.completionFields.${key}`) : "";
+                                            const displayValue = localized && localized !== `profile.completionFields.${key}` ? localized : item;
+                                            return (
+                                            <li key={`missing-field-${index}`} className="flex items-start gap-2">
+                                                <span className="mt-1 inline-block w-1.5 h-1.5 rounded-full bg-[#C505EB]" />
+                                                <span>{displayValue}</span>
+                                            </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p className="text-sm font-semibold text-green-600 dark:text-green-400 mt-3">
+                                    {t("profile.completionNoMissing")}
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Section Tabs - Desktop */}
@@ -1540,12 +1713,13 @@ export default function ProfilePage() {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setProfileData(prev => ({ ...prev, verified: !prev.verified }))}
+                                    onClick={handleToggleVerified}
+                                    disabled={isTogglingVerified}
                                     className={`px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
                                         profileData.verified
                                             ? "bg-green-500 text-white hover:bg-green-600"
                                             : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                                    }`}
+                                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                                 >
                                     {profileData.verified ? t("profile.verified") : t("profile.verify")}
                                 </button>

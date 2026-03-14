@@ -64,6 +64,12 @@ class Listing(models.Model):
         ("USD", "USD"),
     ]
 
+    PREFERRED_GENDER_CHOICES = [
+        ("male", "Male"),
+        ("female", "Female"),
+        ("any", "Any"),
+    ]
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -89,6 +95,7 @@ class Listing(models.Model):
     # ========== Площади и цена ==========
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="CZK")
+    preferred_gender = models.CharField(max_length=10, choices=PREFERRED_GENDER_CHOICES, default="any")
     size = models.IntegerField(null=True, blank=True, db_column="usable_area")
     
     rooms = models.IntegerField(null=True, blank=True)

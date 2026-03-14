@@ -120,6 +120,7 @@ export default function ListingDetailPage() {
         deposit?: string | number;
         rental_period?: string;
         move_in_date?: string;
+        preferredGender?: string;
         amenities?: string[];
         internet?: boolean;
         utilities_included?: boolean;
@@ -352,6 +353,7 @@ export default function ListingDetailPage() {
                 deposit: data.deposit,
                 rental_period: data.rental_period,
                 move_in_date: data.move_in_date,
+                preferredGender: String(data.preferredGender || data.preferred_gender || "any"),
                 amenities: data.amenities || [],
                 internet: data.internet,
                 utilities_included: data.utilities_included,
@@ -494,6 +496,7 @@ export default function ListingDetailPage() {
         deposit,
         rental_period,
         move_in_date,
+        preferredGender,
         amenities,
         internet,
         utilities_included,
@@ -878,6 +881,13 @@ export default function ListingDetailPage() {
         return map[value] || value;
     };
 
+    const getPreferredGenderLabel = (value?: string) => {
+        const normalized = String(value || "").toLowerCase();
+        if (normalized === "male") return t("filter.preferredGenderMale");
+        if (normalized === "female") return t("filter.preferredGenderFemale");
+        return t("filter.preferredGenderAny");
+    };
+
     const getLifestyleValueLabel = (value?: string) => {
         if (!value) return "";
         const normalized = value.replace(/\s+/g, "");
@@ -1243,9 +1253,8 @@ export default function ListingDetailPage() {
                                 {price && (
                                     <div className={`flex flex-col items-end max-[770px]:items-start`}>
                                         <span className={`text-[36px] max-[770px]:text-[28px] font-extrabold text-[#C505EB]`}>
-                                            {price.toLocaleString('cs-CZ')} Kč
+                                            {Number(price).toLocaleString('cs-CZ')} {currency || "CZK"}
                                         </span>
-                                        <span className={`text-[18px] max-[770px]:text-base text-[#666666]`}>{t("listing.perMonth")}</span>
                                     </div>
                                 )}
                             </div>
@@ -1376,6 +1385,15 @@ export default function ListingDetailPage() {
                                         <div className={`flex flex-col`}>
                                             <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.rentalPeriod")}</span>
                                             <span className={`text-lg font-bold text-black dark:text-white`}>{getRentalPeriodLabel(rental_period)}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {type !== "NEIGHBOUR" && (
+                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
+                                        <Square size={24} color="#C505EB" />
+                                        <div className={`flex flex-col`}>
+                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("filter.preferredGender")}</span>
+                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getPreferredGenderLabel(preferredGender)}</span>
                                         </div>
                                     </div>
                                 )}

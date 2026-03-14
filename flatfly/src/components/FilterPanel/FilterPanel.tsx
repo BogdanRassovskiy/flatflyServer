@@ -10,6 +10,7 @@ export interface FilterState {
       priceFrom: string;
       priceTo: string;
       currency: string;
+  preferredGender: string;
   sortBy: string;
       rooms: string;
       hasRoommates: string;
@@ -165,6 +166,15 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         return value;
     };
 
+    const translatePreferredGender = (value: string) => {
+      const map: Record<string, string> = {
+        "male": t("filter.preferredGenderMale"),
+        "female": t("filter.preferredGenderFemale"),
+        "any": t("filter.preferredGenderAny"),
+      };
+      return map[value] || value;
+    };
+
     const translateAmenity = (key: string) => {
         const map: Record<string, string> = {
             "washing_machine": t("filter.amenityWashingMachine"),
@@ -281,6 +291,13 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         title: t("filter.secondarySort"),
         subTitle: translateSortBy(filters.sortBy),
         onRemove: () => clearSingleFilter("sortBy"),
+      },
+
+      filters.preferredGender && {
+        id: `preferredGender-${filters.preferredGender}`,
+        title: t("filter.preferredGender"),
+        subTitle: translatePreferredGender(filters.preferredGender),
+        onRemove: () => clearSingleFilter("preferredGender"),
       },
 
       filters.rooms && {
@@ -435,6 +452,13 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       {value: "distance_optimal", label: t("filter.sortDistanceOptimal")},
     ];
 
+    const preferredGenderOptions = [
+      { value: "", label: "-" },
+      { value: "male", label: t("filter.preferredGenderMale") },
+      { value: "female", label: t("filter.preferredGenderFemale") },
+      { value: "any", label: t("filter.preferredGenderAny") },
+    ];
+
     const infrastructureOptions = [
         {key: "has_bus_stop", label: t("filter.infraBusStop")},
         {key: "has_train_station", label: t("filter.infraTrainStation")},
@@ -509,6 +533,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         priceFrom: "",
         priceTo: "",
         currency: "CZK",
+        preferredGender: "",
         sortBy: "price_asc",
         rooms: "",
         hasRoommates: "",
@@ -822,6 +847,24 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                             ))}
                                           </select>
                                         </div>
+
+                                    {/* Предпочитаемый пол */}
+                                    <div className={`flex flex-col gap-2`}>
+                                      <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.preferredGender")}</label>
+                                      <select
+                                        value={filters.preferredGender || ""}
+                                        onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
+                                        className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
+                                              focus:border-[#999999] dark:focus:border-[#C505EB] 
+                                              focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
+                                              outline-0 duration-300 transition-all bg-white text-black
+                                              hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                      >
+                                        {preferredGenderOptions.map((option) => (
+                                          <option key={option.value || "none"} value={option.value}>{option.label}</option>
+                                        ))}
+                                      </select>
+                                    </div>
 
                                     {/* Количество комнат */}
                                     <div className={`flex flex-col gap-2`}>

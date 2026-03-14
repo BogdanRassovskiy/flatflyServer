@@ -1,7 +1,7 @@
 import FilterPanel from "../../components/FilterPanel/FilterPanel";
 import SaleCard from "../../components/SaleCard/SaleCard";
 import { useState, useEffect } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getImageUrl } from "../../utils/defaultImage";
 import type { FilterState } from "../../components/FilterPanel/FilterPanel";
@@ -12,6 +12,7 @@ interface Listing {
   type: "APARTMENT" | "ROOM" | "NEIGHBOUR";
   title?: string;
   price: number | string;
+  currency?: string;
   utilitiesFee?: number | string;
 
   region?: string;
@@ -47,6 +48,7 @@ export default function RoomsPage() {
     priceFrom: "",
     priceTo: "",
     currency: "CZK",
+    preferredGender: "",
     sortBy: "price_asc",
     rooms: "",
     hasRoommates: "",
@@ -92,9 +94,9 @@ export default function RoomsPage() {
   const [pagination, setPagination] = useState(savedState?.pagination || 1);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [priceHistogram, setPriceHistogram] = useState<PriceHistogram | null>(null);
 
-  const [search, setSearch] = useState(savedState?.search || "");
   const [filters, setFilters] = useState<FilterState>(savedState?.filters || defaultFilters);
 
   const handlePageChange = (nextPage: number) => {
@@ -105,11 +107,6 @@ export default function RoomsPage() {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    setPagination(1);
   };
 
   const handleFiltersChange = (nextFilters: FilterState) => {
@@ -125,15 +122,42 @@ export default function RoomsPage() {
       STORAGE_KEY,
       JSON.stringify({
         pagination,
-        search,
         filters,
       })
     );
-  }, [pagination, search, filters]);
+  }, [pagination, filters]);
 
   useEffect(() => {
     loadListings();
-  }, [pagination, search, filters]);
+  }, [pagination, filters]);
+
+  useEffect(() => {
+    if (filters.preferredGender) {
+      return;
+    }
+
+    let cancelled = false;
+    const loadPreferredGenderFromProfile = async () => {
+      try {
+        const response = await fetch("/api/profile/", { credentials: "include" });
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        const profileGender = String(data?.gender || "").toLowerCase();
+        if (!cancelled && (profileGender === "male" || profileGender === "female")) {
+          setFilters((prev) => (prev.preferredGender ? prev : { ...prev, preferredGender: profileGender }));
+        }
+      } catch {
+        // no-op: leave default when profile is unavailable
+      }
+    };
+
+    loadPreferredGenderFromProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.preferredGender]);
 
   const loadListings = async () => {
     try {
@@ -144,11 +168,6 @@ export default function RoomsPage() {
       // обязательные
       params.append("page", String(pagination));
       params.append("type", "ROOM");
-
-      // поиск
-      if (search) {
-        params.append("search", search);
-      }
 
       // остальные фильтры
       Object.entries(filters).forEach(([key, value]) => {
@@ -175,6 +194,7 @@ export default function RoomsPage() {
 
       const data = await res.json();
       setListings(data.results || data);
+      setTotalCount(Number(data.total_count || 0));
       setPriceHistogram(data.price_histogram || null);
 
     } catch (e) {
@@ -189,24 +209,15 @@ export default function RoomsPage() {
       <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
         <div className="w-full flex flex-col items-start my-[150px]">
 
-          {/* Поиск */}
-          <div className="w-full max-w-[450px] flex items-center h-12 relative mb-6">
-            <input
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full h-12 rounded-full border border-[#DDDDDD] dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:border-[#999999] dark:focus:border-[#C505EB] pl-8 pr-12 duration-300 focus:shadow-md outline-0"
-              placeholder={t("header.searchPlaceholder")}
-            />
-            <div className="absolute right-4">
-              <Search size={30} color="#C505EB" />
-            </div>
-          </div>
-
           <FilterPanel
             filters={filters}
             onChange={handleFiltersChange}
             priceHistogram={priceHistogram}
           />
+
+          <div className="w-full mt-3 text-sm font-semibold text-[#666666] dark:text-gray-300">
+            {t("filter.foundListingsCount")}: {totalCount}
+          </div>
 
           {/* Карточки */}
           {loading ? (
@@ -223,6 +234,7 @@ export default function RoomsPage() {
                   id={String(listing.id)}
                   title={listing.title}
                   price={Number(listing.price)}
+                  currency={listing.currency}
                   utilitiesFee={listing.utilitiesFee}
                   region={listing.region}
                   city={listing.city}

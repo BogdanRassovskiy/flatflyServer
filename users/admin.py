@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile, University, UniversityFaculty
+from .models import Profile, ProfileCompletionWeight, ProfileRankingConfig, University, UniversityFaculty
 
 
 class UniversityFacultyInline(admin.TabularInline):
@@ -178,3 +178,17 @@ class UniversityFacultyAdmin(admin.ModelAdmin):
     list_display = ("name", "university", "city", "address", "latitude", "longitude", "source")
     search_fields = ("name", "university__name", "city", "address")
     list_filter = ("source", "city", "university")
+
+
+@admin.register(ProfileCompletionWeight)
+class ProfileCompletionWeightAdmin(admin.ModelAdmin):
+    list_display = ("attribute_key", "label", "weight", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("attribute_key", "label")
+
+
+@admin.register(ProfileRankingConfig)
+class ProfileRankingConfigAdmin(admin.ModelAdmin):
+    list_display = ("code", "label", "weight", "hard_filter", "is_active", "updated_at")
+    list_filter = ("hard_filter", "is_active")
+    search_fields = ("code", "label")

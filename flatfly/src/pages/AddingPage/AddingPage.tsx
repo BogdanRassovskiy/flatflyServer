@@ -77,6 +77,7 @@ export default function AddingPage() {
     const [rentalPeriod, setRentalPeriod] = useState("long");
     const [maxResidents, setMaxResidents] = useState(2);
     const [creatorRole, setCreatorRole] = useState<"OWNER" | "NEIGHBOUR">("OWNER");
+    const [preferredGender, setPreferredGender] = useState<"male" | "female" | "any">("any");
     const [moveInDate, setMoveInDate] = useState("");
     const [amenities, setAmenities] = useState<string[]>([]);
 
@@ -282,6 +283,8 @@ export default function AddingPage() {
               description,
               price,
               currency,
+              preferredGender,
+              preferred_gender: preferredGender,
               
               region,
               city,
@@ -382,6 +385,7 @@ export default function AddingPage() {
         setConditionState("");
         setEnergyClass("");
         setDeposit(0);
+        setPreferredGender("any");
 
       } catch (err) {
         console.error(err);
@@ -452,6 +456,7 @@ export default function AddingPage() {
           setRentalPeriod(data.rental_period === "SHORT" ? "short" : data.rental_period === "LONG" ? "long" : "flexible");
           setMaxResidents(Number(data.maxResidents || 1));
           setMoveInDate(data.move_in_date || "");
+          setPreferredGender((data.preferredGender || data.preferred_gender || "any") as "male" | "female" | "any");
 
           setHasBusStop(Boolean(data.has_bus_stop));
           setHasTrainStation(Boolean(data.has_train_station));
@@ -822,6 +827,36 @@ export default function AddingPage() {
                               className={`rounded-xl border duration-300 text-sm font-semibold ${creatorRole === "NEIGHBOUR" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("add.roleNeighbour")}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* PREFERRED GENDER */}
+                        <div className={`w-full flex flex-col items-start gap-1`}>
+                          <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
+                            {t("add.preferredGender")}
+                          </span>
+                          <div className={`w-full h-[50px] grid grid-cols-3 gap-2`}>
+                            <button
+                              type="button"
+                              onClick={() => setPreferredGender("male")}
+                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "male" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {t("filter.preferredGenderMale")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreferredGender("female")}
+                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "female" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {t("filter.preferredGenderFemale")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreferredGender("any")}
+                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "any" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                            >
+                              {t("filter.preferredGenderAny")}
                             </button>
                           </div>
                         </div>

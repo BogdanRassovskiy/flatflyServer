@@ -16,7 +16,13 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
 from django.db.models import Q, Avg, Count
 from django.utils import timezone
-from users.models import Profile, ProfileReview, University, UniversityFaculty
+from users.models import Profile, ProfileCompletionWeight, ProfileRankingConfig, ProfileReview, University, UniversityFaculty
+from users.neighbour_ranking import (
+    apply_neighbour_hard_filters,
+    calculate_neighbour_relevance,
+    normalize_neighbour_ranking_configs,
+    parse_neighbour_filters,
+)
 from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality, CzechStreet
 from article.models import LaunchSettings, default_launch_date
 from django.core.paginator import Paginator
@@ -44,6 +50,175 @@ def normalize_listing_type(value):
 
 def normalize_text(value):
     return unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+
+
+PROFILE_COMPLETION_DEFAULTS = [
+    ("name", "Name", Decimal("8.00")),
+    ("phone", "Phone", Decimal("6.00")),
+    ("age", "Age", Decimal("5.00")),
+    ("gender", "Gender", Decimal("4.00")),
+    ("city", "Region", Decimal("4.00")),
+    ("location_city", "Location City", Decimal("4.00")),
+    ("location_address", "Location Address", Decimal("5.00")),
+    ("university", "University", Decimal("8.00")),
+    ("faculty", "Faculty", Decimal("5.00")),
+    ("profession", "Profession", Decimal("6.00")),
+    ("languages", "Languages", Decimal("7.00")),
+    ("about", "About", Decimal("8.00")),
+    ("smoking", "Smoking", Decimal("4.00")),
+    ("alcohol", "Alcohol", Decimal("4.00")),
+    ("sleep_schedule", "Sleep Schedule", Decimal("4.00")),
+    ("noise_tolerance", "Noise Tolerance", Decimal("3.00")),
+    ("gamer", "Gamer", Decimal("3.00")),
+    ("work_from_home", "Work From Home", Decimal("3.00")),
+    ("pets", "Pets", Decimal("3.00")),
+    ("cleanliness", "Cleanliness", Decimal("2.00")),
+    ("introvert_extrovert", "Introvert/Extrovert", Decimal("2.00")),
+    ("guests_parties", "Guests / Parties", Decimal("3.00")),
+    ("preferred_gender", "Preferred Gender", Decimal("3.00")),
+    ("preferred_age_range", "Preferred Age Range", Decimal("3.00")),
+    ("verified", "Verified Profile", Decimal("30.00")),
+]
+
+PROFILE_COMPLETION_MIN_VERIFIED_SHARE = Decimal("0.20")
+PROFILE_COMPLETION_DEFAULT_VERIFIED_WEIGHT = Decimal("30.00")
+
+
+def _is_profile_field_filled(profile, attribute_key):
+    text_fields = {
+        "name": profile.name,
+        "phone": profile.phone,
+        "gender": profile.gender,
+        "city": profile.city,
+        "location_city": profile.location_city,
+        "location_address": profile.location_address,
+        "profession": profile.profession,
+        "about": profile.about,
+        "smoking": profile.smoking,
+        "alcohol": profile.alcohol,
+        "sleep_schedule": profile.sleep_schedule,
+        "noise_tolerance": profile.noise_tolerance,
+        "gamer": profile.gamer,
+        "work_from_home": profile.work_from_home,
+        "pets": profile.pets,
+        "guests_parties": profile.guests_parties,
+        "preferred_gender": profile.preferred_gender,
+        "preferred_age_range": profile.preferred_age_range,
+    }
+
+    if attribute_key in text_fields:
+        return bool(str(text_fields[attribute_key] or "").strip())
+
+    if attribute_key == "languages":
+        languages = [item.strip() for item in str(profile.languages or "").split(",") if item.strip()]
+        return len(languages) > 0
+    if attribute_key == "age":
+        return profile.age is not None
+    if attribute_key == "university":
+        return bool(profile.university_id)
+    if attribute_key == "faculty":
+        return bool(profile.faculty_id)
+    if attribute_key == "cleanliness":
+        return profile.cleanliness is not None and int(profile.cleanliness) != 5
+    if attribute_key == "introvert_extrovert":
+        return profile.introvert_extrovert is not None and int(profile.introvert_extrovert) != 5
+    if attribute_key == "verified":
+        return bool(profile.verified)
+
+    return False
+
+
+def _calculate_profile_completion(profile):
+    configured_weights = list(
+        ProfileCompletionWeight.objects.filter(is_active=True).values("attribute_key", "label", "weight")
+    )
+
+    if configured_weights:
+        items = configured_weights
+    else:
+        items = [
+            {"attribute_key": key, "label": label, "weight": weight}
+            for key, label, weight in PROFILE_COMPLETION_DEFAULTS
+        ]
+
+    normalized_items = []
+    for item in items:
+        attribute_key = str(item.get("attribute_key") or "").strip()
+        label = str(item.get("label") or attribute_key).strip() or attribute_key
+        raw_weight = item.get("weight")
+        try:
+            weight = Decimal(str(raw_weight))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+
+        if not attribute_key or weight <= 0:
+            continue
+
+        normalized_items.append({
+            "attribute_key": attribute_key,
+            "label": label,
+            "weight": weight,
+        })
+
+    verified_item_index = next(
+        (index for index, item in enumerate(normalized_items) if item["attribute_key"] == "verified"),
+        None,
+    )
+
+    if verified_item_index is None:
+        normalized_items.append({
+            "attribute_key": "verified",
+            "label": "Verified Profile",
+            "weight": PROFILE_COMPLETION_DEFAULT_VERIFIED_WEIGHT,
+        })
+        verified_item_index = len(normalized_items) - 1
+
+    verified_item = normalized_items[verified_item_index]
+    other_weight_sum = sum(
+        item["weight"] for index, item in enumerate(normalized_items) if index != verified_item_index
+    )
+    minimum_verified_weight = (
+        (other_weight_sum * PROFILE_COMPLETION_MIN_VERIFIED_SHARE)
+        / (Decimal("1") - PROFILE_COMPLETION_MIN_VERIFIED_SHARE)
+        if other_weight_sum > 0
+        else PROFILE_COMPLETION_DEFAULT_VERIFIED_WEIGHT
+    )
+    if verified_item["weight"] < minimum_verified_weight:
+        verified_item["weight"] = minimum_verified_weight
+
+    total_weight = Decimal("0")
+    filled_weight = Decimal("0")
+    total_fields = 0
+    missing_fields = []
+    missing_field_keys = []
+
+    for item in normalized_items:
+        attribute_key = item["attribute_key"]
+        weight = item["weight"]
+
+        if weight <= 0:
+            continue
+
+        total_fields += 1
+        total_weight += weight
+        is_filled = _is_profile_field_filled(profile, attribute_key)
+        if is_filled:
+            filled_weight += weight
+        else:
+            missing_fields.append(item["label"])
+            missing_field_keys.append(attribute_key)
+
+    percentage = int(round((filled_weight / total_weight) * 100)) if total_weight > 0 else 0
+
+    return {
+        "percentage": max(0, min(100, percentage)),
+        "filledWeight": float(filled_weight),
+        "totalWeight": float(total_weight),
+        "missingFields": missing_fields,
+        "missingFieldKeys": missing_field_keys,
+        "missingCount": len(missing_fields),
+        "totalFields": total_fields,
+    }
 
 
 def is_valid_municipality_name(city_name, region_code=None):
@@ -404,6 +579,13 @@ def _normalize_rooms_filter(raw_value):
     return {"mode": "eq", "value": parsed}
 
 
+def _normalize_preferred_gender(raw_value, default=None):
+    value = str(raw_value or "").strip().lower()
+    if value in ["male", "female", "any"]:
+        return value
+    return default
+
+
 def _build_requested_listing_filters(request):
     requested = {
         "property_type": None,
@@ -411,6 +593,7 @@ def _build_requested_listing_filters(request):
         "price_from": _parse_float_safe(request.GET.get("priceFrom")),
         "price_to": _parse_float_safe(request.GET.get("priceTo")),
         "currency": request.GET.get("currency") or None,
+        "preferred_gender": _normalize_preferred_gender(request.GET.get("preferredGender"), None),
         "sort_by": request.GET.get("sortBy") or "price_asc",
         "rooms": _normalize_rooms_filter(request.GET.get("rooms")),
         "has_roommates": _parse_bool_choice(request.GET.get("hasRoommates")),
@@ -474,6 +657,9 @@ def _listing_filter_match_ratio(listing, code, expected_value):
 
     if code == "currency":
         return 1.0 if str(listing.currency or "") == str(expected_value) else 0.0
+
+    if code == "preferred_gender":
+        return 1.0 if str(listing.preferred_gender or "").lower() == str(expected_value).lower() else 0.0
 
     if code == "rooms":
         return 1.0 if _rooms_match(listing.rooms, expected_value) else 0.0
@@ -569,6 +755,9 @@ def _apply_hard_filters(qs, requested_filters, config_by_code, option_configs_by
 
         elif code == "currency":
             qs = qs.filter(currency=expected_value)
+
+        elif code == "preferred_gender":
+            qs = qs.filter(preferred_gender=str(expected_value).lower())
 
         elif code == "rooms":
             if expected_value.get("mode") == "gte":
@@ -740,67 +929,42 @@ def neighbours_list(request):
             Q(profession__icontains=search)
         )
 
-    # BASIC FILTERS
-    city = request.GET.get("city")
-    if city:
-        qs = qs.filter(city__icontains=city)
+    neighbour_filters = parse_neighbour_filters(request)
+    ranking_configs = normalize_neighbour_ranking_configs(
+        list(ProfileRankingConfig.objects.filter(is_active=True).order_by("id"))
+    )
+    qs = apply_neighbour_hard_filters(qs, neighbour_filters, ranking_configs)
 
-    gender = request.GET.get("gender")
-    if gender and gender != "any":
-        qs = qs.filter(gender=gender)
+    ranked_rows = []
+    for profile in qs:
+        relevance_score, match_percentage = calculate_neighbour_relevance(profile, neighbour_filters, ranking_configs)
+        completion_data = _calculate_profile_completion(profile)
+        completion_percent = int(completion_data.get("percentage") or 0)
+        rating_value = float(profile.rating_average or 0)
 
-    age_from = request.GET.get("ageFrom")
-    if age_from:
-        qs = qs.filter(age__gte=age_from)
+        ranked_rows.append({
+            "profile": profile,
+            "relevanceScore": float(relevance_score),
+            "matchPercentage": int(match_percentage),
+            "ratingAverage": rating_value,
+            "profileCompletion": completion_percent,
+            "createdAt": profile.created_at,
+        })
 
-    age_to = request.GET.get("ageTo")
-    if age_to:
-        qs = qs.filter(age__lte=age_to)
-
-    smoking = request.GET.get("smoking")
-    if smoking:
-        qs = qs.filter(smoking=smoking)
-
-    alcohol = request.GET.get("alcohol")
-    if alcohol:
-        qs = qs.filter(alcohol=alcohol)
-
-    sleep_schedule = request.GET.get("sleepSchedule")
-    if sleep_schedule:
-        qs = qs.filter(sleep_schedule=sleep_schedule)
-
-    work_from_home = request.GET.get("workFromHome")
-    if work_from_home:
-        qs = qs.filter(work_from_home=work_from_home)
-
-    rating_min = request.GET.get("ratingMin")
-    if rating_min:
-        try:
-            qs = qs.filter(rating_average__gte=float(rating_min))
-        except ValueError:
-            pass
-
-    # LANGUAGES (languages[]=cz&languages[]=en)
-    languages = request.GET.getlist("languages[]")
-    if languages:
-        for lang in languages:
-            qs = qs.filter(languages__icontains=lang)
-
-    # STATUS
-    verified = request.GET.get("verified")
-    if verified in ["true", "false"]:
-        qs = qs.filter(verified=(verified == "true"))
-
-    looking = request.GET.get("looking_for_housing")
-    if looking in ["true", "false"]:
-        qs = qs.filter(looking_for_housing=(looking == "true"))
-
-    # SORT
-    qs = qs.order_by("-created_at")
+    # 3-level sorting: relevance -> rating -> profile completion.
+    ranked_rows.sort(
+        key=lambda row: (
+            -row["matchPercentage"],
+            -row["ratingAverage"],
+            -row["profileCompletion"],
+            -(row["createdAt"].timestamp() if row["createdAt"] else 0),
+            row["profile"].id,
+        )
+    )
 
     # PAGINATION
     page = int(request.GET.get("page", 1))
-    paginator = Paginator(qs, 12)
+    paginator = Paginator(ranked_rows, 12)
     page_obj = paginator.get_page(page)
 
     # Собираем избранные соседи текущего пользователя
@@ -812,7 +976,8 @@ def neighbours_list(request):
             favorite_profile_ids = set()
 
     results = []
-    for p in page_obj:
+    for row in page_obj:
+        p = row["profile"]
         results.append({
             "id": p.id,
             "avatar": p.avatar.url if p.avatar else None,
@@ -834,11 +999,15 @@ def neighbours_list(request):
             "ratingAverage": float(p.rating_average or 0),
             "ratingCount": int(p.rating_count or 0),
             "is_favorite": p.id in favorite_profile_ids,
+            "relevanceScore": row["relevanceScore"],
+            "matchPercentage": row["matchPercentage"],
+            "profileCompletion": row["profileCompletion"],
         })
 
     return JsonResponse({
         "count": paginator.count,
         "pages": paginator.num_pages,
+        "total_pages": paginator.num_pages,
         "results": results,
     })
 
@@ -1264,6 +1433,8 @@ def listing_detail(request, listing_id):
             "price": "price",
             "deposit": "deposit",
             "currency": "currency",
+            "preferredGender": "preferred_gender",
+            "preferred_gender": "preferred_gender",
             "rooms": "rooms",
             "beds": "beds",
             "size": "size",
@@ -1362,6 +1533,8 @@ def listing_detail(request, listing_id):
                 value = str(value).upper() if value else "LONG"
                 if value not in ["SHORT", "LONG", "BOTH"]:
                     value = "LONG"
+            elif model_field == "preferred_gender":
+                value = _normalize_preferred_gender(value, "any")
             elif model_field == "amenities":
                 value = value if isinstance(value, list) else []
             elif model_field == "is_active":
@@ -1402,6 +1575,7 @@ def listing_detail(request, listing_id):
         "price": str(listing.price),
         "deposit": str(listing.deposit),
         "currency": listing.currency,
+        "preferredGender": listing.preferred_gender,
         "region": listing.region,
         "city": listing.city,
         "address": listing.address,
@@ -1532,6 +1706,7 @@ def listings_view(request):
 
             price=data.get("price"),
             currency=data.get("currency", "CZK"),
+            preferred_gender=_normalize_preferred_gender(data.get("preferredGender", data.get("preferred_gender")), "any"),
             rooms=rooms_value,
             beds=parse_int_value(data.get("beds")),
             size=size_value,
@@ -1765,6 +1940,7 @@ def listings_view(request):
             "type": normalize_listing_type(listing.type),
             "title": _safe_listing_title(listing),
             "price": str(listing.price),
+            "currency": listing.currency,
             "deposit": str(listing.deposit),
             "utilitiesFee": str(listing.utilities_fee),
             "isActive": listing.is_active,
@@ -1779,6 +1955,7 @@ def listings_view(request):
 
             "hasRoommates": listing.has_roommates,
             "rentalPeriod": listing.rental_period,
+            "preferredGender": listing.preferred_gender,
 
             "internet": listing.internet,
             "utilities": listing.utilities_included,
@@ -1797,6 +1974,7 @@ def listings_view(request):
     return JsonResponse({
         "results": results,
         "total_pages": paginator.num_pages,
+        "total_count": paginator.count,
         "current_page": page_obj.number,
         "price_histogram": price_histogram,
     })
@@ -2019,9 +2197,12 @@ def profile_view(request):
 
     if request.method == "GET":
 
+        completion_data = _calculate_profile_completion(profile)
+
         return JsonResponse({
             "photo": profile.avatar.url if profile.avatar else "",
             "name": profile.name,
+            "phone": profile.phone,
             "age": profile.age,
             "gender": profile.gender,
             "city": profile.city,
@@ -2059,6 +2240,7 @@ def profile_view(request):
 
             "verified": profile.verified,
             "lookingForHousing": profile.looking_for_housing,
+            "profileCompletion": completion_data,
         })
 
     # POST — обновляем ТОЛЬКО если поле пришло
@@ -2066,6 +2248,7 @@ def profile_view(request):
 
     for field, attr in [
         ("name", "name"),
+        ("phone", "phone"),
         ("age", "age"),
         ("gender", "gender"),
         ("city", "city"),
@@ -2132,7 +2315,10 @@ def profile_view(request):
             profile.faculty = selected_faculty
 
     profile.save()
-    return JsonResponse({"detail": "Profile updated"})
+    return JsonResponse({
+        "detail": "Profile updated",
+        "profileCompletion": _calculate_profile_completion(profile),
+    })
 
 
 @require_http_methods(["GET"])

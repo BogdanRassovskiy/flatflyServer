@@ -10,6 +10,7 @@ export type SaleCardTypes = {
     id?: string | number;
     type: "APARTMENT" | "ROOM" | "NEIGHBOUR" | "BYT" | "DUM";
     price?: number | string;
+    currency?: string;
     utilitiesFee?: number | string;
     city?: string;
     address?: string;
@@ -43,14 +44,12 @@ export default function SaleCard({
     id,
     title,
     price,
-    utilitiesFee,
+    currency,
     city,
     region,
     address,
-    size,
     amenities = [],
     image,
-    rooms,
     type,
     name,
     age,
@@ -69,11 +68,12 @@ export default function SaleCard({
     const [isProcessing, setProcessing] = useState(false);
     const [isVisited, setIsVisited] = useState(false);
     const VISITED_LISTINGS_STORAGE_KEY = "visitedListings";
-    const parsedUtilitiesFee = Number(utilitiesFee || 0);
     const normalizedType = (type === "BYT" || type === "DUM") ? "APARTMENT" : type;
-    const utilitiesFeeLabel = Number.isFinite(parsedUtilitiesFee) && parsedUtilitiesFee > 0
-        ? ` (+${parsedUtilitiesFee.toLocaleString("cs-CZ")} Kč)`
-        : "";
+    const parsedPrice = Number(price);
+    const formattedPrice = Number.isFinite(parsedPrice)
+        ? parsedPrice.toLocaleString("cs-CZ")
+        : String(price || "");
+    const currencyLabel = String(currency || "CZK").toUpperCase();
     const normalizedMatchPercentage = Number.isFinite(matchPercentage)
         ? Math.max(0, Math.min(100, Math.round(Number(matchPercentage))))
         : null;
@@ -237,13 +237,9 @@ export default function SaleCard({
                             <span className={`text-[18px] max-[1220px]:text-[12px] font-bold ${listingTextClass} truncate`}>{listingMainTitle}</span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
-                            <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold ${listingTextClass}`}>{t("saleCard.roomRent")} {size} m²</span>
-                        </div>
-                        <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="ph:hand-coins-light" style={{color: `#666666`}} className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
                             <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingPriceClass}`}>
-                                {price}{utilitiesFeeLabel}
+                                {formattedPrice} {currencyLabel}
                             </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
@@ -295,13 +291,9 @@ export default function SaleCard({
                             <span className={`text-[18px] max-[1220px]:text-[12px] font-bold ${listingTextClass} truncate`}>{listingMainTitle}</span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>
-                            <Icon icon="material-symbols-light:bed-outline" className={`w-[26px] h-[26px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`}  style={{color: `#666666`}} />
-                            <span className={`text-[18px] max-[1220px]:text-[12px] font-semibold ${listingTextClass}`}>{t("saleCard.apartmentRent")} {rooms} {` `} {size} m²</span>
-                        </div>
-                        <div className={`flex items-center justify-start gap-2`}>
                             <Icon icon="ph:hand-coins-light" style={{color: `#666666`}} className={`w-[24px] h-[24px] max-[1220px]:w-[15px] max-[1220px]:h-[15px]`} />
                             <span className={`text-[16px] max-[1220px]:text-[10px] font-semibold ${listingPriceClass}`}>
-                                {price}{utilitiesFeeLabel}
+                                {formattedPrice} {currencyLabel}
                             </span>
                         </div>
                         <div className={`flex items-center justify-start gap-2`}>

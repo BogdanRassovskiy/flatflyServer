@@ -184,6 +184,36 @@ class Profile(models.Model):
         return f"Profile of {self.user.username}"
 
 
+class ProfileCompletionWeight(models.Model):
+    attribute_key = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=128)
+    weight = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["attribute_key", "id"]
+
+    def __str__(self):
+        return f"{self.attribute_key} ({self.weight})"
+
+
+class ProfileRankingConfig(models.Model):
+    code = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=128)
+    weight = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    hard_filter = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["code", "id"]
+
+    def __str__(self):
+        mode = "hard" if self.hard_filter else "soft"
+        return f"{self.code} ({mode}, {self.weight})"
+
+
 class ProfileReview(models.Model):
     reviewer = models.ForeignKey(
         Profile,
