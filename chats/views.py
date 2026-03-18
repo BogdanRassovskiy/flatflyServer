@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.generics import get_object_or_404
 from django.db.models import Count, Max
+from rest_framework.exceptions import ValidationError
 from users.models import Profile
 
 User = get_user_model()
@@ -38,6 +39,13 @@ class ChatViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         chat = self.get_object()
+        participant_ids = list(chat.participants.values_list('id', flat=True))
+        other_participant_ids = [uid for uid in participant_ids if uid != request.user.id]
+        has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
+        my_messages_count = chat.messages.filter(sender=request.user).count()
+        can_send_message = has_reply_from_other or my_messages_count == 0
+        awaiting_reply = not has_reply_from_other and my_messages_count > 0
+
         chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
         base_queryset = chat.messages.select_related('sender__profile')
         after_id = _parse_positive_int(request.query_params.get('after_id'), 0)
@@ -50,6 +58,8 @@ class ChatViewSet(viewsets.ModelViewSet):
                 'has_more': False,
                 'next_offset': None,
                 'total_count': None,
+                'can_send_message': can_send_message,
+                'awaiting_reply': awaiting_reply,
             })
 
         limit = min(_parse_positive_int(request.query_params.get('limit'), MESSAGES_PAGE_SIZE), 50) or MESSAGES_PAGE_SIZE
@@ -67,6 +77,8 @@ class ChatViewSet(viewsets.ModelViewSet):
             'has_more': next_offset is not None,
             'next_offset': next_offset,
             'total_count': total_count,
+            'can_send_message': can_send_message,
+            'awaiting_reply': awaiting_reply,
         })
 
     @action(detail=False, methods=['post'])
@@ -126,4 +138,16 @@ class MessageViewSet(viewsets.ModelViewSet):
         chat = get_object_or_404(Chat, pk=self.request.data.get('chat'))
         if self.request.user not in chat.participants.all():
             raise PermissionError('Not a participant of this chat')
+
+        participant_ids = list(chat.participants.values_list('id', flat=True))
+        other_participant_ids = [uid for uid in participant_ids if uid != self.request.user.id]
+        has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
+        my_messages_count = chat.messages.filter(sender=self.request.user).count()
+
+        if not has_reply_from_other and my_messages_count >= 1:
+            raise ValidationError({
+                'code': 'awaiting_reply',
+                'detail': 'You can send only one message until the other participant replies.',
+            })
+
         serializer.save(sender=self.request.user, chat=chat)

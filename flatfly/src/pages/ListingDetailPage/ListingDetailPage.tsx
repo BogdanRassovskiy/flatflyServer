@@ -5,7 +5,7 @@ import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import {getCsrfToken} from "../../utils/csrf";
-import { MapContainer, Marker, Polyline, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -70,10 +70,39 @@ const haversineDistanceKm = (from: [number, number], to: [number, number]): numb
     return 6371 * c;
 };
 
-const estimateDurationMinutes = (distanceKm: number): number => {
-    const avgCitySpeedKmH = 40;
-    return Math.max(1, Math.round((distanceKm / avgCitySpeedKmH) * 60));
+type RouteMode = "walking" | "driving" | "bus";
+
+const estimateDurationMinutes = (distanceKm: number, mode: RouteMode): number => {
+    const avgSpeedByMode: Record<RouteMode, number> = {
+        walking: 5,
+        driving: 40,
+        bus: 22,
+    };
+    const waitMinutes = mode === "bus" ? 5 : 0;
+    return Math.max(1, Math.round((distanceKm / avgSpeedByMode[mode]) * 60) + waitMinutes);
 };
+
+const getOsrmProfile = (mode: RouteMode): "walking" | "driving" => {
+    if (mode === "bus") {
+        return "driving";
+    }
+    return mode;
+};
+
+function MapRecenterController({ center, trigger }: { center: [number, number]; trigger: number }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (trigger > 0) {
+            map.flyTo(center, Math.max(map.getZoom(), 13), {
+                animate: true,
+                duration: 0.8,
+            });
+        }
+    }, [center, map, trigger]);
+
+    return null;
+}
 
 type ListingType = "ROOM" | "NEIGHBOUR" | "APARTMENT";
 
@@ -581,9 +610,12 @@ export default function ListingDetailPage() {
     const [universityDurationMin, setUniversityDurationMin] = useState<number | null>(null);
     const [workDurationMin, setWorkDurationMin] = useState<number | null>(null);
     const [poiItems, setPoiItems] = useState<PoiItem[]>([]);
+    const [nearestPoiItems, setNearestPoiItems] = useState<PoiItem[]>([]);
     const [nearestStop, setNearestStop] = useState<{ dist: number; time: number } | null>(null);
     const [nearestShop, setNearestShop] = useState<{ dist: number; time: number } | null>(null);
     const [nearestHospital, setNearestHospital] = useState<{ dist: number; time: number } | null>(null);
+    const [routeMode, setRouteMode] = useState<RouteMode>("walking");
+    const [mapRecenterTrigger, setMapRecenterTrigger] = useState(0);
     const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
@@ -938,6 +970,12 @@ export default function ListingDetailPage() {
         return map[normalized] || amenity;
     };
 
+    const getRouteModeLabel = (mode: RouteMode) => {
+        if (mode === "walking") return t("listing.routeModeWalking");
+        if (mode === "driving") return t("listing.routeModeDriving");
+        return t("listing.routeModeBus");
+    };
+
     const normalizedAmenities = (amenities || [])
         .map((amenity) => String(amenity || "").trim())
         .filter((amenity) => amenity.length > 0);
@@ -1029,13 +1067,14 @@ export default function ListingDetailPage() {
                 const [startLat, startLng] = sourcePoint;
                 const endLat = numericGeoLat;
                 const endLng = numericGeoLng;
-                const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
+                const routeProfile = getOsrmProfile(routeMode);
+                const url = `https://router.project-osrm.org/route/v1/${routeProfile}/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
                 const response = await fetch(url, { signal: controller.signal });
                 if (!response.ok) {
                     setPoints([]);
                     const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
                     setDistanceKm(fallbackDistanceKm);
-                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm, routeMode));
                     return;
                 }
 
@@ -1047,7 +1086,7 @@ export default function ListingDetailPage() {
                     setPoints([]);
                     const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
                     setDistanceKm(fallbackDistanceKm);
-                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm, routeMode));
                     return;
                 }
 
@@ -1066,22 +1105,22 @@ export default function ListingDetailPage() {
                 if (Number.isFinite(routeDistanceMeters) && routeDistanceMeters > 0) {
                     const distanceKm = routeDistanceMeters / 1000;
                     setDistanceKm(distanceKm);
-                    if (Number.isFinite(routeDurationSeconds) && routeDurationSeconds > 0) {
+                    if (routeMode === "driving" && Number.isFinite(routeDurationSeconds) && routeDurationSeconds > 0) {
                         setDurationMin(Math.max(1, Math.round(routeDurationSeconds / 60)));
                     } else {
-                        setDurationMin(estimateDurationMinutes(distanceKm));
+                        setDurationMin(estimateDurationMinutes(distanceKm, routeMode));
                     }
                 } else {
                     const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [endLat, endLng]);
                     setDistanceKm(fallbackDistanceKm);
-                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm, routeMode));
                 }
             } catch (error: any) {
                 if (error?.name !== "AbortError") {
                     setPoints([]);
                     const fallbackDistanceKm = haversineDistanceKm(sourcePoint, [numericGeoLat, numericGeoLng]);
                     setDistanceKm(fallbackDistanceKm);
-                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm));
+                    setDurationMin(estimateDurationMinutes(fallbackDistanceKm, routeMode));
                 }
             } finally {
                 setLoading(false);
@@ -1107,66 +1146,102 @@ export default function ListingDetailPage() {
         }
 
         return () => controller.abort();
-    }, [hasCoordinates, universityPoint, workPoint, type, numericGeoLat, numericGeoLng]);
+    }, [hasCoordinates, universityPoint, workPoint, type, numericGeoLat, numericGeoLng, routeMode]);
 
     useEffect(() => {
-        if (!hasCoordinates || type === "NEIGHBOUR") return;
+        if (!hasCoordinates || type === "NEIGHBOUR") {
+            setPoiItems([]);
+            return;
+        }
+
         const controller = new AbortController();
+        const overpassEndpoints = [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+        ];
+
+        const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
         const loadPoi = async () => {
             const lat = numericGeoLat;
             const lng = numericGeoLng;
-            const query = `[out:json][timeout:15];
+            const query = `[out:json][timeout:25];
 (
-  node[highway=bus_stop](around:600,${lat},${lng});
-  nwr[amenity=hospital](around:1500,${lat},${lng});
-  nwr[amenity=clinic](around:1000,${lat},${lng});
-  nwr[shop=supermarket](around:1000,${lat},${lng});
+    node[highway=bus_stop](around:10000,${lat},${lng});
+    nwr[amenity=hospital](around:10000,${lat},${lng});
+    nwr[amenity=clinic](around:10000,${lat},${lng});
+    nwr[shop=supermarket](around:10000,${lat},${lng});
   node[railway=station](around:1500,${lat},${lng});
   node[railway=subway_entrance](around:1500,${lat},${lng});
   nwr[amenity=school](around:1000,${lat},${lng});
   node[railway=halt](around:3000,${lat},${lng});
 );
 out center;`;
-            try {
-                const res = await fetch("https://overpass-api.de/api/interpreter", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `data=${encodeURIComponent(query)}`,
-                    signal: controller.signal,
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                const items: PoiItem[] = [];
-                for (const el of (data.elements ?? [])) {
-                    const tags: Record<string, string> = el.tags ?? {};
-                    const elLat: number | undefined = el.lat ?? el.center?.lat;
-                    const elLon: number | undefined = el.lon ?? el.center?.lon;
-                    if (!elLat || !elLon) continue;
-                    let poiType: keyof typeof POI_ICONS | null = null;
-                    if (tags.highway === "bus_stop") {
-                        poiType = "bus_stop";
-                    } else if (tags.amenity === "hospital" || tags.amenity === "clinic") {
-                        poiType = "hospital";
-                    } else if (tags.shop === "supermarket") {
-                        poiType = "supermarket";
-                    } else if (tags.railway === "station" && tags.station === "subway") {
-                        poiType = "metro";
-                    } else if (tags.railway === "subway_entrance") {
-                        poiType = "metro";
-                    } else if (tags.amenity === "school") {
-                        poiType = "school";
-                    } else if (tags.railway === "station" || tags.railway === "halt") {
-                        poiType = "train_station";
-                    }
-                    if (poiType) {
-                        items.push({ id: el.id, lat: elLat, lon: elLon, type: poiType, name: tags.name ?? tags["name:cs"] ?? "" });
+
+            for (const endpoint of overpassEndpoints) {
+                for (let attempt = 1; attempt <= 2; attempt++) {
+                    try {
+                        const res = await fetch(endpoint, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                            body: `data=${encodeURIComponent(query)}`,
+                            signal: controller.signal,
+                        });
+
+                        if (!res.ok) {
+                            if (attempt < 2) {
+                                await sleep(300 * attempt);
+                            }
+                            continue;
+                        }
+
+                        const data = await res.json();
+                        const items: PoiItem[] = [];
+
+                        for (const el of (data.elements ?? [])) {
+                            const tags: Record<string, string> = el.tags ?? {};
+                            const elLat = Number(el.lat ?? el.center?.lat);
+                            const elLon = Number(el.lon ?? el.center?.lon);
+                            if (!Number.isFinite(elLat) || !Number.isFinite(elLon)) continue;
+
+                            let poiType: keyof typeof POI_ICONS | null = null;
+                            if (tags.highway === "bus_stop") {
+                                poiType = "bus_stop";
+                            } else if (tags.amenity === "hospital" || tags.amenity === "clinic") {
+                                poiType = "hospital";
+                            } else if (tags.shop === "supermarket") {
+                                poiType = "supermarket";
+                            } else if (tags.railway === "station" && tags.station === "subway") {
+                                poiType = "metro";
+                            } else if (tags.railway === "subway_entrance") {
+                                poiType = "metro";
+                            } else if (tags.amenity === "school") {
+                                poiType = "school";
+                            } else if (tags.railway === "station" || tags.railway === "halt") {
+                                poiType = "train_station";
+                            }
+
+                            if (poiType) {
+                                items.push({ id: el.id, lat: elLat, lon: elLon, type: poiType, name: tags.name ?? tags["name:cs"] ?? "" });
+                            }
+                        }
+
+                        setPoiItems(items);
+                        return;
+                    } catch (e: unknown) {
+                        if ((e as { name?: string })?.name === "AbortError") {
+                            return;
+                        }
+                        if (attempt < 2) {
+                            await sleep(300 * attempt);
+                        }
                     }
                 }
-                setPoiItems(items);
-            } catch (e: unknown) {
-                if ((e as { name?: string })?.name !== "AbortError") console.error("POI load failed", e);
             }
+
+            setPoiItems([]);
         };
+
         loadPoi();
         return () => controller.abort();
     }, [hasCoordinates, type, numericGeoLat, numericGeoLng]);
@@ -1176,20 +1251,34 @@ out center;`;
             setNearestStop(null);
             setNearestShop(null);
             setNearestHospital(null);
+            setNearestPoiItems([]);
             return;
         }
         const listingLoc: [number, number] = [numericGeoLat, numericGeoLng];
         let stop_dist = Infinity, shop_dist = Infinity, hosp_dist = Infinity;
+        let nearestStopPoi: PoiItem | null = null;
+        let nearestShopPoi: PoiItem | null = null;
+        let nearestHospitalPoi: PoiItem | null = null;
         for (const poi of poiItems) {
             const dist = haversineDistanceKm(listingLoc, [poi.lat, poi.lon]);
-            if (poi.type === "bus_stop" && dist < stop_dist) stop_dist = dist;
-            if (poi.type === "supermarket" && dist < shop_dist) shop_dist = dist;
-            if (poi.type === "hospital" && dist < hosp_dist) hosp_dist = dist;
+            if (poi.type === "bus_stop" && dist < stop_dist) {
+                stop_dist = dist;
+                nearestStopPoi = poi;
+            }
+            if (poi.type === "supermarket" && dist < shop_dist) {
+                shop_dist = dist;
+                nearestShopPoi = poi;
+            }
+            if (poi.type === "hospital" && dist < hosp_dist) {
+                hosp_dist = dist;
+                nearestHospitalPoi = poi;
+            }
         }
-        setNearestStop(stop_dist < Infinity ? { dist: stop_dist, time: estimateDurationMinutes(stop_dist) } : null);
-        setNearestShop(shop_dist < Infinity ? { dist: shop_dist, time: estimateDurationMinutes(shop_dist) } : null);
-        setNearestHospital(hosp_dist < Infinity ? { dist: hosp_dist, time: estimateDurationMinutes(hosp_dist) } : null);
-    }, [poiItems, hasCoordinates, numericGeoLat, numericGeoLng]);
+        setNearestStop(stop_dist < Infinity ? { dist: stop_dist, time: estimateDurationMinutes(stop_dist, routeMode) } : null);
+        setNearestShop(shop_dist < Infinity ? { dist: shop_dist, time: estimateDurationMinutes(shop_dist, routeMode) } : null);
+        setNearestHospital(hosp_dist < Infinity ? { dist: hosp_dist, time: estimateDurationMinutes(hosp_dist, routeMode) } : null);
+        setNearestPoiItems([nearestStopPoi, nearestShopPoi, nearestHospitalPoi].filter((poi): poi is PoiItem => Boolean(poi)));
+    }, [poiItems, hasCoordinates, numericGeoLat, numericGeoLng, routeMode]);
 
     const mapData = useMemo(() => {
         if (!hasCoordinates) {
@@ -1898,7 +1987,14 @@ out center;`;
                                             {t("listing.openMap")}
                                         </a>
                                     </div>
-                                    <div className={`w-full h-[220px] max-[770px]:h-[210px] rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-gray-700`}>
+                                    <div className={`relative w-full h-[220px] max-[770px]:h-[210px] rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-gray-700`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMapRecenterTrigger((value) => value + 1)}
+                                            className={`absolute bottom-3 right-3 z-[500] px-3 py-2 rounded-xl bg-white/95 dark:bg-gray-900/95 border border-[#E5E5E5] dark:border-gray-700 shadow-md text-xs font-semibold text-[#333333] dark:text-white hover:border-[#C505EB] transition-colors duration-200`}
+                                        >
+                                            {t("listing.backToHome")}
+                                        </button>
                                         <MapContainer
                                             center={mapData.center}
                                             zoom={13}
@@ -1910,6 +2006,7 @@ out center;`;
                                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                                 referrerPolicy="origin"
                                             />
+                                            <MapRecenterController center={mapData.center} trigger={mapRecenterTrigger} />
                                             <Marker position={[numericGeoLat, numericGeoLng]} icon={listingPinIcon}>
                                                 <Tooltip direction="top" offset={[0, -12]}>{t("listing.pointListing")}</Tooltip>
                                             </Marker>
@@ -1943,7 +2040,7 @@ out center;`;
                                             {workRoutePoints.length <= 1 && workPoint && !workRouteLoading && (
                                                 <Polyline positions={[workPoint, [numericGeoLat, numericGeoLng]]} pathOptions={{ color: "#06B396", weight: 3, opacity: 0.7, dashArray: "8 8" }} />
                                             )}
-                                            {poiItems.map((poi) => (
+                                            {nearestPoiItems.map((poi) => (
                                                 <Marker
                                                     key={`poi-${poi.type}-${poi.id}`}
                                                     position={[poi.lat, poi.lon]}
@@ -1956,6 +2053,49 @@ out center;`;
                                             ))}
                                         </MapContainer>
                                     </div>
+                                    <div className={`mt-4 rounded-2xl border border-[#E5E5E5] dark:border-gray-700 bg-[#F9F9F9] dark:bg-gray-800 p-3`}>
+                                        <p className={`text-sm font-semibold text-[#333333] dark:text-white mb-3`}>
+                                            {t("listing.routeModeTitle")}
+                                        </p>
+                                        <div className={`grid grid-cols-3 gap-2`}>
+                                            {(["walking", "driving", "bus"] as RouteMode[]).map((mode) => {
+                                                const isActive = routeMode === mode;
+                                                return (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        onClick={() => setRouteMode(mode)}
+                                                        className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border ${
+                                                            isActive
+                                                                ? "bg-[#C505EB] text-white border-[#C505EB] shadow-sm"
+                                                                : "bg-white dark:bg-gray-900 text-[#333333] dark:text-white border-[#E5E5E5] dark:border-gray-700 hover:border-[#C505EB]"
+                                                        }`}
+                                                    >
+                                                        {getRouteModeLabel(mode)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    {(universityPoint || workPoint) && (
+                                        <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
+                                            <p className={`font-semibold`}>{t("listing.distanceTitle")} {getRouteModeLabel(routeMode).toLowerCase()}</p>
+                                            {universityPoint && (
+                                                <p className={`mt-1`}>
+                                                    {universityRouteLoading
+                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
+                                                        : `${t("listing.distanceToUniversity")}: ${Number(universityDistanceKm || 0).toFixed(1)} km (${Number(universityDurationMin || 0)} min)`}
+                                                </p>
+                                            )}
+                                            {workPoint && (
+                                                <p className={`mt-1`}>
+                                                    {workRouteLoading
+                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
+                                                        : `${t("listing.distanceToWork")}: ${Number(workDistanceKm || 0).toFixed(1)} km (${Number(workDurationMin || 0)} min)`}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     {(nearestStop || nearestShop || nearestHospital) && (
                                         <div className={`mt-4 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
                                             <p className={`font-semibold text-[#333333] dark:text-white mb-3`}>{t("listing.nearbyServices") || "Nearby Services"}</p>
@@ -1970,25 +2110,6 @@ out center;`;
                                                     <p><span className={`font-medium`}>{t("listing.nearestHospital") || "Nearest Hospital"}:</span> <span className={`font-semibold text-[#333333] dark:text-white`}>{nearestHospital.dist.toFixed(1)} km ({nearestHospital.time} min)</span></p>
                                                 )}
                                             </div>
-                                        </div>
-                                    )}
-                                    {(universityPoint || workPoint) && (
-                                        <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
-                                            <p className={`font-semibold`}>{t("listing.distanceTitle")}</p>
-                                            {universityPoint && (
-                                                <p className={`mt-1`}>
-                                                    {universityRouteLoading
-                                                        ? t("listing.routeLoadingUniversity")
-                                                        : `${t("listing.distanceToUniversity")}: ${Number(universityDistanceKm || 0).toFixed(1)} km (${Number(universityDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
-                                            {workPoint && (
-                                                <p className={`mt-1`}>
-                                                    {workRouteLoading
-                                                        ? t("listing.routeLoadingWork")
-                                                        : `${t("listing.distanceToWork")}: ${Number(workDistanceKm || 0).toFixed(1)} km (${Number(workDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
                                         </div>
                                     )}
                                 </div>

@@ -51,6 +51,13 @@ interface MessagePageResponse {
   has_more: boolean;
   next_offset: number | null;
   total_count: number | null;
+  can_send_message: boolean;
+  awaiting_reply: boolean;
+}
+
+interface ChatSendPermission {
+  canSend: boolean;
+  awaitingReply: boolean;
 }
 
 interface ChatMessagesCacheEntry {
@@ -139,6 +146,8 @@ function normalizeMessagesResponse(payload: unknown): MessagePageResponse {
       has_more: false,
       next_offset: null,
       total_count: Array.isArray(payload) ? payload.length : null,
+      can_send_message: true,
+      awaiting_reply: false,
     };
   }
 
@@ -148,6 +157,8 @@ function normalizeMessagesResponse(payload: unknown): MessagePageResponse {
       has_more: false,
       next_offset: null,
       total_count: 0,
+      can_send_message: true,
+      awaiting_reply: false,
     };
   }
 
@@ -157,6 +168,8 @@ function normalizeMessagesResponse(payload: unknown): MessagePageResponse {
     has_more: Boolean(response.has_more),
     next_offset: typeof response.next_offset === "number" ? response.next_offset : null,
     total_count: typeof response.total_count === "number" ? response.total_count : null,
+    can_send_message: typeof response.can_send_message === "boolean" ? response.can_send_message : true,
+    awaiting_reply: typeof response.awaiting_reply === "boolean" ? response.awaiting_reply : false,
   };
 }
 
@@ -208,8 +221,10 @@ export default function MessengerPage() {
   const [input, setInput] = useState("");
   const [chatSearch, setChatSearch] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  const [chatSendPermissions, setChatSendPermissions] = useState<Record<number, ChatSendPermission>>({});
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [actionMenuChatId, setActionMenuChatId] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -231,8 +246,13 @@ export default function MessengerPage() {
 
   const selectedChatId = selectedChat?.chatid ?? null;
   const activeChatCache = selectedChatId ? messageCache[selectedChatId] ?? null : null;
+  const selectedChatPermission = selectedChatId ? chatSendPermissions[selectedChatId] ?? null : null;
   const activeMessages = activeChatCache?.messages ?? [];
   const isInitialMessagesLoading = Boolean(selectedChatId) && isMessagesLoading && activeMessages.length === 0;
+  const isDraftConversationActive = Boolean(draftConversation);
+  const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
+  const canSendInCurrentChat = selectedChat ? (selectedChatPermission?.canSend ?? true) : true;
+  const isSendLocked = isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
 
   const getOtherParticipant = (chat: Chat) => {
     if (currentUserId === null) return chat.participants[0] ?? null;
@@ -359,6 +379,14 @@ export default function MessengerPage() {
 
       const payload = normalizeMessagesResponse(await response.json());
       const incomingMessages = payload.results;
+
+      setChatSendPermissions((previous) => ({
+        ...previous,
+        [chatId]: {
+          canSend: payload.can_send_message,
+          awaitingReply: payload.awaiting_reply,
+        },
+      }));
 
       if (options.mode === "poll") {
         if (incomingMessages.length === 0) {
@@ -774,6 +802,10 @@ export default function MessengerPage() {
     };
   }, [selectedChatId]);
 
+  useEffect(() => {
+    setSendError(null);
+  }, [selectedChatId, draftConversation?.userId]);
+
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) {
@@ -801,11 +833,12 @@ export default function MessengerPage() {
 
   const sendMessage = async (rawText: string) => {
     const sentText = rawText.trim();
-    if (!sentText || isSending) return;
+    if (!sentText || isSending || isSendLocked) return;
 
     let activeChat = selectedChat;
     if (!activeChat && !draftConversation) return;
 
+    setSendError(null);
     setIsSending(true);
 
     try {
@@ -837,6 +870,8 @@ export default function MessengerPage() {
         throw new Error("Chat was not resolved");
       }
 
+      const chatId = activeChat.chatid;
+
       const response = await fetch("/api/messages/", {
         method: "POST",
         headers: {
@@ -844,17 +879,43 @@ export default function MessengerPage() {
           "X-CSRFToken": getCsrfToken(),
         },
         credentials: "include",
-        body: JSON.stringify({ chat: activeChat.chatid, text: sentText }),
+        body: JSON.stringify({ chat: chatId, text: sentText }),
       });
 
       if (!response.ok) {
+        let errorCode = "";
+        try {
+          const errorPayload = await response.json();
+          if (
+            errorPayload
+            && typeof errorPayload === "object"
+            && "code" in errorPayload
+            && typeof (errorPayload as { code?: unknown }).code === "string"
+          ) {
+            errorCode = (errorPayload as { code: string }).code;
+          }
+        } catch {
+        }
+
+        if (errorCode === "awaiting_reply") {
+          setChatSendPermissions((previous) => ({
+            ...previous,
+            [chatId]: {
+              canSend: false,
+              awaitingReply: true,
+            },
+          }));
+          setSendError(t("messenger.awaitingReplyError"));
+          return;
+        }
+
         throw new Error("Failed to send message");
       }
 
       const createdMessage = (await response.json()) as Message;
       setInput("");
 
-      updateMessageCacheEntry(activeChat.chatid, (previous) => {
+      updateMessageCacheEntry(chatId, (previous) => {
         const merged = mergeMessages(previous?.messages ?? [], [createdMessage]);
         const addedCount = merged.length - (previous?.messages.length ?? 0);
         return buildCacheEntry(merged, previous, {
@@ -864,14 +925,20 @@ export default function MessengerPage() {
         });
       });
 
-      syncChatPreview(activeChat.chatid, createdMessage, 0);
+      syncChatPreview(chatId, createdMessage, 0);
+
+      // Refresh permission flags immediately after sending to avoid local stale/flickering lock state.
+      await fetchMessagesPage(chatId, {
+        mode: "poll",
+        afterId: createdMessage.id,
+      });
+
       queueScrollToBottom("smooth");
     } catch {
+      setSendError(t("messenger.sendError"));
+    } finally {
       setIsSending(false);
-      return;
     }
-
-    setIsSending(false);
   };
 
   const handleSend = async () => {
@@ -1043,26 +1110,42 @@ export default function MessengerPage() {
                 ))
               )}
             </div>
-            <div className="sticky bottom-0 z-10 flex items-center gap-2 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+              {(isDraftConversationActive || isAwaitingReply || sendError) && (
+                <div className={`mb-3 rounded-lg border px-3 py-2 text-sm ${sendError ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-900/20 dark:text-red-300" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300"}`}>
+                  {sendError
+                    ? sendError
+                    : isAwaitingReply
+                      ? t("messenger.awaitingReplyWarning")
+                      : t("messenger.firstMessageWarning")}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  if (sendError) {
+                    setSendError(null);
+                  }
+                }}
                 onKeyDown={(event) => event.key === "Enter" && void handleSend()}
                 className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                placeholder={t("messenger.inputPlaceholder")}
-                disabled={isSending}
+                placeholder={isAwaitingReply ? t("messenger.awaitingReplyPlaceholder") : t("messenger.inputPlaceholder")}
+                disabled={isSending || isSendLocked}
               />
               <button
                 onClick={() => {
                   void handleSend();
                 }}
                 className="rounded-full bg-[#C505EB] p-2 text-white duration-200 hover:bg-[#BA00F8]"
-                disabled={isSending || !input.trim()}
+                disabled={isSending || isSendLocked || !input.trim()}
               >
                 <Send size={20} />
               </button>
+              </div>
             </div>
           </>
         ) : (
