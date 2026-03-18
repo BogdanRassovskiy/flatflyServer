@@ -22,6 +22,29 @@
     "switchToLightTheme": "Переключить на светлую тему",
     "switchToDarkTheme": "Переключить на тёмную тему"
   },
+  "messenger": {
+    "title": "Чаты",
+    "searchPlaceholder": "Поиск по имени собеседника...",
+    "noDialogs": "Нет диалогов",
+    "noSearchResults": "Ничего не найдено",
+    "unknownChat": "Чат",
+    "unknownParticipant": "Пользователь",
+    "noMessagesPreview": "Без сообщений",
+    "noMessages": "Нет сообщений",
+    "read": "✓✓ Прочитано",
+    "sent": "✓ Отправлено",
+    "inputPlaceholder": "Введите сообщение...",
+    "selectDialog": "Выберите диалог",
+    "deleteChatForBoth": "Удалить чат у обоих",
+    "deleteConfirm": "Удалить чат у обоих пользователей? Все сообщения будут удалены.",
+    "dontAskAgain": "Больше не спрашивать",
+    "shareContacts": "Поделиться контактами",
+    "contactsMessageIntro": "Мои контакты:",
+    "contactsMessagePhone": "Телефон",
+    "contactsMessageEmail": "E-mail",
+    "deleteError": "Не удалось удалить чат",
+    "cancel": "Отмена"
+  },
   "home": {
     "title": "FlatFly, надежное соседство",
     "subtitle": "для твоей новой жизненной главы.",
@@ -141,6 +164,8 @@
     "applyFilters": "Применить фильтры",
     "resetFilters": "Сбросить",
     "close": "Закрыть",
+    "writeMessage": "Написать сообщение",
+    "listing.writeMessage": "Написать сообщение",
     "neighbourAge": "Возраст",
     "neighbourAgeFrom": "От",
     "neighbourAgeTo": "До",
@@ -164,6 +189,7 @@
     "neighbourSleepScheduleEarly": "Жаворонок",
     "neighbourSleepScheduleLate": "Сова",
     "neighbourSleepScheduleFlexible": "Гибкий",
+    "neighbourFrom": "Откуда",
     "neighbourUniversity": "Университет",
     "neighbourExcludeStatuses": "Исключить из поиска",
     "neighbourExcludeWithChildren": "С детьми",
@@ -185,6 +211,7 @@
     "contact": "Контакты",
     "sendMessage": "Отправить сообщение",
     "showContacts": "Показать контакты",
+    "writeMessage": "Написать сообщение",
     "perMonth": "/ в месяц",
     "area": "Площадь",
     "layout": "Планировка",
@@ -282,6 +309,10 @@
     ,"alreadyReviewed": "Вы уже оставили отзыв"
     ,"onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе"
     ,"noReviewsYet": "Пока нет отзывов"
+    ,"nearbyServices": "Рядом находится"
+    ,"nearestBusStop": "Ближайшая автобусная остановка"
+    ,"nearestShop": "Ближайший магазин"
+    ,"nearestHospital": "Ближайшая больница"
   },
   "pagination": {
     "next": "Далее"

@@ -50,6 +50,9 @@ urlpatterns = [
     path("api/favorites/remove/", views.remove_from_favorites, name="remove_from_favorites"),
     path("api/favorites/", views.get_favorites, name="get_favorites"),
     path("api/favorites/is-favorite/", views.is_favorite, name="is_favorite"),
+
+    # Чаты и сообщения
+    path("api/", include("chats.urls")),
     # Алиасы для совместимости с фронтендом, который использует подчёркивание
     path("api/favorites/is_favorite/", views.is_favorite, name="is_favorite_underscore"),
     path("api/favorites/is_favorite", views.is_favorite, name="is_favorite_underscore_noslash"),

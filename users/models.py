@@ -151,7 +151,6 @@ class Profile(models.Model):
         'listings.Listing',
         related_name='favorited_by',
         blank=True,
-        help_text="Избранные объявления"
     )
     favorite_profiles = models.ManyToManyField(
         'self',

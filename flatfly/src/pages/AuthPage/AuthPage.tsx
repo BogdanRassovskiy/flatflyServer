@@ -92,13 +92,13 @@ export default function AuthPage() {
           });
 
           if (!res.ok) {
-            setErrors({ submit: "Ошибка при отправке письма" });
+            setErrors({ submit: t("auth.resetPasswordError") });
             return;
           }
 
           setMode("login");
           setErrors({
-            submit: "Ссылка для восстановления пароля отправлена на почту",
+            submit: t("auth.resetPasswordSuccess"),
           });
           return;
         }
@@ -134,7 +134,7 @@ export default function AuthPage() {
         const data = await res.json();
 
         if (!res.ok) {
-          setErrors({ submit: data.detail || data.error || "Authentication failed" });
+          setErrors({ submit: data.detail || data.error || t("auth.authenticationFailed") });
           return;
         }
 
@@ -146,7 +146,7 @@ export default function AuthPage() {
 
       } catch (err) {
         console.error(err);
-        setErrors({ submit: "Server error" });
+        setErrors({ submit: t("auth.serverError") });
       } finally {
         setIsSubmitting(false);
       }
@@ -420,7 +420,7 @@ export default function AuthPage() {
                             {mode === "forgot" && (
                               <div className="w-full mb-6 p-4 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
                                 <p className="text-sm text-purple-700 dark:text-purple-300">
-                                  Введите почту, на которую будет выслана ссылка для восстановления пароля.
+                                  {t("auth.resetPasswordPrompt")}
                                 </p>
                               </div>
                             )}

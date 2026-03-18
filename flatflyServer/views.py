@@ -1059,6 +1059,7 @@ def neighbour_detail(request, profile_id):
 
     payload = {
         "id": profile.id,
+        "userId": profile.user_id,
         "name": profile.name,
         "age": profile.age,
         "gender": profile.gender,

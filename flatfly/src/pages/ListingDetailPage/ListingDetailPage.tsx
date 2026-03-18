@@ -1,5 +1,5 @@
 import {useState, useEffect, useMemo} from "react";
-import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, Phone, Mail, X} from "lucide-react";
+import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X} from "lucide-react";
 import {Icon} from "@iconify/react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -31,6 +31,31 @@ const createPinIcon = (bgColor: string, svgPath: string) =>
 const listingPinIcon = createPinIcon("#08D3E2", "M12 3l8 7h-2v9h-4v-6H10v6H6v-9H4l8-7z");
 const universityPinIcon = createPinIcon("#C505EB", "M12 3 1 9l11 6 9-4.91V17h2V9L12 3zm0 13L5 12.18V15l7 3.82L19 15v-2.82L12 16z");
 const workPinIcon = createPinIcon("#06B396", "M10 4h4v2h5a1 1 0 0 1 1 1v3H4V7a1 1 0 0 1 1-1h5V4zm-6 7h16v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7z");
+
+const createPoiIcon = (bgColor: string, svgPath: string) =>
+    L.divIcon({
+        className: "",
+        html: `<div style="width:22px;height:22px;border-radius:9999px;background:${bgColor};display:flex;align-items:center;justify-content:center;border:2px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.22)"><svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="${svgPath}"/></svg></div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+    });
+
+const POI_ICONS = {
+    bus_stop:      createPoiIcon("#F97316", "M12 2C7.58 2 4 2.5 4 6v9.5C4 17.43 5.57 19 7.5 19L6 20.5v.5h12v-.5L16.5 19c1.93 0 3.5-1.57 3.5-3.5V6c0-3.5-3.58-4-8-4zm-3.5 15c-.83 0-1.5-.67-1.5-1.5S7.67 14 8.5 14s1.5.67 1.5 1.5S9.33 17 8.5 17zm7 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM6 10V6h12v4H6z"),
+    hospital:      createPoiIcon("#EF4444", "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"),
+    supermarket:   createPoiIcon("#3B82F6", "M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM5.21 6H21l-1.54 8.32c-.12.63-.67 1.08-1.31 1.08H8.53c-.64 0-1.19-.45-1.31-1.08L5.21 6zM2 2h2.27l.94 2H21v2H4.21L3.27 4H2V2z"),
+    metro:         createPoiIcon("#6366F1", "M4 15.5v2h16v-2l-2-7h-3l-3 6-3-6H6l-2 7zm7-11c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2zm4 0c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2zm4 0c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2z"),
+    school:        createPoiIcon("#EAB308", "M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3L1 9l11 6 9-4.91V17h2V9L12 3z"),
+    train_station: createPoiIcon("#6B7280", "M12 2c-4 0-8 .5-8 4v9.5C4 17.43 5.57 19 7.5 19L6 20.5v.5h2.23l2-2H14l2 2h2v-.5L16.5 19c1.93 0 3.5-1.57 3.5-3.5V6c0-3.5-3.58-4-8-4zm-2 14H8v-2h2v2zm4 0h-2v-2h2v2zm2-4H8V8h8v4zm0-6H8V4h8v2z"),
+} as const;
+
+interface PoiItem {
+    id: number;
+    lat: number;
+    lon: number;
+    type: keyof typeof POI_ICONS;
+    name: string;
+}
 
 const haversineDistanceKm = (from: [number, number], to: [number, number]): number => {
     const [lat1, lng1] = from;
@@ -163,6 +188,7 @@ export default function ListingDetailPage() {
             reviewerAvatar?: string | null;
             updatedAt: string;
         }>;
+        neighbourUserId?: number;
         residents?: Array<{
             profileId: number;
             name: string;
@@ -319,6 +345,7 @@ export default function ListingDetailPage() {
                     myRating: typeof data.myRating === "number" ? data.myRating : null,
                     myComment: data.myComment || "",
                     reviews: Array.isArray(data.reviews) ? data.reviews : [],
+                    neighbourUserId: typeof data.userId === "number" ? data.userId : undefined,
                     contactPhone: data.phone,
                     contactEmail: data.email,
                 });
@@ -474,8 +501,6 @@ export default function ListingDetailPage() {
         beds,
         maxResidents,
         residentsCount,
-        contactPhone,
-        contactEmail,
         profession,
         noise_tolerance,
         cleanliness,
@@ -531,14 +556,14 @@ export default function ListingDetailPage() {
         myRating,
         myComment,
         reviews,
+        neighbourUserId,
         residents,
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLike, setIsLike] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [showContacts, setShowContacts] = useState(false);
-    const [contactsLoading, setContactsLoading] = useState(false);
+    const [messageStartLoading, setMessageStartLoading] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [removingFromHome, setRemovingFromHome] = useState(false);
     const [reviewRating, setReviewRating] = useState<number>(0);
@@ -555,6 +580,10 @@ export default function ListingDetailPage() {
     const [workDistanceKm, setWorkDistanceKm] = useState<number | null>(null);
     const [universityDurationMin, setUniversityDurationMin] = useState<number | null>(null);
     const [workDurationMin, setWorkDurationMin] = useState<number | null>(null);
+    const [poiItems, setPoiItems] = useState<PoiItem[]>([]);
+    const [nearestStop, setNearestStop] = useState<{ dist: number; time: number } | null>(null);
+    const [nearestShop, setNearestShop] = useState<{ dist: number; time: number } | null>(null);
+    const [nearestHospital, setNearestHospital] = useState<{ dist: number; time: number } | null>(null);
     const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
@@ -578,48 +607,45 @@ export default function ListingDetailPage() {
         }
     };
 
-    const handleShowContacts = async () => {
+    const handleWriteMessage = async () => {
         if (!isAuthenticated) {
             router("/auth");
             return;
         }
 
-        if (showContacts) {
+        if (messageStartLoading) {
             return;
         }
 
-        if (type === "NEIGHBOUR") {
-            if (!id) {
+        try {
+            setMessageStartLoading(true);
+
+            let targetUserId = neighbourUserId;
+
+            if ((!targetUserId || targetUserId <= 0) && id) {
+                const profileResponse = await fetch(`/api/neighbours/${id}/`, {
+                    credentials: "include",
+                });
+                if (profileResponse.ok) {
+                    const profileData = await profileResponse.json();
+                    if (typeof profileData?.userId === "number") {
+                        targetUserId = profileData.userId;
+                    }
+                }
+            }
+
+            if (!targetUserId || targetUserId <= 0) {
+                router(`/messenger?user=${neighbourUserId ?? ""}&profile=${id ?? ""}`);
                 return;
             }
 
-            try {
-                setContactsLoading(true);
-                const response = await fetch(`/api/neighbours/${id}/?include_contacts=1`, {
-                    credentials: "include",
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to load contacts");
-                }
-
-                const contactData = await response.json();
-                setListingData((prev) => ({
-                    ...prev,
-                    contactPhone: contactData.phone,
-                    contactEmail: contactData.email,
-                }));
-                setShowContacts(true);
-            } catch (error) {
-                console.error("Failed to load neighbour contacts", error);
-            } finally {
-                setContactsLoading(false);
-            }
-
-            return;
+            router(`/messenger?user=${targetUserId}&profile=${id ?? ""}`);
+        } catch (error) {
+            console.error("Failed to open messenger draft", error);
+            router(`/messenger?user=${neighbourUserId ?? ""}&profile=${id ?? ""}`);
+        } finally {
+            setMessageStartLoading(false);
         }
-
-        setShowContacts(true);
     };
 
     useEffect(() => {
@@ -665,7 +691,7 @@ export default function ListingDetailPage() {
             setReviewComment("");
             setReviewRating(0);
 
-            const refreshResponse = await fetch(`/api/neighbours/${id}/${showContacts ? "?include_contacts=1" : ""}`, {
+            const refreshResponse = await fetch(`/api/neighbours/${id}/`, {
                 credentials: "include",
             });
             if (refreshResponse.ok) {
@@ -676,8 +702,6 @@ export default function ListingDetailPage() {
                     ratingCount: Number(refreshed.ratingCount || 0),
                     canReview: Boolean(refreshed.canReview),
                     reviews: Array.isArray(refreshed.reviews) ? refreshed.reviews : [],
-                    contactPhone: refreshed.phone ?? prev.contactPhone,
-                    contactEmail: refreshed.email ?? prev.contactEmail,
                 }));
             }
         } catch (error) {
@@ -1084,6 +1108,88 @@ export default function ListingDetailPage() {
 
         return () => controller.abort();
     }, [hasCoordinates, universityPoint, workPoint, type, numericGeoLat, numericGeoLng]);
+
+    useEffect(() => {
+        if (!hasCoordinates || type === "NEIGHBOUR") return;
+        const controller = new AbortController();
+        const loadPoi = async () => {
+            const lat = numericGeoLat;
+            const lng = numericGeoLng;
+            const query = `[out:json][timeout:15];
+(
+  node[highway=bus_stop](around:600,${lat},${lng});
+  nwr[amenity=hospital](around:1500,${lat},${lng});
+  nwr[amenity=clinic](around:1000,${lat},${lng});
+  nwr[shop=supermarket](around:1000,${lat},${lng});
+  node[railway=station](around:1500,${lat},${lng});
+  node[railway=subway_entrance](around:1500,${lat},${lng});
+  nwr[amenity=school](around:1000,${lat},${lng});
+  node[railway=halt](around:3000,${lat},${lng});
+);
+out center;`;
+            try {
+                const res = await fetch("https://overpass-api.de/api/interpreter", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `data=${encodeURIComponent(query)}`,
+                    signal: controller.signal,
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const items: PoiItem[] = [];
+                for (const el of (data.elements ?? [])) {
+                    const tags: Record<string, string> = el.tags ?? {};
+                    const elLat: number | undefined = el.lat ?? el.center?.lat;
+                    const elLon: number | undefined = el.lon ?? el.center?.lon;
+                    if (!elLat || !elLon) continue;
+                    let poiType: keyof typeof POI_ICONS | null = null;
+                    if (tags.highway === "bus_stop") {
+                        poiType = "bus_stop";
+                    } else if (tags.amenity === "hospital" || tags.amenity === "clinic") {
+                        poiType = "hospital";
+                    } else if (tags.shop === "supermarket") {
+                        poiType = "supermarket";
+                    } else if (tags.railway === "station" && tags.station === "subway") {
+                        poiType = "metro";
+                    } else if (tags.railway === "subway_entrance") {
+                        poiType = "metro";
+                    } else if (tags.amenity === "school") {
+                        poiType = "school";
+                    } else if (tags.railway === "station" || tags.railway === "halt") {
+                        poiType = "train_station";
+                    }
+                    if (poiType) {
+                        items.push({ id: el.id, lat: elLat, lon: elLon, type: poiType, name: tags.name ?? tags["name:cs"] ?? "" });
+                    }
+                }
+                setPoiItems(items);
+            } catch (e: unknown) {
+                if ((e as { name?: string })?.name !== "AbortError") console.error("POI load failed", e);
+            }
+        };
+        loadPoi();
+        return () => controller.abort();
+    }, [hasCoordinates, type, numericGeoLat, numericGeoLng]);
+
+    useEffect(() => {
+        if (!hasCoordinates || !poiItems.length) {
+            setNearestStop(null);
+            setNearestShop(null);
+            setNearestHospital(null);
+            return;
+        }
+        const listingLoc: [number, number] = [numericGeoLat, numericGeoLng];
+        let stop_dist = Infinity, shop_dist = Infinity, hosp_dist = Infinity;
+        for (const poi of poiItems) {
+            const dist = haversineDistanceKm(listingLoc, [poi.lat, poi.lon]);
+            if (poi.type === "bus_stop" && dist < stop_dist) stop_dist = dist;
+            if (poi.type === "supermarket" && dist < shop_dist) shop_dist = dist;
+            if (poi.type === "hospital" && dist < hosp_dist) hosp_dist = dist;
+        }
+        setNearestStop(stop_dist < Infinity ? { dist: stop_dist, time: estimateDurationMinutes(stop_dist) } : null);
+        setNearestShop(shop_dist < Infinity ? { dist: shop_dist, time: estimateDurationMinutes(shop_dist) } : null);
+        setNearestHospital(hosp_dist < Infinity ? { dist: hosp_dist, time: estimateDurationMinutes(hosp_dist) } : null);
+    }, [poiItems, hasCoordinates, numericGeoLat, numericGeoLng]);
 
     const mapData = useMemo(() => {
         if (!hasCoordinates) {
@@ -1748,35 +1854,13 @@ export default function ListingDetailPage() {
                             
                             {isAuthenticated ? (
                                 <>
-                                    {showContacts ? (
-                                        <>
-                                            {contactPhone && (
-                                                <a 
-                                                    href={`tel:${contactPhone}`}
-                                                    className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
-                                                >
-                                                    <Phone size={24} color="#C505EB" />
-                                                    <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactPhone}</span>
-                                                </a>
-                                            )}
-
-                                            {contactEmail && (
-                                                <a 
-                                                    href={`mailto:${contactEmail}`}
-                                                    className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-700 hover:bg-[#F5F5F5] dark:hover:bg-gray-600 duration-300`}
-                                                >
-                                                    <Mail size={24} color="#C505EB" />
-                                                    <span className={`text-lg font-semibold text-[#333333] dark:text-white`}>{contactEmail}</span>
-                                                </a>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <button 
-                                            onClick={handleShowContacts}
-                                            disabled={contactsLoading}
-                                            className={`w-full py-4 rounded-full bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
+                                    {type === "NEIGHBOUR" && (
+                                        <button
+                                            onClick={handleWriteMessage}
+                                            disabled={messageStartLoading}
+                                            className={`w-full py-4 rounded-full bg-gradient-to-r from-[#C505EB] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
                                         >
-                                            {contactsLoading ? t("loading") : t("listing.showContacts")}
+                                            {messageStartLoading ? t("loading") : t("listing.writeMessage")}
                                         </button>
                                     )}
                                 </>
@@ -1784,17 +1868,17 @@ export default function ListingDetailPage() {
                                 <>
                                     <div className={`flex flex-col items-center justify-center gap-4 p-6 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
                                         <div className={`flex items-center justify-center w-16 h-16 rounded-full bg-[#C505EB]/10`}>
-                                            <Phone size={32} color="#C505EB" />
+                                            <MessageCircle size={32} color="#C505EB" />
                                         </div>
                                         <p className={`text-center text-lg font-semibold text-[#333333] dark:text-white`}>
-                                            {t("listing.loginToViewContacts")}
+                                            {t("listing.loginToContact")}
                                         </p>
                                     </div>
                                     <button 
                                         onClick={handleContactClick}
                                         className={`w-full mt-4 py-4 rounded-full bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
                                     >
-                                        {t("listing.loginToContact")}
+                                        {t("listing.writeMessage")}
                                     </button>
                                 </>
                             )}
@@ -1824,6 +1908,7 @@ export default function ListingDetailPage() {
                                             <TileLayer
                                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                referrerPolicy="origin"
                                             />
                                             <Marker position={[numericGeoLat, numericGeoLng]} icon={listingPinIcon}>
                                                 <Tooltip direction="top" offset={[0, -12]}>{t("listing.pointListing")}</Tooltip>
@@ -1858,8 +1943,35 @@ export default function ListingDetailPage() {
                                             {workRoutePoints.length <= 1 && workPoint && !workRouteLoading && (
                                                 <Polyline positions={[workPoint, [numericGeoLat, numericGeoLng]]} pathOptions={{ color: "#06B396", weight: 3, opacity: 0.7, dashArray: "8 8" }} />
                                             )}
+                                            {poiItems.map((poi) => (
+                                                <Marker
+                                                    key={`poi-${poi.type}-${poi.id}`}
+                                                    position={[poi.lat, poi.lon]}
+                                                    icon={POI_ICONS[poi.type]}
+                                                >
+                                                    <Tooltip direction="top" offset={[0, -5]}>
+                                                        {poi.name || poi.type.replace("_", " ")}
+                                                    </Tooltip>
+                                                </Marker>
+                                            ))}
                                         </MapContainer>
                                     </div>
+                                    {(nearestStop || nearestShop || nearestHospital) && (
+                                        <div className={`mt-4 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
+                                            <p className={`font-semibold text-[#333333] dark:text-white mb-3`}>{t("listing.nearbyServices") || "Nearby Services"}</p>
+                                            <div className={`flex flex-col gap-2 text-sm text-[#666666] dark:text-gray-400`}>
+                                                {nearestStop && (
+                                                    <p><span className={`font-medium`}>{t("listing.nearestBusStop") || "Nearest Bus Stop"}:</span> <span className={`font-semibold text-[#333333] dark:text-white`}>{nearestStop.dist.toFixed(1)} km ({nearestStop.time} min)</span></p>
+                                                )}
+                                                {nearestShop && (
+                                                    <p><span className={`font-medium`}>{t("listing.nearestShop") || "Nearest Shop"}:</span> <span className={`font-semibold text-[#333333] dark:text-white`}>{nearestShop.dist.toFixed(1)} km ({nearestShop.time} min)</span></p>
+                                                )}
+                                                {nearestHospital && (
+                                                    <p><span className={`font-medium`}>{t("listing.nearestHospital") || "Nearest Hospital"}:</span> <span className={`font-semibold text-[#333333] dark:text-white`}>{nearestHospital.dist.toFixed(1)} km ({nearestHospital.time} min)</span></p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                     {(universityPoint || workPoint) && (
                                         <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
                                             <p className={`font-semibold`}>{t("listing.distanceTitle")}</p>

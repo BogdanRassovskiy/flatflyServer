@@ -50,7 +50,6 @@ interface ProfileData {
     lookingForHousing: boolean;
     withChildren: boolean;
     withDisability: boolean;
-    pensioner: boolean;
 }
 
 interface ProfileCompletionData {
@@ -62,6 +61,15 @@ interface ProfileCompletionData {
     missingCount: number;
     totalFields: number;
 }
+
+const normalizeNoiseTolerance = (value: unknown): string => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return "5";
+    }
+    const clamped = Math.min(10, Math.max(1, Math.round(parsed)));
+    return String(clamped);
+};
 
 export default function ProfilePage() {
     const { t } = useLanguage();
@@ -131,7 +139,7 @@ export default function ProfilePage() {
         smoking: "",
         alcohol: "",
         sleepSchedule: "",
-        noiseTolerance: "",
+        noiseTolerance: "5",
         gamer: "",
         workFromHome: "",
         pets: "",
@@ -144,7 +152,6 @@ export default function ProfilePage() {
         lookingForHousing: true,
         withChildren: false,
         withDisability: false,
-        pensioner: false,
     });
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
@@ -174,6 +181,7 @@ export default function ProfilePage() {
           setProfileData(prev => ({
             ...prev,
             ...data,
+                        noiseTolerance: normalizeNoiseTolerance(data.noiseTolerance),
             locationRegion: String(data.locationRegion || ""),
             locationCity: String(data.locationCity || ""),
             locationAddress: String(data.locationAddress || ""),
@@ -1544,12 +1552,17 @@ export default function ProfilePage() {
 
                             {/* Noise Tolerance */}
                             <div className={`flex flex-col gap-2`}>
-                                <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.noiseTolerance")}</label>
-                                <textarea
-                                    value={profileData.noiseTolerance}
+                                <label className={`text-lg max-[770px]:text-base font-bold`}>
+                                    {t("profile.noiseTolerance")}: {normalizeNoiseTolerance(profileData.noiseTolerance)}/10
+                                </label>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={normalizeNoiseTolerance(profileData.noiseTolerance)}
                                     onChange={(e) => setProfileData(prev => ({ ...prev, noiseTolerance: e.target.value }))}
-                                    className={`w-full h-[120px] max-[770px]:h-[100px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 py-3 text-base max-[770px]:text-sm resize-none`}
-                                    placeholder={t("profile.noiseTolerancePlaceholder")}
+                                    className={`w-full h-2 max-[770px]:h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#C505EB]`}
                                 />
                             </div>
 
@@ -1680,15 +1693,42 @@ export default function ProfilePage() {
                                         <option value="any">{t("profile.genderAny")}</option>
                                     </select>
                                 </div>
-                                <div className={`flex-1 flex flex-col gap-2`}>
-                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.preferredAgeRange")}</label>
-                                    <input
-                                        type="text"
-                                        value={profileData.preferredAgeRange}
-                                        onChange={(e) => setProfileData(prev => ({ ...prev, preferredAgeRange: e.target.value }))}
-                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
-                                        placeholder={t("profile.preferredAgeRangePlaceholder")}
-                                    />
+                                <div className={`flex-1 flex flex-col gap-3`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>
+                                        {t("profile.preferredAgeRange")}: <span className={`text-[#C505EB]`}>{(() => { const p = (profileData.preferredAgeRange || "").split("-"); const lo = Math.max(18, Math.min(99, Number(p[0]) || 18)); const hi = Math.max(lo + 1, Math.min(100, Number(p[1]) || 100)); return `${lo} – ${hi}`; })()}</span>
+                                    </label>
+                                    {(() => {
+                                        const p = (profileData.preferredAgeRange || "").split("-");
+                                        const ageMin = Math.max(18, Math.min(99, Number(p[0]) || 18));
+                                        const ageMax = Math.max(ageMin + 1, Math.min(100, Number(p[1]) || 100));
+                                        return (
+                                            <div className={`flex flex-col gap-1`}>
+                                                <div className={`relative h-5 flex items-center`}>
+                                                    <div className={`absolute inset-x-0 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full`} />
+                                                    <div
+                                                        className={`absolute h-1.5 bg-[#C505EB] rounded-full`}
+                                                        style={{ left: `${((ageMin - 18) / 82) * 100}%`, right: `${((100 - ageMax) / 82) * 100}%` }}
+                                                    />
+                                                    <input
+                                                        type="range" min="18" max="100" step="1" value={ageMin}
+                                                        onChange={(e) => { const v = Math.min(Number(e.target.value), ageMax - 1); setProfileData(prev => ({ ...prev, preferredAgeRange: `${v}-${ageMax}` })); }}
+                                                        className={`absolute w-full h-full appearance-none bg-transparent cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C505EB] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#C505EB] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-track]:bg-transparent`}
+                                                        style={{ zIndex: ageMin >= 90 ? 5 : 3 }}
+                                                    />
+                                                    <input
+                                                        type="range" min="18" max="100" step="1" value={ageMax}
+                                                        onChange={(e) => { const v = Math.max(Number(e.target.value), ageMin + 1); setProfileData(prev => ({ ...prev, preferredAgeRange: `${ageMin}-${v}` })); }}
+                                                        className={`absolute w-full h-full appearance-none bg-transparent cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C505EB] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-runnable-track]:bg-transparent [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#C505EB] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-track]:bg-transparent`}
+                                                        style={{ zIndex: ageMin >= 90 ? 3 : 5 }}
+                                                    />
+                                                </div>
+                                                <div className={`flex justify-between text-xs text-gray-400 dark:text-gray-500`}>
+                                                    <span>18</span>
+                                                    <span>100</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
@@ -1696,7 +1736,7 @@ export default function ProfilePage() {
                                 <h3 className={`text-xl max-[770px]:text-lg font-bold`}>{t("profile.statusSubheading")}</h3>
                             </div>
 
-                            <div className={`grid grid-cols-1 md:grid-cols-3 gap-3`}>
+                            <div className={`grid grid-cols-1 md:grid-cols-2 gap-3`}>
                                 <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 cursor-pointer hover:border-[#C505EB]/60 transition-all duration-300`}>
                                     <input
                                         type="checkbox"
@@ -1715,16 +1755,6 @@ export default function ProfilePage() {
                                         className={`w-5 h-5 accent-[#C505EB]`}
                                     />
                                     <span className={`text-sm font-semibold`}>{t("profile.withDisability")}</span>
-                                </label>
-
-                                <label className={`flex items-center gap-3 p-4 rounded-xl border border-[#E0E0E0] dark:border-gray-600 cursor-pointer hover:border-[#C505EB]/60 transition-all duration-300`}>
-                                    <input
-                                        type="checkbox"
-                                        checked={profileData.pensioner}
-                                        onChange={(e) => setProfileData(prev => ({ ...prev, pensioner: e.target.checked }))}
-                                        className={`w-5 h-5 accent-[#C505EB]`}
-                                    />
-                                    <span className={`text-sm font-semibold`}>{t("profile.pensioner")}</span>
                                 </label>
                             </div>
                         </div>

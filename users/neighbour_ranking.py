@@ -178,7 +178,8 @@ def apply_neighbour_hard_filters(qs: QuerySet, filters: dict[str, Any], configs:
         elif code == "looking_for_housing":
             qs = qs.filter(looking_for_housing=bool(expected))
         elif code == "rating_min":
-            qs = qs.filter(rating_average__gte=float(expected))
+            if float(expected) > 0:
+                qs = qs.filter(rating_average__gte=float(expected))
 
     return qs
 
@@ -258,8 +259,11 @@ def calculate_neighbour_relevance(profile, filters: dict[str, Any], configs: lis
         elif config.code == "looking_for_housing":
             ratio = 1.0 if bool(profile.looking_for_housing) == bool(expected) else 0.0
         elif config.code == "rating_min":
-            rating_average = float(getattr(profile, "rating_average", 0) or 0)
-            ratio = 1.0 if rating_average >= float(expected) else 0.0
+            if float(expected) <= 0:
+                ratio = 1.0
+            else:
+                rating_average = float(getattr(profile, "rating_average", 0) or 0)
+                ratio = 1.0 if rating_average >= float(expected) else 0.0
 
         if ratio is None:
             continue

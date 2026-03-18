@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Menu, Moon, Sun, X, ChevronDown } from "lucide-react";
+import { CircleUser, Globe, Menu, Moon, Sun, X, ChevronDown, MessageCircle } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -21,6 +21,7 @@ export default function Header() {
     const isSearchPage = pathname !== "/";
     const { language, setLanguage, t } = useLanguage();
     const { isAuthenticated, logout } = useAuth();
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
     // Страницы с объявлениями
     const listingPages = ["/apartments", "/rooms", "/neighbours"];
     const isListingPage = listingPages.includes(pathname);
@@ -83,6 +84,36 @@ export default function Header() {
             document.documentElement.style.colorScheme = 'light';
         }
     }, []);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setUnreadMessagesCount(0);
+            return;
+        }
+
+        const loadUnreadCount = () => {
+            fetch("/api/chats/", { credentials: "include" })
+                .then((res) => (res.ok ? res.json() : []))
+                .then((data) => {
+                    if (!Array.isArray(data)) {
+                        setUnreadMessagesCount(0);
+                        return;
+                    }
+
+                    const total = data.reduce((sum, chat) => {
+                        const value = Number(chat?.unread_count ?? 0);
+                        return sum + (Number.isFinite(value) ? value : 0);
+                    }, 0);
+
+                    setUnreadMessagesCount(total);
+                })
+                .catch(() => {});
+        };
+
+        loadUnreadCount();
+        const intervalId = window.setInterval(loadUnreadCount, 15000);
+        return () => window.clearInterval(intervalId);
+    }, [isAuthenticated, pathname]);
 
     // Переключение темы
     const toggleTheme = () => {
@@ -229,40 +260,51 @@ export default function Header() {
                         </button>
                     )}
 
+
                     {/* Выбор языка - только для десктопа */}
-                    <div className={`hidden min-[771px]:block relative`} ref={langMenuRef}>
-                        <button
-                            onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                            className={`w-20 h-10 border rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-[#C505EB] dark:hover:border-[#C505EB] duration-300 flex items-center justify-center px-2 gap-2 cursor-pointer`}
-                            aria-label={t("header.selectLanguage")}
-                        >
-                            <Globe size={18} className="text-gray-700 dark:text-gray-300"/>
-                            <span className="text-sm font-semibold text-black dark:text-white">
-                                {languages.find(l => l.code === language)?.label || "CZ"}
-                            </span>
-                            <ChevronDown size={14} className="text-gray-700 dark:text-gray-300"/>
-                        </button>
-                        
-                        {isLangMenuOpen && (
-                            <div className={`absolute right-0 mt-2 w-[100px] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-[#E5E5E5] dark:border-gray-700 overflow-hidden z-[100]`}>
-                                {languages.map((lang) => (
-                                    <button
-                                        key={lang.code}
-                                        onClick={() => {
-                                            setLanguage(lang.code);
-                                            setIsLangMenuOpen(false);
-                                        }}
-                                        className={`w-full px-4 py-2 text-sm font-semibold hover:bg-[#C505EB] hover:text-white duration-300 text-left ${
-                                            language === lang.code 
-                                                ? 'bg-[#C505EB] text-white' 
-                                                : 'text-[#333333] dark:text-gray-200'
-                                        }`}
-                                    >
-                                        {lang.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                    <div className={`hidden min-[771px]:flex items-center gap-2`}>
+                        <div className="relative" ref={langMenuRef}>
+                            <button
+                                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                                className={`w-20 h-10 border rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-[#C505EB] dark:hover:border-[#C505EB] duration-300 flex items-center justify-center px-2 gap-2 cursor-pointer`}
+                                aria-label={t("header.selectLanguage")}
+                            >
+                                <Globe size={18} className="text-gray-700 dark:text-gray-300"/>
+                                <span className="text-sm font-semibold text-black dark:text-white">
+                                    {languages.find(l => l.code === language)?.label || "CZ"}
+                                </span>
+                                <ChevronDown size={14} className="text-gray-700 dark:text-gray-300"/>
+                            </button>
+                            {isLangMenuOpen && (
+                                <div className={`absolute right-0 mt-2 w-[100px] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-[#E5E5E5] dark:border-gray-700 overflow-hidden z-[100]`}>
+                                    {languages.map((lang) => (
+                                        <button
+                                            key={lang.code}
+                                            onClick={() => {
+                                                setLanguage(lang.code);
+                                                setIsLangMenuOpen(false);
+                                            }}
+                                            className={`w-full px-4 py-2 text-sm font-semibold hover:bg-[#C505EB] hover:text-white duration-300 text-left ${
+                                                language === lang.code 
+                                                    ? 'bg-[#C505EB] text-white' 
+                                                    : 'text-[#333333] dark:text-gray-200'
+                                            }`}
+                                        >
+                                            {lang.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* Иконка чата */}
+                        <Link to="/messenger" className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 hover:border-[#C505EB] dark:hover:border-[#C505EB] duration-300 ml-2 bg-white dark:bg-gray-800" aria-label="Чаты">
+                            <MessageCircle size={22} className="text-[#C505EB]" />
+                            {unreadMessagesCount > 0 && (
+                                <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-[#C505EB] text-white text-[11px] leading-5 text-center font-bold">
+                                    {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                                </span>
+                            )}
+                        </Link>
                     </div>
 
                     <div className={`relative`} ref={menuRef}>

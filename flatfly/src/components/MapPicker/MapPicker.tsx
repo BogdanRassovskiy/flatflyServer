@@ -53,6 +53,7 @@ export default function MapPicker({ center, point, onPointChange }: MapPickerPro
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          referrerPolicy="origin"
         />
         <RecenterMap center={center} />
         <ClickHandler onPointChange={onPointChange} />

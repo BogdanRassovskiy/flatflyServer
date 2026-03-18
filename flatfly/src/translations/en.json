@@ -22,6 +22,29 @@
     "switchToLightTheme": "Switch to light theme",
     "switchToDarkTheme": "Switch to dark theme"
   },
+  "messenger": {
+    "title": "Chats",
+    "searchPlaceholder": "Search by participant name...",
+    "noDialogs": "No dialogs",
+    "noSearchResults": "Nothing found",
+    "unknownChat": "Chat",
+    "unknownParticipant": "User",
+    "noMessagesPreview": "No messages yet",
+    "noMessages": "No messages",
+    "read": "✓✓ Read",
+    "sent": "✓ Sent",
+    "inputPlaceholder": "Type a message...",
+    "selectDialog": "Select a dialog",
+    "deleteChatForBoth": "Delete chat for both",
+    "deleteConfirm": "Delete chat for both users? All messages will be removed.",
+    "dontAskAgain": "Don't ask again",
+    "shareContacts": "Share contacts",
+    "contactsMessageIntro": "My contacts:",
+    "contactsMessagePhone": "Phone",
+    "contactsMessageEmail": "E-mail",
+    "deleteError": "Failed to delete chat",
+    "cancel": "Cancel"
+  },
   "home": {
     "title": "FlatFly, reliable co-living",
     "subtitle": "for your new life chapter.",
@@ -141,6 +164,8 @@
     "applyFilters": "Apply Filters",
     "resetFilters": "Reset",
     "close": "Close",
+    "writeMessage": "Write message",
+    "listing.writeMessage": "Write message",
     "neighbourAge": "Age",
     "neighbourAgeFrom": "From",
     "neighbourAgeTo": "To",
@@ -164,6 +189,7 @@
     "neighbourSleepScheduleEarly": "Early Bird",
     "neighbourSleepScheduleLate": "Night Owl",
     "neighbourSleepScheduleFlexible": "Flexible",
+    "neighbourFrom": "Origin",
     "neighbourUniversity": "University",
     "neighbourExcludeStatuses": "Exclude from search",
     "neighbourExcludeWithChildren": "With children",
@@ -185,6 +211,7 @@
     "contact": "Contact",
     "sendMessage": "Send message",
     "showContacts": "Show contacts",
+    "writeMessage": "Write message",
     "perMonth": "/ monthly",
     "area": "Area",
     "layout": "Layout",
@@ -282,6 +309,10 @@
     ,"alreadyReviewed": "You have already submitted a review"
     ,"onlyCoResidentsCanReview": "Only people who live together can leave ratings"
     ,"noReviewsYet": "No reviews yet"
+    ,"nearbyServices": "Nearby Services"
+    ,"nearestBusStop": "Nearest Bus Stop"
+    ,"nearestShop": "Nearest Shop"
+    ,"nearestHospital": "Nearest Hospital"
   },
   "pagination": {
     "next": "Next"

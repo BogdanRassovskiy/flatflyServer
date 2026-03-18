@@ -20,6 +20,7 @@ import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 import FaqChatWidget from "./components/FaqChatWidget/FaqChatWidget";
 import PageBackground from "./components/PageBackground/PageBackground";
+import MessengerPage from "./pages/MessengerPage";
 // import другие страницы при необходимости
 
 function RootPage() {
@@ -48,6 +49,7 @@ function App() {
             <Routes>
                 <Route path="/" element={<RootPage />} />
                 <Route element={<Layout />}>
+                    <Route path="/messenger" element={<ProtectedRoute><MessengerPage /></ProtectedRoute>} />
                     <Route path="/blog">
                         <Route index element={<BlogPage />} />
                         <Route path=":id" element={<ArticlePage />} />

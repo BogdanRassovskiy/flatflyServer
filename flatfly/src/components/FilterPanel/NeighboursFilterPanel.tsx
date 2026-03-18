@@ -3,6 +3,7 @@ import {useState, useRef, useEffect} from "react";
 import {X} from "lucide-react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
+import "./NeighboursFilterPanel.css";
 
 
 
@@ -20,10 +21,10 @@ interface NeighbourFilterState {
     universityName: string;
     excludeWithChildren: boolean;
     excludeWithDisability: boolean;
-    excludePensioner: boolean;
     workFromHome: string;
     languages: string[];
     interests: string;
+    neighbourFrom: string;
 }
 interface Props {
   filters: NeighbourFilterState;
@@ -38,6 +39,31 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
     const [universitiesLoading, setUniversitiesLoading] = useState(false);
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
+
+    // Load user profile to set default gender
+    useEffect(() => {
+        const loadUserGender = async () => {
+            try {
+                const response = await fetch("/api/users/me/", {
+                    credentials: "include",
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    // Set default gender filter to opposite of user's gender
+                    if (data.gender && !filters.gender) {
+                        const oppositeGender = data.gender === "male" ? "female" : "male";
+                        onChange({
+                            ...filters,
+                            gender: oppositeGender,
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to load user profile:", error);
+            }
+        };
+        loadUserGender();
+    }, []);
     
     // Функции для перевода значений фильтров
     const translateGender = (value: string) => {
@@ -75,70 +101,70 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     };
 
 const NeighboursCategories = [
-  filters.city && {
-    title: t("filter.location"),
-    subTitle: regionValueToLabel(filters.city),
-  },
-
-  (filters.ageFrom || filters.ageTo) && {
-    title: t("filter.neighbourAge"),
-    subTitle: `${filters.ageFrom || "0"} - ${filters.ageTo || "∞"}`,
-  },
-
-    filters.ratingMin && {
-        title: t("filter.neighbourMinRating"),
-        subTitle: `${filters.ratingMin}+`,
+    filters.city && {
+        title: t("filter.location"),
+        subTitle: regionValueToLabel(filters.city),
     },
 
-  filters.gender && {
-    title: t("filter.neighbourGender"),
-    subTitle: translateGender(filters.gender),
-  },
-
-  filters.smoking && {
-    title: t("filter.neighbourSmoking"),
-    subTitle: translateYesNo(filters.smoking, "filter.neighbourSmokingYes", "filter.neighbourSmokingNo"),
-  },
-
-  filters.alcohol && {
-    title: t("filter.neighbourAlcohol"),
-    subTitle: translateYesNo(filters.alcohol, "filter.neighbourAlcoholYes", "filter.neighbourAlcoholNo"),
-  },
-
-  filters.sleepSchedule && {
-    title: t("filter.neighbourSleepSchedule"),
-    subTitle: translateSleepSchedule(filters.sleepSchedule),
-  },
-
-    filters.universityName && {
-        title: t("filter.neighbourUniversity"),
-        subTitle: filters.universityName,
-  },
-
-    filters.excludeWithChildren && {
-        title: t("filter.neighbourExcludeWithChildren"),
-        subTitle: t("filter.active"),
+    filters.neighbourFrom && {
+        title: t("filter.neighbourFrom"),
+        subTitle: filters.neighbourFrom,
     },
 
-    filters.excludeWithDisability && {
-        title: t("filter.neighbourExcludeWithDisability"),
-        subTitle: t("filter.active"),
+    (filters.ageFrom || filters.ageTo) && {
+        title: t("filter.neighbourAge"),
+        subTitle: `${filters.ageFrom || "18"} - ${filters.ageTo || "100"}`,
     },
 
-    filters.excludePensioner && {
-        title: t("filter.neighbourExcludePensioner"),
-        subTitle: t("filter.active"),
+        Number(filters.ratingMin || "0") > 0 && {
+                title: t("filter.neighbourMinRating"),
+                subTitle: `${filters.ratingMin}+`,
+        },
+
+    filters.gender && {
+        title: t("filter.neighbourGender"),
+        subTitle: translateGender(filters.gender),
     },
 
-  filters.workFromHome && {
-    title: t("filter.neighbourWorkFromHome"),
-    subTitle: translateYesNo(filters.workFromHome, "filter.neighbourWorkFromHomeYes", "filter.neighbourWorkFromHomeNo"),
-  },
+    filters.smoking && {
+        title: t("filter.neighbourSmoking"),
+        subTitle: translateYesNo(filters.smoking, "filter.neighbourSmokingYes", "filter.neighbourSmokingNo"),
+    },
 
-  filters.languages.length > 0 && {
-    title: t("filter.neighbourLanguages"),
-    subTitle: filters.languages.map(l => translateLanguage(l)).join(", "),
-  },
+    filters.alcohol && {
+        title: t("filter.neighbourAlcohol"),
+        subTitle: translateYesNo(filters.alcohol, "filter.neighbourAlcoholYes", "filter.neighbourAlcoholNo"),
+    },
+
+    filters.sleepSchedule && {
+        title: t("filter.neighbourSleepSchedule"),
+        subTitle: translateSleepSchedule(filters.sleepSchedule),
+    },
+
+        filters.universityName && {
+                title: t("filter.neighbourUniversity"),
+                subTitle: filters.universityName,
+    },
+
+        filters.excludeWithChildren && {
+                title: t("filter.neighbourExcludeWithChildren"),
+                subTitle: t("filter.active"),
+        },
+
+        filters.excludeWithDisability && {
+                title: t("filter.neighbourExcludeWithDisability"),
+                subTitle: t("filter.active"),
+        },
+
+    filters.workFromHome && {
+        title: t("filter.neighbourWorkFromHome"),
+        subTitle: translateYesNo(filters.workFromHome, "filter.neighbourWorkFromHomeYes", "filter.neighbourWorkFromHomeNo"),
+    },
+
+    filters.languages.length > 0 && {
+        title: t("filter.neighbourLanguages"),
+        subTitle: filters.languages.map(l => translateLanguage(l)).join(", "),
+    },
 ].filter(Boolean) as { title: string; subTitle: string }[];
 
     const genderOptions = [
@@ -174,8 +200,6 @@ const NeighboursCategories = [
         {key: "de", label: t("profile.languages.de")},
         {key: "sk", label: t("profile.languages.sk")},
     ];
-    const ratingOptions = ["1", "2", "3", "4", "5"];
-
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
       { value: "STREDOCESKY", label: "Středočeský kraj" },
@@ -270,6 +294,55 @@ const NeighboursCategories = [
       });
     };
 
+    const parseAgeNumber = (rawValue: string) => {
+        if (!rawValue) {
+            return null;
+        }
+        const parsed = Number(rawValue);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const ageSliderMin = 18;
+    const ageSliderMax = 100;
+    const ageSliderSpan = Math.max(1, ageSliderMax - ageSliderMin);
+
+    const currentAgeFrom = parseAgeNumber(filters.ageFrom);
+    const currentAgeTo = parseAgeNumber(filters.ageTo);
+
+    const normalizedAgeFrom = Math.max(ageSliderMin, Math.min(currentAgeFrom ?? ageSliderMin, ageSliderMax));
+    const normalizedAgeTo = Math.max(normalizedAgeFrom, Math.min(currentAgeTo ?? ageSliderMax, ageSliderMax));
+
+    const selectedAgeFromPercent = ((normalizedAgeFrom - ageSliderMin) / ageSliderSpan) * 100;
+    const selectedAgeToPercent = ((normalizedAgeTo - ageSliderMin) / ageSliderSpan) * 100;
+
+    const formatAgeValue = (value: number | null, fallback = "") => {
+        if (value === null) {
+            return fallback;
+        }
+        return String(Math.round(value));
+    };
+
+    const applyAgeRange = (nextFrom: number | null, nextTo: number | null) => {
+        let safeFrom = nextFrom;
+        let safeTo = nextTo;
+
+        if (safeFrom !== null) {
+            safeFrom = Math.max(ageSliderMin, Math.min(Math.round(safeFrom), ageSliderMax));
+        }
+        if (safeTo !== null) {
+            safeTo = Math.max(ageSliderMin, Math.min(Math.round(safeTo), ageSliderMax));
+        }
+        if (safeFrom !== null && safeTo !== null && safeFrom > safeTo) {
+            safeTo = safeFrom;
+        }
+
+        onChange({
+            ...filters,
+            ageFrom: formatAgeValue(safeFrom),
+            ageTo: formatAgeValue(safeTo),
+        });
+    };
+
         const handleBooleanFilterChange = (key: keyof NeighbourFilterState, value: boolean) => {
             onChange({
                 ...filters,
@@ -286,28 +359,64 @@ const NeighboursCategories = [
       });
     };
 
-    const handleReset = () => {
+    const clearFilterByKey = (key: string, arrayKey?: string) => {
+        if (key === "languages" && arrayKey) {
+            onChange({
+                ...filters,
+                languages: filters.languages.filter(l => l !== arrayKey),
+            });
+        } else if (key === "city") {
+            onChange({ ...filters, city: "" });
+        } else if (key === "ageFrom") {
+            onChange({ ...filters, ageFrom: "", ageTo: "" });
+        } else if (key === "ageTo") {
+            onChange({ ...filters, ageTo: "" });
+        } else if (key === "ratingMin") {
+            onChange({ ...filters, ratingMin: "0" });
+        } else if (key === "gender") {
+            onChange({ ...filters, gender: "" });
+        } else if (key === "smoking") {
+            onChange({ ...filters, smoking: "" });
+        } else if (key === "alcohol") {
+            onChange({ ...filters, alcohol: "" });
+        } else if (key === "sleepSchedule") {
+            onChange({ ...filters, sleepSchedule: "" });
+        } else if (key === "universityName") {
             setUniversityInput("");
-            setUniversityDropdownOpen(false);
-            setUniversitySuggestions([]);
-      onChange({
-        city: "",
-        ageFrom: "",
-        ageTo: "",
-                ratingMin: "",
-        gender: "",
-        smoking: "",
-        alcohol: "",
-        sleepSchedule: "",
-                universityId: "",
-                universityName: "",
-                excludeWithChildren: false,
-                excludeWithDisability: false,
-                excludePensioner: false,
-        workFromHome: "",
-        languages: [],
-                interests: "",
-      });
+            onChange({ ...filters, universityId: "", universityName: "" });
+        } else if (key === "excludeWithChildren") {
+            onChange({ ...filters, excludeWithChildren: false });
+        } else if (key === "excludeWithDisability") {
+            onChange({ ...filters, excludeWithDisability: false });
+        } else if (key === "workFromHome") {
+            onChange({ ...filters, workFromHome: "" });
+        } else if (key === "neighbourFrom") {
+            onChange({ ...filters, neighbourFrom: "" });
+        }
+    };
+
+    const handleReset = () => {
+        setUniversityInput("");
+        setUniversityDropdownOpen(false);
+        setUniversitySuggestions([]);
+        onChange({
+            city: "",
+            ageFrom: "",
+            ageTo: "",
+            ratingMin: "0",
+            gender: "",
+            smoking: "",
+            alcohol: "",
+            sleepSchedule: "",
+            universityId: "",
+            universityName: "",
+            excludeWithChildren: false,
+            excludeWithDisability: false,
+            workFromHome: "",
+            languages: [],
+            interests: "",
+            neighbourFrom: "",
+        });
     };
 
     const handleApply = () => {
@@ -342,20 +451,47 @@ const NeighboursCategories = [
   <div
     className="flex items-center h-full py-2 overflow-x-auto overflow-y-hidden scroll-smooth"
   >
-    {NeighboursCategories.map((value, index) => (
-      <div
-        key={index}
-        className={`h-full flex-shrink-0 flex flex-col items-center justify-center px-10
-          ${index + 1 === NeighboursCategories.length ? "" : "border-r border-[#E5E5E5] dark:border-gray-700"}`}
-      >
-        <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
-          {value.title}
-        </span>
-        <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
-          {value.subTitle}
-        </span>
-      </div>
-    ))}
+    {NeighboursCategories.map((value, index) => {
+      let filterKey = "";
+      if (value.title === t("filter.location")) filterKey = "city";
+      else if (value.title === t("filter.neighbourFrom")) filterKey = "neighbourFrom";
+      else if (value.title === t("filter.neighbourAge")) filterKey = "ageFrom";
+      else if (value.title === t("filter.neighbourMinRating")) filterKey = "ratingMin";
+      else if (value.title === t("filter.neighbourGender")) filterKey = "gender";
+      else if (value.title === t("filter.neighbourSmoking")) filterKey = "smoking";
+      else if (value.title === t("filter.neighbourAlcohol")) filterKey = "alcohol";
+      else if (value.title === t("filter.neighbourSleepSchedule")) filterKey = "sleepSchedule";
+      else if (value.title === t("filter.neighbourUniversity")) filterKey = "universityName";
+      else if (value.title === t("filter.neighbourExcludeWithChildren")) filterKey = "excludeWithChildren";
+      else if (value.title === t("filter.neighbourExcludeWithDisability")) filterKey = "excludeWithDisability";
+      else if (value.title === t("filter.neighbourWorkFromHome")) filterKey = "workFromHome";
+      else if (value.title === t("filter.neighbourLanguages")) filterKey = "languages";
+
+      return (
+        <div
+          key={index}
+          onClick={() => clearFilterByKey(filterKey)}
+          className={`h-full flex-shrink-0 flex flex-col items-center justify-center px-6 gap-1 group
+            ${index + 1 === NeighboursCategories.length ? "" : "border-r border-[#E5E5E5] dark:border-gray-700"}
+            hover:bg-[#F5F5F5] dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200`}
+          title="Click to remove filter"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center">
+              <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
+                {value.title}
+              </span>
+              <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
+                {value.subTitle}
+              </span>
+            </div>
+            <div className="p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all duration-200">
+              <X size={16} className="text-red-500" />
+            </div>
+          </div>
+        </div>
+      );
+    })}
   </div>
 
   <button
@@ -423,55 +559,79 @@ const NeighboursCategories = [
                                         </select>
                                     </div>
 
-                                    {/* Возраст от */}
+                                    {/* Возраст (dual range) */}
                                     <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourAge")} ({t("filter.neighbourAgeFrom")})</label>
-                                        <input
-                                            type="number"
-                                            value={filters.ageFrom}
-                                            onChange={(e) => handleFilterChange("ageFrom", e.target.value)}
-                                            placeholder={t("filter.neighbourAgePlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
-                                    </div>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>
+                                            {t("filter.neighbourAge")}: <span className={`text-[#C505EB]`}>{`${normalizedAgeFrom} – ${normalizedAgeTo}`}</span>
+                                        </label>
+                                        <div className={`flex flex-col gap-3`}>
+                                            <div className={`relative h-9`}>
+                                                <div className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700`}>
+                                                    <div
+                                                        className={`absolute h-full rounded-full bg-[#C505EB]`}
+                                                        style={{
+                                                            left: `${selectedAgeFromPercent}%`,
+                                                            width: `${Math.max(2, selectedAgeToPercent - selectedAgeFromPercent)}%`,
+                                                        }}
+                                                    />
+                                                </div>
 
-                                    {/* Возраст до */}
-                                    <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourAge")} ({t("filter.neighbourAgeTo")})</label>
-                                        <input
-                                            type="number"
-                                            value={filters.ageTo}
-                                            onChange={(e) => handleFilterChange("ageTo", e.target.value)}
-                                            placeholder={t("filter.neighbourAgePlaceholder")}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        />
+                                                <input
+                                                    type="range"
+                                                    min={ageSliderMin}
+                                                    max={ageSliderMax}
+                                                    value={normalizedAgeFrom}
+                                                    onChange={(e) => applyAgeRange(Number(e.target.value), normalizedAgeTo)}
+                                                    className="age-range-input z-20"
+                                                />
+                                                <input
+                                                    type="range"
+                                                    min={ageSliderMin}
+                                                    max={ageSliderMax}
+                                                    value={normalizedAgeTo}
+                                                    onChange={(e) => applyAgeRange(normalizedAgeFrom, Number(e.target.value))}
+                                                    className="age-range-input z-30"
+                                                />
+                                            </div>
+
+                                            <div className={`flex justify-between text-xs text-gray-500 dark:text-gray-400`}>
+                                                <span>18</span>
+                                                <span>100</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Минимальный рейтинг */}
                                     <div className={`flex flex-col gap-2`}>
-                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourMinRating")}</label>
-                                        <select
-                                            value={filters.ratingMin}
-                                            onChange={(e) => handleFilterChange("ratingMin", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
-                                        >
-                                            <option value="">-</option>
-                                            {ratingOptions.map((option) => (
-                                                <option key={option} value={option}>{option}+</option>
-                                            ))}
-                                        </select>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>
+                                            {t("filter.neighbourMinRating")}: <span className={`text-[#C505EB]`}>{`${Number(filters.ratingMin || "0")}+`}</span>
+                                        </label>
+                                        <div className={`flex flex-col gap-3`}>
+                                            <div className={`relative h-9`}>
+                                                <div className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700`}>
+                                                    <div
+                                                        className={`absolute h-full rounded-full bg-[#C505EB] rounded-full`}
+                                                        style={{
+                                                            width: `${(Number(filters.ratingMin || "0") / 5) * 100}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="5"
+                                                    step="1"
+                                                    value={Number(filters.ratingMin || "0")}
+                                                    onChange={(e) => handleFilterChange("ratingMin", e.target.value)}
+                                                    className="age-range-input z-20"
+                                                />
+                                            </div>
+                                            <div className={`flex justify-between text-xs text-gray-500 dark:text-gray-400`}>
+                                                {Array.from({ length: 6 }, (_, index) => (
+                                                    <span key={index}>{index}+</span>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Пол */}
@@ -631,7 +791,7 @@ const NeighboursCategories = [
                                     {/* Исключение категорий */}
                                     <div className={`flex flex-col gap-2 md:col-span-2`}>
                                         <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourExcludeStatuses")}</label>
-                                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-3`}>
+                                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-3`}>
                                             <label className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#C505EB]/60`}>
                                                 <input
                                                     type="checkbox"
@@ -650,16 +810,6 @@ const NeighboursCategories = [
                                                     className={`w-5 h-5 accent-[#C505EB]`}
                                                 />
                                                 <span className={`text-sm font-medium text-black dark:text-white`}>{t("filter.neighbourExcludeWithDisability")}</span>
-                                            </label>
-
-                                            <label className={`flex items-center gap-3 p-3 rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#C505EB]/60`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={filters.excludePensioner}
-                                                    onChange={(e) => handleBooleanFilterChange("excludePensioner", e.target.checked)}
-                                                    className={`w-5 h-5 accent-[#C505EB]`}
-                                                />
-                                                <span className={`text-sm font-medium text-black dark:text-white`}>{t("filter.neighbourExcludePensioner")}</span>
                                             </label>
                                         </div>
                                     </div>

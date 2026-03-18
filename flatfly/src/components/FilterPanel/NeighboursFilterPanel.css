@@ -1,0 +1,53 @@
+.age-range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.age-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 6px;
+}
+
+.age-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2px solid #C505EB;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(197, 5, 235, 0.3);
+  pointer-events: all;
+  cursor: pointer;
+  margin-top: -7px;
+}
+
+.age-range-input::-moz-range-track {
+  background: transparent;
+  height: 6px;
+}
+
+.age-range-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2px solid #C505EB;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(197, 5, 235, 0.3);
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.dark .age-range-input::-webkit-slider-thumb {
+  background: #f9fafb;
+}
+
+.dark .age-range-input::-moz-range-thumb {
+  background: #f9fafb;
+}

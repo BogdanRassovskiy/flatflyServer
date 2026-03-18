@@ -1,7 +1,7 @@
 import NeighboursFilterPanel from "../../components/FilterPanel/NeighboursFilterPanel";
 import SaleCard from "../../components/SaleCard/SaleCard";
 import { useState, useEffect } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
 import { getImageUrl } from "../../utils/defaultImage";
@@ -44,10 +44,10 @@ interface NeighbourFilterState {
   universityName: string;
   excludeWithChildren: boolean;
   excludeWithDisability: boolean;
-  excludePensioner: boolean;
   workFromHome: string;
   languages: string[];
   interests: string;
+  neighbourFrom: string;
 }
 export default function NeighboursPage() {
   const { t } = useLanguage();
@@ -55,13 +55,13 @@ export default function NeighboursPage() {
   const [pagination, setPagination] = useState(1);
   const [neighbours, setNeighbours] = useState<Neighbour[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters] = useState<NeighbourFilterState>({
+  
+  const defaultFilters: NeighbourFilterState = {
     city: "",
     ageFrom: "",
     ageTo: "",
-    ratingMin: "",
+    ratingMin: "0",
     gender: "",
     smoking: "",
     alcohol: "",
@@ -70,15 +70,37 @@ export default function NeighboursPage() {
     universityName: "",
     excludeWithChildren: false,
     excludeWithDisability: false,
-    excludePensioner: false,
     workFromHome: "",
     languages: [],
     interests: "",
+    neighbourFrom: "",
+  };
+
+  const [filters, setFilters] = useState<NeighbourFilterState>(() => {
+    try {
+      const savedFilters = localStorage.getItem("neighbourFilters");
+      if (!savedFilters) {
+        return defaultFilters;
+      }
+      const parsed = JSON.parse(savedFilters);
+      return {
+        ...defaultFilters,
+        ...parsed,
+        ratingMin: parsed?.ratingMin === "" || parsed?.ratingMin === undefined ? "0" : String(parsed.ratingMin),
+      };
+    } catch {
+      return defaultFilters;
+    }
   });
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("neighbourFilters", JSON.stringify(filters));
+  }, [filters]);
 
   useEffect(() => {
     loadNeighbours();
-  }, [pagination, search, filters]);
+  }, [pagination, filters]);
 
   const loadNeighbours = async () => {
     try {
@@ -86,10 +108,6 @@ export default function NeighboursPage() {
 
       const params = new URLSearchParams();
       params.append("page", String(pagination));
-
-      if (search) {
-        params.append("search", search);
-      }
 
       Object.entries(filters).forEach(([key, value]) => {
         if (key === "universityName") {
@@ -128,19 +146,6 @@ export default function NeighboursPage() {
     <div className="w-full min-h-screen flex flex-col items-center interFont">
       <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
         <div className="w-full flex flex-col items-start my-[150px]">
-
-          {/* Поиск */}
-          <div className="w-full max-w-[450px] flex items-center h-12 relative mb-6">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-12 rounded-full border pl-8 pr-12"
-              placeholder={t("Search people")}
-            />
-            <div className="absolute right-4">
-              <Search size={30} color="#C505EB" />
-            </div>
-          </div>
 
           <NeighboursFilterPanel
             filters={filters}

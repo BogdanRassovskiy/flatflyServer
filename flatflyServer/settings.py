@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     'article',
     'listings',
     'users',
+    'chats',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',

@@ -22,6 +22,29 @@
     "switchToLightTheme": "Přepnout na světlý režim",
     "switchToDarkTheme": "Přepnout na tmavý režim"
   },
+  "messenger": {
+    "title": "Chaty",
+    "searchPlaceholder": "Hledat podle jména protějšku...",
+    "noDialogs": "Žádné chaty",
+    "noSearchResults": "Nic nenalezeno",
+    "unknownChat": "Chat",
+    "unknownParticipant": "Uživatel",
+    "noMessagesPreview": "Bez zpráv",
+    "noMessages": "Žádné zprávy",
+    "read": "✓✓ Přečteno",
+    "sent": "✓ Odesláno",
+    "inputPlaceholder": "Napište zprávu...",
+    "selectDialog": "Vyberte chat",
+    "deleteChatForBoth": "Smazat chat oběma",
+    "deleteConfirm": "Smazat chat oběma uživatelům? Všechny zprávy budou odstraněny.",
+    "dontAskAgain": "Příště se neptat",
+    "shareContacts": "Sdílet kontakty",
+    "contactsMessageIntro": "Moje kontakty:",
+    "contactsMessagePhone": "Telefon",
+    "contactsMessageEmail": "E-mail",
+    "deleteError": "Chat se nepodařilo smazat",
+    "cancel": "Zrušit"
+  },
   "home": {
     "title": "FlatFly, spolehlivé spolubydlení",
     "subtitle": "pro tvou novou životní kapitolu.",
@@ -140,6 +163,8 @@
     "applyFilters": "Použít filtry",
     "resetFilters": "Resetovat",
     "close": "Zavřít",
+    "writeMessage": "Napsat zprávu",
+    "listing.writeMessage": "Napsat zprávu",
     "neighbourAge": "Věk",
     "neighbourAgeFrom": "Od",
     "neighbourAgeTo": "Do",
@@ -163,6 +188,7 @@
     "neighbourSleepScheduleEarly": "Ranní ptáče",
     "neighbourSleepScheduleLate": "Noční sova",
     "neighbourSleepScheduleFlexible": "Flexibilní",
+    "neighbourFrom": "Odkud",
     "neighbourUniversity": "Univerzita",
     "neighbourExcludeStatuses": "Vyloučit z hledání",
     "neighbourExcludeWithChildren": "S dětmi",
@@ -184,6 +210,7 @@
     "contact": "Kontakt",
     "sendMessage": "Odeslat zprávu",
     "showContacts": "Zobrazit kontakty",
+    "writeMessage": "Napsat zprávu",
     "perMonth": "/ měsíčně",
     "area": "Plocha",
     "layout": "Dispozice",
@@ -281,6 +308,10 @@
     ,"alreadyReviewed": "Hodnocení jste už odeslali"
     ,"onlyCoResidentsCanReview": "Hodnotit mohou jen lidé, kteří spolu bydlí"
     ,"noReviewsYet": "Zatím bez hodnocení"
+    ,"nearbyServices": "Blízké služby"
+    ,"nearestBusStop": "Nejbližší autobusová zastávka"
+    ,"nearestShop": "Nejbližší obchod"
+    ,"nearestHospital": "Nejbližší nemocnice"
   },
   "pagination": {
     "next": "Další"
