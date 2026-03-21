@@ -82,6 +82,7 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isTogglingVerified, setIsTogglingVerified] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [saveErrorMessage, setSaveErrorMessage] = useState("");
     const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [addressInput, setAddressInput] = useState("");
     const [addressSuggestions, setAddressSuggestions] = useState<Array<{
@@ -101,6 +102,7 @@ export default function ProfilePage() {
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
     const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
     const [universitiesLoading, setUniversitiesLoading] = useState(false);
+    const [showUniversityFields, setShowUniversityFields] = useState(false);
     const universityAutocompleteRef = useRef<HTMLDivElement>(null);
     const [facultyInput, setFacultyInput] = useState("");
     const [facultySuggestions, setFacultySuggestions] = useState<Array<{ id: number; name: string }>>([]);
@@ -201,6 +203,14 @@ export default function ProfilePage() {
                     const loadedFacultyName = String(data.facultyName || "").trim();
                     setUniversityInput(loadedUniversityName);
                     setFacultyInput(loadedFacultyName);
+                    if (
+                        loadedUniversityName ||
+                        loadedFacultyName ||
+                        data.universityId ||
+                        data.facultyId
+                    ) {
+                        setShowUniversityFields(true);
+                    }
 
                     if (data.profileCompletion) {
                         setProfileCompletion({
@@ -910,6 +920,7 @@ export default function ProfilePage() {
 
       try {
         setIsSaving(true);
+        setSaveErrorMessage("");
 
                 const response = await fetch("/api/profile/", {
           method: "POST",
@@ -925,7 +936,34 @@ export default function ProfilePage() {
         });
 
         if (!response.ok) {
-          throw new Error("Profile save failed");
+          let detail = "";
+          try {
+            const payload = await response.json();
+            detail = String(payload?.detail || payload?.error || "").trim();
+          } catch {
+            detail = "";
+          }
+
+          if (response.status === 401) {
+            throw new Error(t("profile.errorNotAuthenticated"));
+          }
+
+          if (detail === "Invalid JSON") {
+            throw new Error(t("profile.errorInvalidFormData"));
+          }
+          if (detail === "Invalid university") {
+            throw new Error(t("profile.errorInvalidUniversity"));
+          }
+          if (detail === "University must be selected before faculty") {
+            throw new Error(t("profile.errorUniversityRequiredForFaculty"));
+          }
+          if (detail === "Invalid faculty for selected university") {
+            throw new Error(t("profile.errorInvalidFaculty"));
+          }
+          if (detail) {
+            throw new Error(detail);
+          }
+          throw new Error(t("profile.errorSavingProfile"));
         }
 
                 const responseData = await response.json();
@@ -943,10 +981,12 @@ export default function ProfilePage() {
 
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+        setSaveErrorMessage("");
 
       } catch (err) {
         console.error("Save error:", err);
-        alert(t("profile.errorSavingProfile"));
+        const message = err instanceof Error ? err.message : t("profile.errorSavingProfile");
+        setSaveErrorMessage(message);
       } finally {
         setIsSaving(false);
       }
@@ -1268,6 +1308,67 @@ export default function ProfilePage() {
                               </select>
                             </div>
 
+                            {/* Location City and Address */}
+                            <div className={`flex max-[770px]:flex-col gap-4`}>
+                                <div className={`flex-1 flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.locationCity")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.locationCity}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, locationCity: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.locationCityPlaceholder")}
+                                    />
+                                </div>
+
+                                <div className={`flex-1 flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.locationAddress")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.locationAddress}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, locationAddress: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.locationAddressPlaceholder")}
+                                    />
+                                </div>
+                            </div>
+
+                            {!showUniversityFields ? (
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUniversityFields(true)}
+                                        className={`h-[56px] max-[770px]:h-[48px] px-5 max-[770px]:px-4 rounded-xl border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB] hover:text-white duration-300 font-semibold`}
+                                    >
+                                        {t("profile.selectUniversityButton")}
+                                    </button>
+                                </div>
+                            ) : (
+                            <>
+                            <div className={`flex`}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowUniversityFields(false);
+                                        setUniversityInput("");
+                                        setFacultyInput("");
+                                        setUniversityDropdownOpen(false);
+                                        setFacultyDropdownOpen(false);
+                                        setUniversitySuggestions([]);
+                                        setFacultySuggestions([]);
+                                        setProfileData(prev => ({
+                                            ...prev,
+                                            universityId: null,
+                                            universityName: "",
+                                            facultyId: null,
+                                            facultyName: "",
+                                        }));
+                                    }}
+                                    className={`h-[56px] max-[770px]:h-[48px] px-5 max-[770px]:px-4 rounded-xl border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB] hover:text-white duration-300 font-semibold`}
+                                >
+                                    {t("profile.hideUniversityButton")}
+                                </button>
+                            </div>
                             <div className={`flex max-[770px]:flex-col gap-4`}>
                                 <div ref={universityAutocompleteRef} className={`flex-1 w-full flex flex-col gap-2 relative`}>
                                     <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.university")}</label>
@@ -1365,6 +1466,8 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                             </div>
+                            </>
+                            )}
 
                             <div className={`flex max-[770px]:flex-col gap-4 items-end`}>
                                 <div className={`flex-1 w-full flex flex-col gap-2`}>
@@ -2084,7 +2187,12 @@ export default function ProfilePage() {
 
                     {/* Save Button */}
                     {activeSection !== "favorites" && activeSection !== "myListings" && activeSection !== "myHome" && (
-                        <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
+                        <div className={`mt-8 max-[770px]:mt-6 flex flex-col items-end max-[770px]:items-stretch gap-3`}>
+                            {saveErrorMessage && (
+                                <div className={`w-full min-[771px]:w-auto px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium`}>
+                                    {saveErrorMessage}
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleSave}

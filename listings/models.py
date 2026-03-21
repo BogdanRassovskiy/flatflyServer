@@ -177,6 +177,7 @@ class ListingImage(models.Model):
         related_name="images"
     )
     image = models.ImageField(upload_to="listings/")
+    is_primary = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
 

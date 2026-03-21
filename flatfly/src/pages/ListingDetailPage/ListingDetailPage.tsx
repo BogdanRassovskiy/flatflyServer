@@ -1502,9 +1502,15 @@ out center;`;
                             </div>
                         )}
 
-                        <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
-                            <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.details")}</h2>
-                            <div className={`grid grid-cols-2 max-[770px]:grid-cols-1 gap-4`}>
+                        <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-3`}>
+                            <h2 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white mb-2.5`}>{t("listing.details")}</h2>
+                            <div
+                                className={`grid grid-cols-2 min-[1200px]:grid-cols-3 min-[1500px]:grid-cols-4 max-[770px]:grid-cols-1 gap-2.5
+                                    [&>div]:px-2.5 [&>div]:py-2 [&>div]:gap-2 [&>div]:rounded-lg
+                                    [&>div>svg]:w-4 [&>div>svg]:h-4
+                                    [&>div>div>span:first-child]:text-xs
+                                    [&>div>div>span:last-child]:text-sm`}
+                            >
                                 {size && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
@@ -2078,22 +2084,54 @@ out center;`;
                                         </div>
                                     </div>
                                     {(universityPoint || workPoint) && (
-                                        <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
-                                            <p className={`font-semibold`}>{t("listing.distanceTitle")} {getRouteModeLabel(routeMode).toLowerCase()}</p>
-                                            {universityPoint && (
-                                                <p className={`mt-1`}>
-                                                    {universityRouteLoading
-                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
-                                                        : `${t("listing.distanceToUniversity")}: ${Number(universityDistanceKm || 0).toFixed(1)} km (${Number(universityDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
-                                            {workPoint && (
-                                                <p className={`mt-1`}>
-                                                    {workRouteLoading
-                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
-                                                        : `${t("listing.distanceToWork")}: ${Number(workDistanceKm || 0).toFixed(1)} km (${Number(workDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
+                                        <div className={`mt-3`}>
+                                            <p className={`text-sm font-semibold text-[#333333] dark:text-white mb-2`}>
+                                                {t("listing.distanceTitle")} {getRouteModeLabel(routeMode).toLowerCase()}
+                                            </p>
+                                            <div className={`flex flex-col gap-2`}>
+                                                {universityPoint && (
+                                                    <div className={`rounded-xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5`}>
+                                                        <p className={`text-sm font-medium text-[#666666] dark:text-gray-300`}>
+                                                            {t("listing.distanceToUniversity")}
+                                                        </p>
+                                                        {universityRouteLoading ? (
+                                                            <p className={`text-sm text-[#666666] dark:text-gray-400 mt-1`}>
+                                                                {t("listing.routeLoading")} {getRouteModeLabel(routeMode).toLowerCase()}...
+                                                            </p>
+                                                        ) : (
+                                                            <div className={`mt-2 flex items-center gap-2`}>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#C505EB]/10 text-[#C505EB] text-xs font-bold`}>
+                                                                    {Number(universityDistanceKm || 0).toFixed(1)} km
+                                                                </span>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#08D3E2]/10 text-[#08A7B8] text-xs font-bold`}>
+                                                                    {Number(universityDurationMin || 0)} min
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {workPoint && (
+                                                    <div className={`rounded-xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5`}>
+                                                        <p className={`text-sm font-medium text-[#666666] dark:text-gray-300`}>
+                                                            {t("listing.distanceToWork")}
+                                                        </p>
+                                                        {workRouteLoading ? (
+                                                            <p className={`text-sm text-[#666666] dark:text-gray-400 mt-1`}>
+                                                                {t("listing.routeLoading")} {getRouteModeLabel(routeMode).toLowerCase()}...
+                                                            </p>
+                                                        ) : (
+                                                            <div className={`mt-2 flex items-center gap-2`}>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#C505EB]/10 text-[#C505EB] text-xs font-bold`}>
+                                                                    {Number(workDistanceKm || 0).toFixed(1)} km
+                                                                </span>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#08D3E2]/10 text-[#08A7B8] text-xs font-bold`}>
+                                                                    {Number(workDurationMin || 0)} min
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     {(nearestStop || nearestShop || nearestHospital) && (

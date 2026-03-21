@@ -250,7 +250,7 @@ export default function SaleCard({
                 );
             case "NEIGHBOUR":
                 return (
-                    <div className={`w-full h-full flex flex-col items-start py-1.5 px-8 gap-1`}>
+                    <div className={`w-full h-full flex flex-col items-start py-1.5 px-4 max-[1220px]:px-3 gap-1`}>
                         <div className={`w-full flex items-center justify-between text-[22px] font-semibold max-[1220px]:text-[18px]`}>
                             <div className={`flex items-center gap-1 text-black dark:text-white`}>
                                 <span>{name},</span>
@@ -308,7 +308,7 @@ export default function SaleCard({
     };
 
     const CardContent = (
-        <div className={`flex flex-col items-center max-[1220px]:w-[254px] max-[1220px]:h-[290px] w-[384px] h-[420px] rounded-xl shadow-md dark:shadow-gray-900/50 border interFont overflow-hidden relative ${
+        <div className={`w-full max-w-[384px] min-h-[380px] max-[1220px]:min-h-[300px] flex flex-col items-center rounded-xl shadow-md dark:shadow-gray-900/50 border interFont overflow-hidden relative ${
             is_active
                 ? "bg-white dark:bg-gray-800 border-[#E5E5E5] dark:border-gray-700"
                 : "bg-gray-100 dark:bg-gray-700 border-gray-400 dark:border-gray-500"
@@ -318,7 +318,7 @@ export default function SaleCard({
                     {t("listing.deactivated")}
                 </div>
             )}
-            <div className={`w-full h-[282px] max-[1220px]:h-[182px] flex-shrink-0 flex flex-col items-start overflow-hidden relative`}>
+            <div className={`w-full h-[240px] max-[1220px]:h-[170px] flex-shrink-0 flex flex-col items-start overflow-hidden relative`}>
                 <img className={`w-full h-full object-cover absolute top-0 left-0 ${!is_active ? 'grayscale' : ''}`} src={getImageUrl(image)} alt={address}/>
                 <div className={`w-full flex flex-col items-start p-3 absolute top-0 left-0`}>
                     <div className={`w-full flex items-start justify-between`}>

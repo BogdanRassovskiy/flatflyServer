@@ -159,7 +159,7 @@ export default function NeighboursPage() {
               {t("No neighbours found")}
             </div>
           ) : (
-            <div className="w-full grid grid-cols-3 gap-6 mt-[50px]">
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8 md:mt-[50px]">
               {neighbours.map((n) => {
                 const badges: string[] = [];
 

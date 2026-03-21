@@ -227,7 +227,7 @@ export default function RoomsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="w-full grid grid-cols-3 max-[870px]:grid-cols-2 max-[580px]:grid-cols-1 gap-6 mt-[50px]">
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8 md:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}

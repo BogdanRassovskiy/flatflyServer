@@ -85,6 +85,7 @@ export default function AddingPage() {
     const { t } = useLanguage();
     const [typeAd,setTypeAd] = useState(``);
     const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+    const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -101,11 +102,51 @@ export default function AddingPage() {
     // Состояние для уведомлений
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     const [isLoadingListing, setIsLoadingListing] = useState(false);
+    const [showLeaveHomeAction, setShowLeaveHomeAction] = useState(false);
+    const [isLeavingHome, setIsLeavingHome] = useState(false);
 
     // Функция показа уведомления
     const showNotification = (message: string, type: 'success' | 'error') => {
         setNotification({message, type});
         setTimeout(() => setNotification(null), 4000);
+    };
+
+    const handleLeaveHomeForPublishing = async () => {
+      try {
+        setIsLeavingHome(true);
+        const response = await fetch("/api/listings/leave-home/", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+          },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        const detail = String(payload?.detail || "").trim();
+
+        if (!response.ok) {
+          if (detail === "Cannot leave as sole resident") {
+            showNotification(t("add.cannotLeaveAsSoleResident"), "error");
+            return;
+          }
+          if (detail === "Not in any home") {
+            showNotification(t("add.notInAnyHome"), "error");
+            setShowLeaveHomeAction(false);
+            return;
+          }
+          showNotification(detail || t("add.leaveHomeFailed"), "error");
+          return;
+        }
+
+        showNotification(t("add.leftHomeSuccess"), "success");
+        setShowLeaveHomeAction(false);
+      } catch (error) {
+        console.error(error);
+        showNotification(t("add.leaveHomeFailed"), "error");
+      } finally {
+        setIsLeavingHome(false);
+      }
     };
 
     const handleCityInputChange = (value: string) => {
@@ -275,6 +316,7 @@ export default function AddingPage() {
       }
 
       try {
+        setShowLeaveHomeAction(false);
         const payload = {
               property_type: typeAd,
               type: typeAd,
@@ -340,16 +382,25 @@ export default function AddingPage() {
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData?.detail || (isEditMode ? t("add.publishFailed") : t("add.failedToCreateAd")));
+          const detail = String(errorData?.detail || "").trim();
+          if (detail === "You already belong to a home") {
+            setShowLeaveHomeAction(true);
+            throw new Error(t("add.alreadyBelongToHome"));
+          }
+          throw new Error(detail || (isEditMode ? t("add.publishFailed") : t("add.failedToCreateAd")));
         }
 
         const data = await res.json();
         const adId = isEditMode ? editListingId : data.id;
 
-        // загружаем только новые изображения
-        for (const file of selectedFiles) {
+        // загружаем только новые изображения; выбранное "главное фото" получает приоритет.
+        const existingImageCount = Math.max(0, uploadedImages.length - selectedFiles.length);
+        for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
+          const file = selectedFiles[fileIndex];
           const formData = new FormData();
           formData.append("image", file);
+          const imageGlobalIndex = existingImageCount + fileIndex;
+          formData.append("is_primary", imageGlobalIndex === primaryImageIndex ? "true" : "false");
 
           const imgRes = await fetch(`/api/listings/${adId}/images/`, {
             method: "POST",
@@ -376,6 +427,7 @@ export default function AddingPage() {
         setPrice(null);
         setTypeAd("");
         setUploadedImages([]);
+        setPrimaryImageIndex(0);
         setSelectedFiles([]);
         setCity("");
         setAddress("");
@@ -389,7 +441,8 @@ export default function AddingPage() {
 
       } catch (err) {
         console.error(err);
-        showNotification(t("add.publishFailed"), 'error');
+        const message = err instanceof Error && err.message ? err.message : t("add.publishFailed");
+        showNotification(message, 'error');
       }
     };
 
@@ -474,6 +527,9 @@ export default function AddingPage() {
 
           const existingImages = Array.isArray(data.images) ? data.images : [];
           setUploadedImages(existingImages);
+          const imageItems = Array.isArray(data.imageItems) ? data.imageItems : [];
+          const primaryIdxFromBackend = imageItems.findIndex((item: any) => Boolean(item?.isPrimary));
+          setPrimaryImageIndex(primaryIdxFromBackend >= 0 ? primaryIdxFromBackend : 0);
           setSelectedFiles([]);
         } catch (error) {
           console.error("Failed to preload listing for editing", error);
@@ -503,7 +559,27 @@ export default function AddingPage() {
 
     const removeImage = (index: number) => {
         setUploadedImages(prev => prev.filter((_, i) => i !== index));
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+        setSelectedFiles(prev => {
+            const existingCount = Math.max(0, uploadedImages.length - prev.length);
+            if (index < existingCount) {
+                return prev;
+            }
+            const fileIndex = index - existingCount;
+            return prev.filter((_, i) => i !== fileIndex);
+        });
+
+        setPrimaryImageIndex((prev) => {
+            if (uploadedImages.length <= 1) {
+                return 0;
+            }
+            if (index < prev) {
+                return prev - 1;
+            }
+            if (index === prev) {
+                return Math.max(0, prev - 1);
+            }
+            return prev;
+        });
 
         if (currentImageIndex >= uploadedImages.length - 1 && currentImageIndex > 0) {
             setCurrentImageIndex(prev => prev - 1);
@@ -746,6 +822,20 @@ export default function AddingPage() {
                                                 className={`w-full h-full object-cover cursor-pointer hover:opacity-90 duration-300`}
                                             />
                                             <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPrimaryImageIndex(index);
+                                                }}
+                                                className={`absolute bottom-2 left-2 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${
+                                                    primaryImageIndex === index
+                                                        ? "bg-[#C505EB] text-white"
+                                                        : "bg-black/60 text-white hover:bg-black/75"
+                                                }`}
+                                            >
+                                                {primaryImageIndex === index ? t("add.mainPhoto") : t("add.setMainPhoto")}
+                                            </button>
+                                            <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     removeImage(index);
@@ -817,14 +907,14 @@ export default function AddingPage() {
                             <button
                               type="button"
                               onClick={() => setCreatorRole("OWNER")}
-                              className={`rounded-xl border duration-300 text-sm font-semibold ${creatorRole === "OWNER" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                              className={`rounded-xl border duration-300 text-xs max-[770px]:text-[11px] leading-tight px-1 text-center font-semibold ${creatorRole === "OWNER" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("add.roleOwner")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setCreatorRole("NEIGHBOUR")}
-                              className={`rounded-xl border duration-300 text-sm font-semibold ${creatorRole === "NEIGHBOUR" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                              className={`rounded-xl border duration-300 text-xs max-[770px]:text-[11px] leading-tight px-1 text-center font-semibold ${creatorRole === "NEIGHBOUR" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("add.roleNeighbour")}
                             </button>
@@ -836,25 +926,25 @@ export default function AddingPage() {
                           <span className={`max-[770px]:text-lg min-[770px]:text-xl font-bold text-black dark:text-white`}>
                             {t("add.preferredGender")}
                           </span>
-                          <div className={`w-full h-[50px] grid grid-cols-3 gap-2`}>
+                          <div className={`w-full h-[50px] grid grid-cols-3 gap-1.5`}>
                             <button
                               type="button"
                               onClick={() => setPreferredGender("male")}
-                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "male" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                              className={`h-full rounded-xl border duration-300 text-[11px] max-[770px]:text-[10px] leading-[1.1] px-1 text-center font-semibold whitespace-normal break-words ${preferredGender === "male" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("filter.preferredGenderMale")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setPreferredGender("female")}
-                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "female" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                              className={`h-full rounded-xl border duration-300 text-[11px] max-[770px]:text-[10px] leading-[1.1] px-1 text-center font-semibold whitespace-normal break-words ${preferredGender === "female" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("filter.preferredGenderFemale")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setPreferredGender("any")}
-                              className={`rounded-xl border duration-300 text-sm font-semibold ${preferredGender === "any" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
+                              className={`h-full rounded-xl border duration-300 text-[11px] max-[770px]:text-[10px] leading-[1.1] px-1 text-center font-semibold whitespace-normal break-words ${preferredGender === "any" ? "bg-[#C505EB] text-white border-[#C505EB]" : "border-[#E0E0E0] dark:border-gray-600 dark:text-white"}`}
                             >
                               {t("filter.preferredGenderAny")}
                             </button>
@@ -1316,6 +1406,16 @@ export default function AddingPage() {
                       >
                         {isLoadingListing ? t("loading") : (isEditMode ? t("add.update") : t("add.publish"))}
                       </button>
+                      {showLeaveHomeAction && (
+                        <button
+                          type="button"
+                          onClick={handleLeaveHomeForPublishing}
+                          disabled={isLeavingHome}
+                          className={`mt-3 w-full h-11 flex items-center justify-center rounded-full text-white text-base font-semibold bg-red-600 hover:bg-red-700 transition disabled:opacity-60 disabled:cursor-not-allowed`}
+                        >
+                          {isLeavingHome ? t("add.leavingHomeAction") : t("add.leaveHomeAction")}
+                        </button>
+                      )}
 
                     </div>
 

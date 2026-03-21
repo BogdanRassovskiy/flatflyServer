@@ -52,6 +52,14 @@ def normalize_text(value):
     return unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
 
 
+def get_ordered_listing_images(listing):
+    return listing.images.order_by("-is_primary", "id")
+
+
+def get_primary_listing_image(listing):
+    return get_ordered_listing_images(listing).first()
+
+
 PROFILE_COMPLETION_DEFAULTS = [
     ("name", "Name", Decimal("8.00")),
     ("phone", "Phone", Decimal("6.00")),
@@ -272,19 +280,27 @@ def municipalities_search(request):
         limit = 12
     limit = max(1, min(limit, 30))
 
-    qs = CzechMunicipality.objects.all()
-    if region:
-        qs = qs.filter(region_code=region)
+    if not query:
+        return JsonResponse({"results": []})
 
-    if query:
-        normalized_query = normalize_text(query)
-        qs = qs.filter(
-            Q(name__icontains=query) | Q(normalized_name__contains=normalized_query)
-        )
-    else:
-        qs = qs.none()
+    normalized_query = normalize_text(query)
+    base_qs = CzechMunicipality.objects.filter(
+        Q(name__icontains=query) | Q(normalized_name__contains=normalized_query)
+    )
+
+    qs = base_qs
+    if region:
+        qs = base_qs.filter(region_code=region)
 
     items = list(qs.order_by("name").values("name", "region_code", "municipality_type", "latitude", "longitude")[:limit])
+
+    # Fallback: when dictionary for selected region is not populated yet,
+    # return global suggestions instead of empty list.
+    if region and not items:
+        items = list(
+            base_qs.order_by("name").values("name", "region_code", "municipality_type", "latitude", "longitude")[:limit]
+        )
+
     return JsonResponse({"results": items})
 
 
@@ -919,6 +935,10 @@ def neighbours_list(request):
         rating_count=Count("received_reviews"),
     )
 
+    # Do not show the current user's own profile in neighbours list.
+    if request.user.is_authenticated:
+        qs = qs.exclude(user=request.user)
+
     # SEARCH
     search = request.GET.get("search")
     if search:
@@ -1289,7 +1309,10 @@ def password_reset_confirm(request, uidb64, token):
         return JsonResponse({"detail": "Invalid link"}, status=400)
     if not default_token_generator.check_token(user, token):
         return JsonResponse({"detail": "Invalid or expired token"}, status=400)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
     password = data.get("password")
     if not password:
         return JsonResponse({"detail": "Password required"}, status=400)
@@ -1561,7 +1584,8 @@ def listing_detail(request, listing_id):
         listing.save()
         return JsonResponse({"detail": "Updated"})
 
-    main_image = listing.images.first()
+    ordered_images = get_ordered_listing_images(listing)
+    main_image = ordered_images.first()
 
     # Признак избранного для текущего пользователя
     is_favorite = False
@@ -1628,9 +1652,14 @@ def listing_detail(request, listing_id):
         "canManage": can_manage,
         "badges": [],
         "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
-        "images": [
-            request.build_absolute_uri(img.image.url)
-            for img in listing.images.all()
+        "images": [request.build_absolute_uri(img.image.url) for img in ordered_images],
+        "imageItems": [
+            {
+                "id": img.id,
+                "url": request.build_absolute_uri(img.image.url),
+                "isPrimary": bool(img.is_primary),
+            }
+            for img in ordered_images
         ],
         "is_favorite": is_favorite,
     })
@@ -1755,7 +1784,12 @@ def listings_view(request):
                 listing.geo_lng = resolved_lng
                 listing.save(update_fields=["geo_lat", "geo_lng"])
 
-        ListingResident.objects.create(listing=listing, profile=profile)
+        # Guard against DB integrity errors when profile already has a residency.
+        existing_residency = ListingResident.objects.filter(profile=profile).first()
+        if existing_residency and existing_residency.listing_id != listing.id:
+            return JsonResponse({"detail": "You already belong to a home"}, status=400)
+
+        ListingResident.objects.get_or_create(listing=listing, profile=profile)
 
         return JsonResponse({
             "id": listing.id,
@@ -1936,7 +1970,7 @@ def listings_view(request):
 
     results = []
     for listing in page_obj:
-        main_image = listing.images.first()
+        main_image = get_primary_listing_image(listing)
         ranking_data = listing_scores.get(listing.id, {"relevance_score": 0.0, "match_percentage": 0})
 
         results.append({
@@ -2091,7 +2125,7 @@ def my_home(request):
         return JsonResponse({"detail": "Not in home", "listing": None})
 
     listing = resident.listing
-    main_image = listing.images.first()
+    main_image = get_primary_listing_image(listing)
     residents = ListingResident.objects.filter(listing=listing).select_related("profile__user")
 
     return JsonResponse({
@@ -2167,14 +2201,25 @@ def upload_listing_image(request, listing_id):
     if "image" not in request.FILES:
         return JsonResponse({"detail": "No image"}, status=400)
 
+    is_primary_raw = str(request.POST.get("is_primary", "")).strip().lower()
+    is_primary = is_primary_raw in {"1", "true", "yes", "on"}
+
+    if is_primary:
+        ListingImage.objects.filter(listing=listing, is_primary=True).update(is_primary=False)
+
+    if not is_primary and not ListingImage.objects.filter(listing=listing, is_primary=True).exists():
+        is_primary = True
+
     img = ListingImage.objects.create(
         listing=listing,
-        image=request.FILES["image"]
+        image=request.FILES["image"],
+        is_primary=is_primary,
     )
 
     return JsonResponse({
         "id": img.id,
-        "url": img.image.url
+        "url": img.image.url,
+        "isPrimary": bool(img.is_primary),
     })
 
 @csrf_exempt
@@ -2583,7 +2628,7 @@ def get_favorites(request):
         
         # Добавляем объявления
         for listing in listings:
-            images = ListingImage.objects.filter(listing=listing)
+            images = ListingImage.objects.filter(listing=listing).order_by("-is_primary", "id")
             image_url = images.first().image.url if images.exists() else None
             all_favorites.append({
                 "id": listing.id,

@@ -44,7 +44,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     useEffect(() => {
         const loadUserGender = async () => {
             try {
-                const response = await fetch("/api/users/me/", {
+                const response = await fetch("/api/profile/", {
                     credentials: "include",
                 });
                 if (response.ok) {
