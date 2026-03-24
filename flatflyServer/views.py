@@ -17,13 +17,14 @@ from django.views.decorators.http import require_POST,require_http_methods
 from django.db.models import Q, Avg, Count
 from django.utils import timezone
 from users.models import Profile, ProfileCompletionWeight, ProfileRankingConfig, ProfileReview, University, UniversityFaculty
+from chats.models import ChatBlock
 from users.neighbour_ranking import (
     apply_neighbour_hard_filters,
     calculate_neighbour_relevance,
     normalize_neighbour_ranking_configs,
     parse_neighbour_filters,
 )
-from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality, CzechStreet
+from listings.models import Listing, ListingFilterConfig, ListingFilterOptionConfig, ListingImage, ListingInvite, ListingResident, CzechMunicipality, CzechStreet, ListingReport
 from article.models import LaunchSettings, default_launch_date
 from django.core.paginator import Paginator
 
@@ -33,6 +34,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.urls import reverse
 from urllib.parse import urlencode
+from .image_moderation import moderate_image, apply_moderation_strike_and_notify
 User = get_user_model()
 DEBUG_MODE=True;
 
@@ -938,6 +940,9 @@ def neighbours_list(request):
     # Do not show the current user's own profile in neighbours list.
     if request.user.is_authenticated:
         qs = qs.exclude(user=request.user)
+        blocked_me_user_ids = ChatBlock.objects.filter(blocked=request.user).values_list("blocker_id", flat=True)
+        blocked_by_me_user_ids = ChatBlock.objects.filter(blocker=request.user).values_list("blocked_id", flat=True)
+        qs = qs.exclude(user_id__in=blocked_me_user_ids).exclude(user_id__in=blocked_by_me_user_ids)
 
     # SEARCH
     search = request.GET.get("search")
@@ -1037,6 +1042,13 @@ def neighbours_list(request):
 @require_http_methods(["GET"])
 def neighbour_detail(request, profile_id):
     profile = get_object_or_404(Profile, id=profile_id)
+    if request.user.is_authenticated:
+        is_blocked_for_viewer = ChatBlock.objects.filter(
+            blocker=profile.user,
+            blocked=request.user,
+        ).exists()
+        if is_blocked_for_viewer:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
     include_contacts = request.GET.get("include_contacts") in ["1", "true", "yes"]
 
     target_residency = ListingResident.objects.select_related("listing").filter(profile=profile).first()
@@ -1663,6 +1675,34 @@ def listing_detail(request, listing_id):
         ],
         "is_favorite": is_favorite,
     })
+
+
+@login_required
+@require_POST
+def report_listing(request, listing_id):
+    listing = get_object_or_404(Listing, id=listing_id)
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    reason = str(data.get("reason") or "").strip()
+    details = str(data.get("details") or "").strip()
+    allowed_reasons = {choice[0] for choice in ListingReport.REASON_CHOICES}
+    if reason not in allowed_reasons:
+        return JsonResponse({"detail": "Invalid reason"}, status=400)
+
+    if listing.owner_id == request.user.id:
+        return JsonResponse({"detail": "You cannot report your own listing"}, status=400)
+
+    report = ListingReport.objects.create(
+        listing=listing,
+        reporter=request.user,
+        listing_owner=listing.owner if listing.owner_id else request.user,
+        reason=reason,
+        details=details,
+    )
+    return JsonResponse({"detail": "Report submitted", "report_id": report.id}, status=201)
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def listings_view(request):
@@ -2201,6 +2241,26 @@ def upload_listing_image(request, listing_id):
     if "image" not in request.FILES:
         return JsonResponse({"detail": "No image"}, status=400)
 
+    moderation = moderate_image(request.FILES["image"])
+    if moderation.violation:
+        sanction = apply_moderation_strike_and_notify(
+            user=request.user,
+            reasons=moderation.reasons,
+            source="listing_image_upload",
+            raw_scores=moderation.raw_scores,
+            raw_labels=moderation.raw_labels,
+            listing=listing,
+        )
+        return JsonResponse(
+            {
+                "detail": "Image rejected by moderation",
+                "reasons": moderation.reasons,
+                "strikes": sanction["strikes"],
+                "banned": sanction["banned"],
+            },
+            status=403,
+        )
+
     is_primary_raw = str(request.POST.get("is_primary", "")).strip().lower()
     is_primary = is_primary_raw in {"1", "true", "yes", "on"}
 
@@ -2227,6 +2287,28 @@ def upload_listing_image(request, listing_id):
 def upload_avatar(request):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Not authenticated"}, status=401)
+
+    if "avatar" not in request.FILES:
+        return JsonResponse({"detail": "No avatar image"}, status=400)
+
+    moderation = moderate_image(request.FILES["avatar"])
+    if moderation.violation:
+        sanction = apply_moderation_strike_and_notify(
+            user=request.user,
+            reasons=moderation.reasons,
+            source="avatar_upload",
+            raw_scores=moderation.raw_scores,
+            raw_labels=moderation.raw_labels,
+        )
+        return JsonResponse(
+            {
+                "detail": "Avatar rejected by moderation",
+                "reasons": moderation.reasons,
+                "strikes": sanction["strikes"],
+                "banned": sanction["banned"],
+            },
+            status=403,
+        )
 
     profile = request.user.profile
     profile.avatar = request.FILES["avatar"]

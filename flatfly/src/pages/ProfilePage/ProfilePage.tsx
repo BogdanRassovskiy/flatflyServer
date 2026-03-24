@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X } from "lucide-react";
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
@@ -493,6 +493,10 @@ export default function ProfilePage() {
     const [myHomeError, setMyHomeError] = useState<string | null>(null);
     const [leavingHome, setLeavingHome] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+    const [inviteError, setInviteError] = useState<string | null>(null);
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [inviteQrLink, setInviteQrLink] = useState("");
     const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
@@ -655,31 +659,50 @@ export default function ProfilePage() {
         }
     };
 
+    const createInviteLink = async (): Promise<string> => {
+        if (!myHomeData?.listing?.id) {
+            throw new Error(t("profile.inviteFailed"));
+        }
+        const res = await fetch(`/api/listings/${myHomeData.listing.id}/invite/`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": getCsrfToken(),
+            },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || t("profile.inviteFailed"));
+        }
+        const token = data.token;
+        return data.inviteUrl
+            ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+            : `${window.location.origin}/api/listings/invite/${token}/join/`;
+    };
+
     const handleCreateInvite = async () => {
-        if (!myHomeData?.listing?.id) return;
         try {
             setCreatingInvite(true);
-            const res = await fetch(`/api/listings/${myHomeData.listing.id}/invite/`, {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "X-CSRFToken": getCsrfToken(),
-                },
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.detail || t("profile.inviteFailed"));
-            }
-
-            const token = data.token;
-            const link = data.inviteUrl
-                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
-                : `${window.location.origin}/api/listings/invite/${token}/join/`;
-
+            setInviteError(null);
+            const link = await createInviteLink();
             await navigator.clipboard.writeText(link);
-            alert(t("profile.copied"));
+            setInviteFeedback(t("profile.copied"));
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+            setInviteError(e instanceof Error ? e.message : t("profile.inviteFailed"));
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const handleInviteByQr = async () => {
+        try {
+            setCreatingInvite(true);
+            setInviteError(null);
+            const link = await createInviteLink();
+            setInviteQrLink(link);
+            setIsQrModalOpen(true);
+        } catch (e) {
+            setInviteError(e instanceof Error ? e.message : t("profile.inviteFailed"));
         } finally {
             setCreatingInvite(false);
         }
@@ -2171,7 +2194,24 @@ export default function ProfilePage() {
                                         >
                                             {creatingInvite ? t("profile.creatingInvite") : t("profile.invite")}
                                         </button>
+                                        <button
+                                            onClick={handleInviteByQr}
+                                            disabled={creatingInvite}
+                                            className="px-6 py-3 rounded-lg border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB]/10 disabled:opacity-60"
+                                        >
+                                            {t("profile.inviteByQr")}
+                                        </button>
                                     </div>
+                                    {inviteFeedback && (
+                                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                                            {inviteFeedback}
+                                        </div>
+                                    )}
+                                    {inviteError && (
+                                        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                            {inviteError}
+                                        </div>
+                                    )}
 
                                     <button
                                         onClick={handleLeaveHome}
@@ -2215,6 +2255,39 @@ export default function ProfilePage() {
                     )}
                 </div>
             </div>
+            {isQrModalOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => setIsQrModalOpen(false)}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsQrModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            {t("profile.inviteByQr")}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            {t("profile.scanQrHint")}
+                        </p>
+                        <div className="mx-auto w-64 h-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white p-3">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(inviteQrLink)}`}
+                                alt={t("profile.inviteByQr")}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

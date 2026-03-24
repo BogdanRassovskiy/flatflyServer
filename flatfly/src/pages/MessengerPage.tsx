@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCsrfToken } from "../utils/csrf";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { MessageCircle, Send } from "lucide-react";
+import { CheckCircle2, MessageCircle, Send, XCircle } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
@@ -34,6 +34,8 @@ interface Chat {
   last_message: Message | null;
   unread_count: number;
   last_activity_at: string;
+  is_blocked?: boolean;
+  blocked_by_me?: boolean;
 }
 
 interface DraftConversation {
@@ -45,6 +47,9 @@ interface CurrentUserContacts {
   email: string;
   phone: string;
 }
+
+type ReportReason = "insult" | "threat" | "spam" | "fraud" | "inappropriate_content" | "other";
+type ToastKind = "success" | "error";
 
 interface MessagePageResponse {
   results: Message[];
@@ -230,10 +235,18 @@ export default function MessengerPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [deleteConfirmationChatId, setDeleteConfirmationChatId] = useState<number | null>(null);
   const [rememberDeleteChoice, setRememberDeleteChoice] = useState(false);
+  const [blacklist, setBlacklist] = useState<User[]>([]);
+  const [isBlacklistOpen, setIsBlacklistOpen] = useState(false);
+  const [isReportingOpen, setIsReportingOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("insult");
+  const [reportDetails, setReportDetails] = useState("");
+  const [isReportConsentOpen, setIsReportConsentOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoOpenAttemptedRef = useRef(false);
   const longPressTimeoutRef = useRef<number | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const initialScrollCompletedForChatRef = useRef<number | null>(null);
   const messageCacheRef = useRef<MessageCache>(messageCache);
@@ -252,7 +265,7 @@ export default function MessengerPage() {
   const isDraftConversationActive = Boolean(draftConversation);
   const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
   const canSendInCurrentChat = selectedChat ? (selectedChatPermission?.canSend ?? true) : true;
-  const isSendLocked = isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
+  const isSendLocked = Boolean(selectedChat?.is_blocked) || isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
 
   const getOtherParticipant = (chat: Chat) => {
     if (currentUserId === null) return chat.participants[0] ?? null;
@@ -292,6 +305,8 @@ export default function MessengerPage() {
   const activeParticipantAvatar = getParticipantAvatar(activeParticipant);
   const canOpenParticipantProfile = typeof activeParticipant?.profile_id === "number";
   const canShareContacts = Boolean(currentUserContacts.email || currentUserContacts.phone);
+  const selectedChatIsBlocked = Boolean(selectedChat?.is_blocked);
+  const selectedChatBlockedByMe = Boolean(selectedChat?.blocked_by_me);
 
   const updateMessageCacheEntry = (
     chatId: number,
@@ -519,6 +534,17 @@ export default function MessengerPage() {
     clearLongPressTimeout();
   };
 
+  const showToast = (message: string, kind: ToastKind) => {
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    setToast({ message, kind });
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 2600);
+  };
+
   const executeDeleteChat = async (chatId: number) => {
     const isDeletingSelectedChat = selectedChat?.chatid === chatId;
     try {
@@ -540,7 +566,7 @@ export default function MessengerPage() {
         setSelectedChat(null);
       }
     } catch {
-      window.alert(t("messenger.deleteError"));
+      showToast(t("messenger.deleteError"), "error");
     } finally {
       setActionMenuChatId(null);
       setDeleteConfirmationChatId(null);
@@ -612,6 +638,7 @@ export default function MessengerPage() {
         }
       })
       .catch(() => {});
+    void loadBlacklist().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -647,6 +674,9 @@ export default function MessengerPage() {
   useEffect(() => {
     return () => {
       clearLongPressTimeout();
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -969,12 +999,95 @@ export default function MessengerPage() {
     navigate(`/neighbours/${activeParticipant.profile_id}`);
   };
 
+  const loadBlacklist = async () => {
+    const response = await fetch("/api/chats/blacklist/", { credentials: "include" });
+    if (!response.ok) {
+      throw new Error("Failed to load blacklist");
+    }
+    const payload = await response.json();
+    setBlacklist(Array.isArray(payload) ? payload : []);
+  };
+
+  const handleBlockParticipant = async () => {
+    if (!activeParticipant?.id) return;
+    const response = await fetch("/api/chats/block/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ user_id: activeParticipant.id }),
+    });
+    if (!response.ok) {
+      showToast(t("messenger.blockFailed"), "error");
+      return;
+    }
+    showToast(t("messenger.blockSuccess"), "success");
+    setSelectedChat((previous) => (previous ? { ...previous, is_blocked: true, blocked_by_me: true } : previous));
+    void loadBlacklist();
+    setChats((previous) => previous.filter((chat) => chat.chatid !== selectedChatId));
+    setSelectedChat(null);
+  };
+
+  const handleUnblock = async (userId: number) => {
+    const response = await fetch("/api/chats/unblock/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (!response.ok) {
+      showToast(t("messenger.unblockFailed"), "error");
+      return;
+    }
+    setBlacklist((previous) => previous.filter((user) => user.id !== userId));
+    showToast(t("messenger.unblockSuccess"), "success");
+  };
+
+  const handleReport = async () => {
+    if (!selectedChat?.chatid) return;
+
+    const response = await fetch(`/api/chats/${selectedChat.chatid}/report/`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({
+        reason: reportReason,
+        details: reportDetails,
+        consent_confirmed: true,
+      }),
+    });
+    if (!response.ok) {
+      showToast(t("messenger.reportFailed"), "error");
+      return;
+    }
+    showToast(t("messenger.reportSuccess"), "success");
+    setIsReportingOpen(false);
+    setIsReportConsentOpen(false);
+    setReportReason("insult");
+    setReportDetails("");
+  };
+
   return (
     <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full bg-white dark:bg-gray-900">
       <div className="min-w-[140px] max-w-[260px] w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:w-[200px] lg:w-[240px]">
         <div className="mb-4 flex items-center gap-2">
           <MessageCircle className="text-[#C505EB]" size={24} />
           <span className="text-lg font-bold text-black dark:text-white">{t("messenger.title")}</span>
+          <button
+            type="button"
+            className="ml-auto rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            onClick={() => setIsBlacklistOpen(true)}
+          >
+            {t("messenger.blacklist")}
+          </button>
         </div>
         <input
           type="text"
@@ -1066,16 +1179,40 @@ export default function MessengerPage() {
                   <div className="truncate text-sm font-semibold text-black dark:text-white">{activeParticipantName}</div>
                 </div>
               </button>
-              <button
-                type="button"
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                onClick={() => {
-                  void handleShareContacts();
-                }}
-                disabled={isSending || !canShareContacts}
-              >
-                {t("messenger.shareContacts")}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    void handleShareContacts();
+                  }}
+                  disabled={isSending || !canShareContacts}
+                >
+                  {t("messenger.shareContacts")}
+                </button>
+                {selectedChat && (
+                  <>
+                    {!selectedChatBlockedByMe && (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                        onClick={() => {
+                          void handleBlockParticipant();
+                        }}
+                      >
+                        {t("messenger.blockUser")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                      onClick={() => setIsReportingOpen(true)}
+                    >
+                      {t("messenger.reportUser")}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <div
               ref={messagesContainerRef}
@@ -1111,10 +1248,12 @@ export default function MessengerPage() {
               )}
             </div>
             <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-              {(isDraftConversationActive || isAwaitingReply || sendError) && (
+              {(isDraftConversationActive || isAwaitingReply || sendError || selectedChatIsBlocked) && (
                 <div className={`mb-3 rounded-lg border px-3 py-2 text-sm ${sendError ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-900/20 dark:text-red-300" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300"}`}>
                   {sendError
                     ? sendError
+                    : selectedChatIsBlocked
+                      ? t("messenger.blockedChatWarning")
                     : isAwaitingReply
                       ? t("messenger.awaitingReplyWarning")
                       : t("messenger.firstMessageWarning")}
@@ -1190,6 +1329,133 @@ export default function MessengerPage() {
                 {t("messenger.deleteChatForBoth")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isBlacklistOpen && (
+        <div
+          className="fixed inset-0 z-[202] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setIsBlacklistOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 text-lg font-bold text-black dark:text-white">{t("messenger.blacklist")}</div>
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t("messenger.blacklistDescription")}</div>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {blacklist.length === 0 && (
+                <div className="text-sm text-gray-500">{t("messenger.blacklistEmpty")}</div>
+              )}
+              {blacklist.map((user) => (
+                <div key={user.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+                  <span className="text-sm text-black dark:text-white">{getParticipantName(user)}</span>
+                  <button
+                    type="button"
+                    className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      void handleUnblock(user.id);
+                    }}
+                  >
+                    {t("messenger.unblock")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {isReportingOpen && (
+        <div
+          className="fixed inset-0 z-[203] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setIsReportingOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 text-lg font-bold text-black dark:text-white">{t("messenger.reportUser")}</div>
+            <select
+              value={reportReason}
+              onChange={(event) => setReportReason(event.target.value as ReportReason)}
+              className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            >
+              <option value="insult">{t("messenger.reportReasonInsult")}</option>
+              <option value="threat">{t("messenger.reportReasonThreat")}</option>
+              <option value="spam">{t("messenger.reportReasonSpam")}</option>
+              <option value="fraud">{t("messenger.reportReasonFraud")}</option>
+              <option value="inappropriate_content">{t("messenger.reportReasonInappropriate")}</option>
+              <option value="other">{t("messenger.reportReasonOther")}</option>
+            </select>
+            <textarea
+              value={reportDetails}
+              onChange={(event) => setReportDetails(event.target.value)}
+              rows={4}
+              placeholder={t("messenger.reportDetailsPlaceholder")}
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setIsReportingOpen(false)}
+              >
+                {t("messenger.cancel")}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                onClick={() => {
+                  setIsReportConsentOpen(true);
+                }}
+              >
+                {t("messenger.sendReport")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isReportConsentOpen && (
+        <div
+          className="fixed inset-0 z-[204] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setIsReportConsentOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 text-lg font-bold text-black dark:text-white">{t("messenger.reportConsentTitle")}</div>
+            <div className="mb-5 text-sm text-gray-600 dark:text-gray-300">{t("messenger.reportConsent")}</div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setIsReportConsentOpen(false)}
+              >
+                {t("messenger.cancel")}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                onClick={() => {
+                  void handleReport();
+                }}
+              >
+                {t("messenger.reportConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {toast && (
+        <div className="pointer-events-none fixed bottom-6 right-6 z-[205]">
+          <div
+            className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl ${
+              toast.kind === "success" ? "bg-emerald-600" : "bg-red-600"
+            }`}
+          >
+            {toast.kind === "success" ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+            {toast.message}
           </div>
         </div>
       )}

@@ -43,6 +43,7 @@ urlpatterns = [
     path("api/streets/search", views.streets_search, name="streets_search"),
     path("api/geocode/reverse", views.reverse_geocode, name="reverse_geocode"),
     path("api/listings/<int:listing_id>/", views.listing_detail, name="listing_detail"),
+    path("api/listings/<int:listing_id>/report/", views.report_listing, name="report_listing"),
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),
     path("api/neighbours/<int:profile_id>/", views.neighbour_detail, name="neighbour_detail"),
     path("api/neighbours/<int:profile_id>/review/", views.submit_profile_review, name="submit_profile_review"),

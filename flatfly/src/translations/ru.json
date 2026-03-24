@@ -39,6 +39,30 @@
     "deleteConfirm": "Удалить чат у обоих пользователей? Все сообщения будут удалены.",
     "dontAskAgain": "Больше не спрашивать",
     "shareContacts": "Поделиться контактами",
+    "blacklist": "Черный список",
+    "blacklistDescription": "Пользователи, которых вы заблокировали:",
+    "blacklistEmpty": "Черный список пуст",
+    "blockUser": "Заблокировать",
+    "unblock": "Разблокировать",
+    "blockSuccess": "Пользователь добавлен в черный список",
+    "blockFailed": "Не удалось заблокировать пользователя",
+    "unblockFailed": "Не удалось разблокировать пользователя",
+    "unblockSuccess": "Пользователь разблокирован",
+    "blockedChatWarning": "Чат заблокирован. Отправка сообщений недоступна.",
+    "reportUser": "Пожаловаться",
+    "sendReport": "Отправить жалобу",
+    "reportReasonInsult": "Оскорбление",
+    "reportReasonThreat": "Угроза",
+    "reportReasonSpam": "Спам",
+    "reportReasonFraud": "Мошенничество",
+    "reportReasonInappropriate": "Неприемлемый контент",
+    "reportReasonOther": "Другое",
+    "reportDetailsPlaceholder": "Опишите ситуацию (необязательно)",
+    "reportConsentTitle": "Подтверждение отправки жалобы",
+    "reportConsent": "Отправкой жалобы вы даете согласие на то, что служба поддержки получит доступ к данному чату для проверки.",
+    "reportConfirm": "Подтвердить",
+    "reportSuccess": "Жалоба отправлена",
+    "reportFailed": "Не удалось отправить жалобу",
     "contactsMessageIntro": "Мои контакты:",
     "contactsMessagePhone": "Телефон",
     "contactsMessageEmail": "E-mail",
@@ -324,6 +348,16 @@
     ,"nearestBusStop": "Ближайшая автобусная остановка"
     ,"nearestShop": "Ближайший магазин"
     ,"nearestHospital": "Ближайшая больница"
+    ,"reportListing": "Пожаловаться на объявление"
+    ,"sendReport": "Отправить жалобу"
+    ,"reportReasonFraud": "Мошенничество"
+    ,"reportReasonSpam": "Спам"
+    ,"reportReasonFake": "Фейковое объявление"
+    ,"reportReasonInappropriate": "Неприемлемый контент"
+    ,"reportReasonOther": "Другое"
+    ,"reportDetailsPlaceholder": "Опишите проблему (необязательно)"
+    ,"reportSuccess": "Жалоба отправлена"
+    ,"reportFailed": "Не удалось отправить жалобу"
   },
   "pagination": {
     "next": "Далее"
@@ -528,9 +562,24 @@
     "completionMissingListTitle": "Что нужно заполнить",
     "completionNoMissing": "Отлично! Все поля профиля заполнены.",
     "completionFields": {
+      "name": "Имя",
+      "phone": "Телефон",
+      "age": "Возраст",
+      "gender": "Пол",
+      "city": "Край",
+      "profession": "Профессия",
+      "languages": "Языки",
       "about": "О себе",
+      "smoking": "Курение",
+      "alcohol": "Алкоголь",
+      "sleep_schedule": "Режим сна",
       "noise_tolerance": "Отношение к шуму",
+      "gamer": "Геймер",
+      "work_from_home": "Работа из дома",
       "pets": "Домашние животные / Отношение к животным",
+      "cleanliness": "Уровень чистоплотности",
+      "introvert_extrovert": "Интроверт / Экстраверт",
+      "guests_parties": "Гости / Вечеринки",
       "faculty": "Факультет",
       "university": "Университет",
       "location_address": "Адрес",
@@ -670,6 +719,9 @@
     "inviteLink": "Ссылка приглашения",
     "copyLink": "Копировать ссылку",
     "copied": "Ссылка скопирована",
+    "inviteByQr": "Пригласить по QR коду",
+    "scanQrHint": "Покажите этот QR-код человеку, которого хотите пригласить в жильцы.",
+    "closeQrModal": "Закрыть окно QR-кода",
     "inviteFailed": "Не удалось создать приглашение",
     "joinedHomeSuccess": "Вы успешно присоединились к дому!",
     "errorUploadingAvatar": "Ошибка загрузки аватара",

@@ -39,6 +39,30 @@
     "deleteConfirm": "Delete chat for both users? All messages will be removed.",
     "dontAskAgain": "Don't ask again",
     "shareContacts": "Share contacts",
+    "blacklist": "Blacklist",
+    "blacklistDescription": "Users you have blocked:",
+    "blacklistEmpty": "Blacklist is empty",
+    "blockUser": "Block",
+    "unblock": "Unblock",
+    "blockSuccess": "User has been blocked",
+    "blockFailed": "Failed to block user",
+    "unblockFailed": "Failed to unblock user",
+    "unblockSuccess": "User has been unblocked",
+    "blockedChatWarning": "This chat is blocked. Sending messages is unavailable.",
+    "reportUser": "Report",
+    "sendReport": "Send report",
+    "reportReasonInsult": "Insult",
+    "reportReasonThreat": "Threat",
+    "reportReasonSpam": "Spam",
+    "reportReasonFraud": "Fraud",
+    "reportReasonInappropriate": "Inappropriate content",
+    "reportReasonOther": "Other",
+    "reportDetailsPlaceholder": "Describe the situation (optional)",
+    "reportConsentTitle": "Confirm report submission",
+    "reportConsent": "By submitting a report, you consent that support staff may access this chat for review.",
+    "reportConfirm": "Confirm",
+    "reportSuccess": "Report sent",
+    "reportFailed": "Failed to send report",
     "contactsMessageIntro": "My contacts:",
     "contactsMessagePhone": "Phone",
     "contactsMessageEmail": "E-mail",
@@ -324,6 +348,16 @@
     ,"nearestBusStop": "Nearest Bus Stop"
     ,"nearestShop": "Nearest Shop"
     ,"nearestHospital": "Nearest Hospital"
+    ,"reportListing": "Report listing"
+    ,"sendReport": "Send report"
+    ,"reportReasonFraud": "Fraud"
+    ,"reportReasonSpam": "Spam"
+    ,"reportReasonFake": "Fake listing"
+    ,"reportReasonInappropriate": "Inappropriate content"
+    ,"reportReasonOther": "Other"
+    ,"reportDetailsPlaceholder": "Describe the issue (optional)"
+    ,"reportSuccess": "Report submitted"
+    ,"reportFailed": "Failed to submit report"
   },
   "pagination": {
     "next": "Next"
@@ -528,9 +562,24 @@
     "completionMissingListTitle": "Fields to complete",
     "completionNoMissing": "Great! Your profile is fully completed.",
     "completionFields": {
+      "name": "Name",
+      "phone": "Phone",
+      "age": "Age",
+      "gender": "Gender",
+      "city": "Region",
+      "profession": "Profession",
+      "languages": "Languages",
       "about": "About Me",
+      "smoking": "Smoking",
+      "alcohol": "Alcohol",
+      "sleep_schedule": "Sleep Schedule",
       "noise_tolerance": "Noise Tolerance",
+      "gamer": "Gamer",
+      "work_from_home": "Work from Home",
       "pets": "Pets / Attitude to Animals",
+      "cleanliness": "Cleanliness",
+      "introvert_extrovert": "Introvert / Extrovert",
+      "guests_parties": "Guests / Parties",
       "faculty": "Faculty",
       "university": "University",
       "location_address": "Location Address",
@@ -670,6 +719,9 @@
     "inviteLink": "Invite link",
     "copyLink": "Copy link",
     "copied": "Link copied",
+    "inviteByQr": "Invite by QR code",
+    "scanQrHint": "Show this QR code to the person you want to invite as a resident.",
+    "closeQrModal": "Close QR modal",
     "inviteFailed": "Failed to create invite",
     "joinedHomeSuccess": "You have successfully joined the home!",
     "errorUploadingAvatar": "Error uploading avatar",

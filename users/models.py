@@ -166,6 +166,7 @@ class Profile(models.Model):
     with_children = models.BooleanField(default=False)
     with_disability = models.BooleanField(default=False)
     pensioner = models.BooleanField(default=False)
+    moderation_strikes = models.PositiveSmallIntegerField(default=0)
 
     # === AUTH ===
     AUTH_PROVIDERS = [

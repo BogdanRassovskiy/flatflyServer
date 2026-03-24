@@ -170,6 +170,65 @@ class Listing(models.Model):
     def __str__(self):
         return f"{self.title} ({self.city if self.city else self.region})"
 
+
+class ListingReport(models.Model):
+    REASON_FRAUD = "fraud"
+    REASON_SPAM = "spam"
+    REASON_FAKE = "fake_listing"
+    REASON_INAPPROPRIATE = "inappropriate_content"
+    REASON_OTHER = "other"
+    REASON_CHOICES = [
+        (REASON_FRAUD, "Мошенничество"),
+        (REASON_SPAM, "Спам"),
+        (REASON_FAKE, "Фейковое объявление"),
+        (REASON_INAPPROPRIATE, "Неприемлемый контент"),
+        (REASON_OTHER, "Другое"),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_REJECTED = "rejected"
+    STATUS_CONFIRMED_DELETE = "confirmed_delete"
+    STATUS_CONFIRMED_DELETE_STRIKE = "confirmed_delete_strike"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Ожидает"),
+        (STATUS_REJECTED, "Отклонена"),
+        (STATUS_CONFIRMED_DELETE, "Подтверждена (удалено объявление)"),
+        (STATUS_CONFIRMED_DELETE_STRIKE, "Подтверждена (удалено объявление + страйк)"),
+    ]
+
+    listing = models.ForeignKey(Listing, related_name="reports", on_delete=models.CASCADE)
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="listing_reports_created",
+        on_delete=models.CASCADE,
+    )
+    listing_owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="listing_reports_received",
+        on_delete=models.CASCADE,
+    )
+    reason = models.CharField(max_length=64, choices=REASON_CHOICES)
+    details = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="listing_reports_reviewed",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.TextField(blank=True, default="")
+    strike_applied = models.BooleanField(default=False)
+    listing_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"ListingReport {self.id} for listing {self.listing_id}"
+
 class ListingImage(models.Model):
     listing = models.ForeignKey(
         Listing,

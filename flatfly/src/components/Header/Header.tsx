@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Menu, Moon, Sun, X, ChevronDown, MessageCircle } from "lucide-react";
+import { CircleUser, Globe, Menu, Moon, Sun, X, ChevronDown, MessageCircle, Plus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -241,7 +241,13 @@ export default function Header() {
                         </div>
                     )}
 
-                    <Link to="/add" className={` ${isSearchPage && `max-[1220px]:hidden`} flex items-center px-5 py-0.5 rounded-full border-[3px] border-[#C505EB] text-[#08E2BE] font-bold text-[24px] max-[770px]:hidden hover:bg-[#C505EB] hover:text-white duration-300`}>
+                    <Link
+                        to="/add"
+                        className={`${isSearchPage && `max-[1220px]:hidden`} group max-[770px]:hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#9E04C2] to-[#06A8B8] px-5 py-2 text-white font-extrabold text-[18px] shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.99] duration-300`}
+                    >
+                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 group-hover:bg-white/30 duration-300`}>
+                            <Plus size={16} />
+                        </span>
                         <span className={`whitespace-nowrap`}>{t("header.addListing")}</span>
                     </Link>
 
@@ -500,10 +506,10 @@ export default function Header() {
                             {/* Добавить объявление */}
                             <Link
                                 to="/add"
-                                className={`w-full px-4 py-3 text-lg font-bold rounded-xl duration-300 text-center touch-manipulation active:scale-95 ${
+                                className={`w-full px-4 py-3 text-lg font-bold rounded-xl duration-300 text-center touch-manipulation active:scale-95 inline-flex items-center justify-center gap-2 ${
                                     pathname === "/add" 
-                                        ? 'bg-[#C505EB] text-white shadow-md' 
-                                        : 'text-[#333333] dark:text-gray-200 bg-[#F9F9F9] dark:bg-gray-800 hover:bg-[#F5F5F5] dark:hover:bg-gray-700 active:bg-[#EEEEEE] dark:active:bg-gray-600'
+                                        ? 'bg-gradient-to-r from-[#9E04C2] to-[#06A8B8] text-white shadow-md' 
+                                        : 'text-white bg-gradient-to-r from-[#9E04C2] to-[#06A8B8] hover:opacity-95 shadow-md'
                                 }`}
                                 onClick={() => {
                                     setTimeout(() => {
@@ -511,6 +517,7 @@ export default function Header() {
                                     }, 100);
                                 }}
                             >
+                                <Plus size={18} />
                                 {t("header.addListing")}
                             </Link>
                             

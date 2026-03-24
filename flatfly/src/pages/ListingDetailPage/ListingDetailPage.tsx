@@ -1,4 +1,4 @@
-import {useState, useEffect, useMemo} from "react";
+import {useState, useEffect, useMemo, useRef} from "react";
 import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X} from "lucide-react";
 import {Icon} from "@iconify/react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
@@ -105,6 +105,9 @@ function MapRecenterController({ center, trigger }: { center: [number, number]; 
 }
 
 type ListingType = "ROOM" | "NEIGHBOUR" | "APARTMENT";
+type ListingReportReason = "fraud" | "spam" | "fake_listing" | "inappropriate_content" | "other";
+type ListingConfirmAction = "delete_listing" | "remove_from_home";
+type ListingToastKind = "success" | "error";
 
 export default function ListingDetailPage() {
     const { t } = useLanguage();
@@ -594,6 +597,8 @@ export default function ListingDetailPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [messageStartLoading, setMessageStartLoading] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [isInviteQrModalOpen, setIsInviteQrModalOpen] = useState(false);
+    const [inviteQrLink, setInviteQrLink] = useState("");
     const [removingFromHome, setRemovingFromHome] = useState(false);
     const [reviewRating, setReviewRating] = useState<number>(0);
     const [reviewComment, setReviewComment] = useState("");
@@ -616,6 +621,13 @@ export default function ListingDetailPage() {
     const [nearestHospital, setNearestHospital] = useState<{ dist: number; time: number } | null>(null);
     const [routeMode, setRouteMode] = useState<RouteMode>("walking");
     const [mapRecenterTrigger, setMapRecenterTrigger] = useState(0);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportReason, setReportReason] = useState<ListingReportReason>("fraud");
+    const [reportDetails, setReportDetails] = useState("");
+    const [reportSubmitting, setReportSubmitting] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<ListingConfirmAction | null>(null);
+    const [toast, setToast] = useState<{ kind: ListingToastKind; message: string } | null>(null);
+    const toastTimeoutRef = useRef<number | null>(null);
     const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
@@ -637,6 +649,25 @@ export default function ListingDetailPage() {
         if (!isAuthenticated) {
             router("/auth");
         }
+    };
+
+    const handleOpenListingReport = () => {
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+        setIsReportModalOpen(true);
+    };
+
+    const showToast = (message: string, kind: ListingToastKind = "success") => {
+        if (toastTimeoutRef.current !== null) {
+            window.clearTimeout(toastTimeoutRef.current);
+        }
+        setToast({ kind, message });
+        toastTimeoutRef.current = window.setTimeout(() => {
+            setToast(null);
+            toastTimeoutRef.current = null;
+        }, 2600);
     };
 
     const handleWriteMessage = async () => {
@@ -680,6 +711,37 @@ export default function ListingDetailPage() {
         }
     };
 
+    const handleSubmitListingReport = async () => {
+        if (!id || !isAuthenticated || reportSubmitting) return;
+        try {
+            setReportSubmitting(true);
+            const response = await fetch(`/api/listings/${id}/report/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                body: JSON.stringify({
+                    reason: reportReason,
+                    details: reportDetails,
+                }),
+            });
+            if (!response.ok) {
+                throw new Error("Failed to send listing report");
+            }
+            setIsReportModalOpen(false);
+            setReportDetails("");
+            setReportReason("fraud");
+            showToast(t("listing.reportSuccess"), "success");
+        } catch (error) {
+            console.error(error);
+            showToast(t("listing.reportFailed"), "error");
+        } finally {
+            setReportSubmitting(false);
+        }
+    };
+
     useEffect(() => {
         if (type !== "NEIGHBOUR") {
             return;
@@ -687,6 +749,14 @@ export default function ListingDetailPage() {
         setReviewRating(typeof myRating === "number" ? myRating : 0);
         setReviewComment(myComment || "");
     }, [type, myRating, myComment]);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimeoutRef.current !== null) {
+                window.clearTimeout(toastTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSubmitReview = async () => {
         if (!id || type !== "NEIGHBOUR") return;
@@ -773,7 +843,6 @@ export default function ListingDetailPage() {
 
     const handleDeleteListing = async () => {
         if (!id || type === "NEIGHBOUR") return;
-        if (!window.confirm(t("listing.confirmDelete"))) return;
 
         try {
             const res = await fetch(`/api/listings/${id}/`, {
@@ -791,7 +860,7 @@ export default function ListingDetailPage() {
 
             router(type === "ROOM" ? "/rooms" : "/apartments");
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         }
     };
 
@@ -820,36 +889,54 @@ export default function ListingDetailPage() {
                 isActive: nextActive,
             }));
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         }
     };
 
-    const handleCreateInvite = async () => {
-        if (!id || type === "NEIGHBOUR") return;
+    const createInviteLink = async (): Promise<string> => {
+        if (!id || type === "NEIGHBOUR") {
+            throw new Error(t("profile.inviteFailed"));
+        }
 
+        const res = await fetch(`/api/listings/${id}/invite/`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": getCsrfToken(),
+            },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || t("profile.inviteFailed"));
+        }
+
+        const token = data.token;
+        return data.inviteUrl
+            ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+            : `${window.location.origin}/api/listings/invite/${token}/join/`;
+    };
+
+    const handleCreateInvite = async () => {
         try {
             setCreatingInvite(true);
-            const res = await fetch(`/api/listings/${id}/invite/`, {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "X-CSRFToken": getCsrfToken(),
-                },
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.detail || t("profile.inviteFailed"));
-            }
-
-            const token = data.token;
-            const link = data.inviteUrl
-                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
-                : `${window.location.origin}/api/listings/invite/${token}/join/`;
-
+            const link = await createInviteLink();
             await navigator.clipboard.writeText(link);
-            alert(t("profile.copied"));
+            showToast(t("profile.copied"), "success");
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+            showToast(e instanceof Error ? e.message : t("profile.inviteFailed"), "error");
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const handleInviteByQr = async () => {
+        try {
+            setCreatingInvite(true);
+            const link = await createInviteLink();
+            setInviteQrLink(link);
+            setIsInviteQrModalOpen(true);
+        } catch (e) {
+            showToast(e instanceof Error ? e.message : t("profile.inviteFailed"), "error");
         } finally {
             setCreatingInvite(false);
         }
@@ -862,9 +949,6 @@ export default function ListingDetailPage() {
 
     const handleRemoveFromHome = async () => {
         if (!id || type !== "NEIGHBOUR") return;
-        if (!window.confirm(t("listing.removeFromHomeConfirm"))) {
-            return;
-        }
 
         try {
             setRemovingFromHome(true);
@@ -881,15 +965,27 @@ export default function ListingDetailPage() {
                 throw new Error(data.detail || t("listing.actionFailed"));
             }
 
-            alert(t("listing.removedFromHomeSuccess"));
+            showToast(t("listing.removedFromHomeSuccess"), "success");
             setListingData((prev) => ({
                 ...prev,
                 canRemoveFromHome: false,
             }));
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         } finally {
             setRemovingFromHome(false);
+        }
+    };
+
+    const handleConfirmProceed = async () => {
+        const action = confirmAction;
+        setConfirmAction(null);
+        if (action === "delete_listing") {
+            await handleDeleteListing();
+            return;
+        }
+        if (action === "remove_from_home") {
+            await handleRemoveFromHome();
         }
     };
 
@@ -1905,6 +2001,14 @@ out center;`;
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={handleInviteByQr}
+                                        disabled={creatingInvite}
+                                        className={`px-6 py-3 rounded-lg border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB]/10 disabled:opacity-60 duration-300 font-semibold`}
+                                    >
+                                        {t("profile.inviteByQr")}
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={handleEditListing}
                                         className={`px-6 py-3 rounded-lg bg-[#C505EB] text-white hover:bg-[#BA00F8] duration-300 font-semibold`}
                                     >
@@ -1919,7 +2023,7 @@ out center;`;
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={handleDeleteListing}
+                                        onClick={() => setConfirmAction("delete_listing")}
                                         className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 duration-300 font-semibold`}
                                     >
                                         {t("listing.delete")}
@@ -1932,7 +2036,7 @@ out center;`;
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
                                 <button
                                     type="button"
-                                    onClick={handleRemoveFromHome}
+                                    onClick={() => setConfirmAction("remove_from_home")}
                                     disabled={removingFromHome}
                                     className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 duration-300 font-semibold`}
                                 >
@@ -2256,11 +2360,136 @@ out center;`;
                                 </div>
                             )}
                         </div>
+                        {type !== "NEIGHBOUR" && (
+                            <button
+                                onClick={handleOpenListingReport}
+                                className={`mt-4 w-full py-3 rounded-full border border-red-400 text-red-600 text-base font-bold hover:bg-red-50 duration-300 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20`}
+                            >
+                                {t("listing.reportListing")}
+                            </button>
+                        )}
                     </div>
 
                 </div>
 
             </div>
+
+            {confirmAction && (
+                <div className="fixed inset-0 z-[1290] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setConfirmAction(null)}>
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>
+                        <h3 className="mb-3 text-xl font-bold text-[#333333] dark:text-white">
+                            {confirmAction === "delete_listing" ? t("listing.delete") : t("listing.removeFromHome")}
+                        </h3>
+                        <p className="mb-5 text-sm text-[#666666] dark:text-gray-300">
+                            {confirmAction === "delete_listing" ? t("listing.confirmDelete") : t("listing.removeFromHomeConfirm")}
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                onClick={() => setConfirmAction(null)}
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                                onClick={() => {
+                                    void handleConfirmProceed();
+                                }}
+                            >
+                                {confirmAction === "delete_listing" ? t("listing.delete") : t("listing.removeFromHome")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isReportModalOpen && (
+                <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setIsReportModalOpen(false)}>
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>
+                        <h3 className="mb-3 text-xl font-bold text-[#333333] dark:text-white">{t("listing.reportListing")}</h3>
+                        <select
+                            value={reportReason}
+                            onChange={(event) => setReportReason(event.target.value as ListingReportReason)}
+                            className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                        >
+                            <option value="fraud">{t("listing.reportReasonFraud")}</option>
+                            <option value="spam">{t("listing.reportReasonSpam")}</option>
+                            <option value="fake_listing">{t("listing.reportReasonFake")}</option>
+                            <option value="inappropriate_content">{t("listing.reportReasonInappropriate")}</option>
+                            <option value="other">{t("listing.reportReasonOther")}</option>
+                        </select>
+                        <textarea
+                            value={reportDetails}
+                            onChange={(event) => setReportDetails(event.target.value)}
+                            rows={4}
+                            className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                            placeholder={t("listing.reportDetailsPlaceholder")}
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                onClick={() => setIsReportModalOpen(false)}
+                                disabled={reportSubmitting}
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                                onClick={() => {
+                                    void handleSubmitListingReport();
+                                }}
+                                disabled={reportSubmitting}
+                            >
+                                {reportSubmitting ? t("loading") : t("listing.sendReport")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isInviteQrModalOpen && (
+                <div className="fixed inset-0 z-[1310] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/60"
+                        onClick={() => setIsInviteQrModalOpen(false)}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                        <button
+                            type="button"
+                            onClick={() => setIsInviteQrModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="mb-2 text-lg font-semibold text-[#333333] dark:text-white">
+                            {t("profile.inviteByQr")}
+                        </h3>
+                        <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                            {t("profile.scanQrHint")}
+                        </p>
+                        <div className="mx-auto h-64 w-64 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(inviteQrLink)}`}
+                                alt={t("profile.inviteByQr")}
+                                className="h-full w-full object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+            {toast && (
+                <div className="pointer-events-none fixed bottom-6 right-6 z-[1310]">
+                    <div className={`rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl ${toast.kind === "success" ? "bg-emerald-600" : "bg-red-600"}`}>
+                        {toast.message}
+                    </div>
+                </div>
+            )}
 
             {/* Модальное окно для полноэкранного просмотра */}
             {isModalOpen && (

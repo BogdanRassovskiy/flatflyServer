@@ -43,11 +43,12 @@ export default function MapPicker({ center, point, onPointChange }: MapPickerPro
   }, [point, center]);
 
   return (
-    <div className="w-full h-[320px] max-[770px]:h-[280px] rounded-2xl overflow-hidden border border-[#E0E0E0] dark:border-gray-600">
+    <div className="relative z-0 w-full h-[320px] max-[770px]:h-[280px] rounded-2xl overflow-hidden border border-[#E0E0E0] dark:border-gray-600">
       <MapContainer
         center={center}
         zoom={13}
-        className="w-full h-full"
+        className="relative z-0 w-full h-full"
+        style={{ zIndex: 0 }}
         scrollWheelZoom={true}
       >
         <TileLayer

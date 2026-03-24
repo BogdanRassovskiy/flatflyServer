@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Chat, Message
+from .models import Chat, Message, ChatBlock
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -49,10 +49,12 @@ class ChatSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     last_activity_at = serializers.SerializerMethodField()
+    is_blocked = serializers.SerializerMethodField()
+    blocked_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Chat
-        fields = ('chatid', 'participants', 'created_at', 'last_message', 'unread_count', 'last_activity_at')
+        fields = ('chatid', 'participants', 'created_at', 'last_message', 'unread_count', 'last_activity_at', 'is_blocked', 'blocked_by_me')
 
     def get_last_message(self, obj):
         last = obj.messages.order_by('-created_at').first()
@@ -67,3 +69,26 @@ class ChatSerializer(serializers.ModelSerializer):
     def get_last_activity_at(self, obj):
         last = obj.messages.order_by('-created_at').first()
         return (last.created_at if last else obj.created_at)
+
+    def get_is_blocked(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        participant_ids = list(obj.participants.values_list('id', flat=True))
+        other_ids = [uid for uid in participant_ids if uid != request.user.id]
+        if not other_ids:
+            return False
+        return ChatBlock.objects.filter(
+            blocker_id__in=[request.user.id, *other_ids],
+            blocked_id__in=[request.user.id, *other_ids],
+        ).exists()
+
+    def get_blocked_by_me(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        participant_ids = list(obj.participants.values_list('id', flat=True))
+        other_ids = [uid for uid in participant_ids if uid != request.user.id]
+        if not other_ids:
+            return False
+        return ChatBlock.objects.filter(blocker=request.user, blocked_id__in=other_ids).exists()

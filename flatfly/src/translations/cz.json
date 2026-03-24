@@ -39,6 +39,30 @@
     "deleteConfirm": "Smazat chat oběma uživatelům? Všechny zprávy budou odstraněny.",
     "dontAskAgain": "Příště se neptat",
     "shareContacts": "Sdílet kontakty",
+    "blacklist": "Černá listina",
+    "blacklistDescription": "Uživatelé, které jste zablokovali:",
+    "blacklistEmpty": "Černá listina je prázdná",
+    "blockUser": "Zablokovat",
+    "unblock": "Odblokovat",
+    "blockSuccess": "Uživatel byl zablokován",
+    "blockFailed": "Uživatele se nepodařilo zablokovat",
+    "unblockFailed": "Uživatele se nepodařilo odblokovat",
+    "unblockSuccess": "Uživatel byl odblokován",
+    "blockedChatWarning": "Tento chat je zablokovaný. Odesílání zpráv není dostupné.",
+    "reportUser": "Nahlásit",
+    "sendReport": "Odeslat hlášení",
+    "reportReasonInsult": "Urážka",
+    "reportReasonThreat": "Vyhrožování",
+    "reportReasonSpam": "Spam",
+    "reportReasonFraud": "Podvod",
+    "reportReasonInappropriate": "Nevhodný obsah",
+    "reportReasonOther": "Jiné",
+    "reportDetailsPlaceholder": "Popište situaci (volitelné)",
+    "reportConsentTitle": "Potvrzení odeslání hlášení",
+    "reportConsent": "Odesláním hlášení souhlasíte s tím, že podpora získá přístup k tomuto chatu pro kontrolu.",
+    "reportConfirm": "Potvrdit",
+    "reportSuccess": "Hlášení bylo odesláno",
+    "reportFailed": "Hlášení se nepodařilo odeslat",
     "contactsMessageIntro": "Moje kontakty:",
     "contactsMessagePhone": "Telefon",
     "contactsMessageEmail": "E-mail",
@@ -323,6 +347,16 @@
     ,"nearestBusStop": "Nejbližší autobusová zastávka"
     ,"nearestShop": "Nejbližší obchod"
     ,"nearestHospital": "Nejbližší nemocnice"
+    ,"reportListing": "Nahlásit inzerát"
+    ,"sendReport": "Odeslat hlášení"
+    ,"reportReasonFraud": "Podvod"
+    ,"reportReasonSpam": "Spam"
+    ,"reportReasonFake": "Falešný inzerát"
+    ,"reportReasonInappropriate": "Nevhodný obsah"
+    ,"reportReasonOther": "Jiné"
+    ,"reportDetailsPlaceholder": "Popište problém (volitelné)"
+    ,"reportSuccess": "Hlášení odesláno"
+    ,"reportFailed": "Hlášení se nepodařilo odeslat"
   },
   "pagination": {
     "next": "Další"
@@ -525,9 +559,24 @@
     "completionMissingListTitle": "Co je potřeba doplnit",
     "completionNoMissing": "Skvělé! Profil je kompletně vyplněný.",
     "completionFields": {
+      "name": "Jméno",
+      "phone": "Telefon",
+      "age": "Věk",
+      "gender": "Pohlaví",
+      "city": "Kraj",
+      "profession": "Profese",
+      "languages": "Jazyky",
       "about": "O mně",
+      "smoking": "Kouření",
+      "alcohol": "Alkohol",
+      "sleep_schedule": "Režim spánku",
       "noise_tolerance": "Tolerance k hluku",
+      "gamer": "Hráč",
+      "work_from_home": "Práce z domova",
       "pets": "Domácí zvířata / Postoj ke zvířatům",
+      "cleanliness": "Úroveň čistoty",
+      "introvert_extrovert": "Introvert / Extrovert",
+      "guests_parties": "Hosté / Večírky",
       "faculty": "Fakulta",
       "university": "Univerzita",
       "location_address": "Adresa",
@@ -667,6 +716,9 @@
     "inviteLink": "Pozvánkový odkaz",
     "copyLink": "Kopírovat odkaz",
     "copied": "Odkaz zkopírován",
+    "inviteByQr": "Pozvat přes QR kód",
+    "scanQrHint": "Ukažte tento QR kód osobě, kterou chcete pozvat jako obyvatele.",
+    "closeQrModal": "Zavřít QR okno",
     "inviteFailed": "Nepodařilo se vytvořit pozvánku",
     "joinedHomeSuccess": "Úspěšně jste se připojili k domovu!",
     "errorUploadingAvatar": "Chyba při nahrávání avatara",
