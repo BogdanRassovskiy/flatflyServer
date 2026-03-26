@@ -29,6 +29,8 @@ interface ProfileData {
     universityName: string;
     facultyName: string;
     profession: string;
+    instagram: string;
+    facebook: string;
     about: string;
     
     // Социальные параметры
@@ -137,6 +139,8 @@ export default function ProfilePage() {
         universityName: "",
         facultyName: "",
         profession: "",
+        instagram: "",
+        facebook: "",
         about: "",
         smoking: "",
         alcohol: "",
@@ -1510,6 +1514,29 @@ export default function ProfilePage() {
                                 >
                                     {showAddressPicker ? t("profile.hideAddressPicker") : t("profile.setAddress")}
                                 </button>
+                            </div>
+
+                            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                                <div className={`flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.instagram")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.instagram}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, instagram: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.instagramPlaceholder")}
+                                    />
+                                </div>
+                                <div className={`flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.facebook")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.facebook}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, facebook: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.facebookPlaceholder")}
+                                    />
+                                </div>
                             </div>
 
                             {showAddressPicker && (

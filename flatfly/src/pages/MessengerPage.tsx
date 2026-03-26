@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCsrfToken } from "../utils/csrf";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, MessageCircle, Send, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, MessageCircle, MoreVertical, Send, XCircle } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
@@ -240,7 +240,9 @@ export default function MessengerPage() {
   const [isReportingOpen, setIsReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("insult");
   const [reportDetails, setReportDetails] = useState("");
+  const [reportAndBlockUser, setReportAndBlockUser] = useState(true);
   const [isReportConsentOpen, setIsReportConsentOpen] = useState(false);
+  const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -307,6 +309,7 @@ export default function MessengerPage() {
   const canShareContacts = Boolean(currentUserContacts.email || currentUserContacts.phone);
   const selectedChatIsBlocked = Boolean(selectedChat?.is_blocked);
   const selectedChatBlockedByMe = Boolean(selectedChat?.blocked_by_me);
+  const isMobileChatOpen = Boolean(selectedChat || draftConversation);
 
   const updateMessageCacheEntry = (
     chatId: number,
@@ -1062,22 +1065,35 @@ export default function MessengerPage() {
         reason: reportReason,
         details: reportDetails,
         consent_confirmed: true,
+        block_user: reportAndBlockUser,
       }),
     });
     if (!response.ok) {
       showToast(t("messenger.reportFailed"), "error");
       return;
     }
-    showToast(t("messenger.reportSuccess"), "success");
+    const payload = await response.json().catch(() => ({}));
+    showToast(
+      payload?.blocked ? t("messenger.reportSuccessWithBlock") : t("messenger.reportSuccess"),
+      "success",
+    );
+    if (payload?.blocked) {
+      setSelectedChat((previous) => (previous ? { ...previous, is_blocked: true, blocked_by_me: true } : previous));
+      void loadBlacklist();
+      setChats((previous) => previous.filter((chat) => chat.chatid !== selectedChatId));
+      setSelectedChat(null);
+    }
     setIsReportingOpen(false);
     setIsReportConsentOpen(false);
     setReportReason("insult");
     setReportDetails("");
+    setReportAndBlockUser(true);
+    setIsMobileActionsOpen(false);
   };
 
   return (
     <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full bg-white dark:bg-gray-900">
-      <div className="min-w-[140px] max-w-[260px] w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:w-[200px] lg:w-[240px]">
+      <div className={`${isMobileChatOpen ? "hidden md:block" : "block"} w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:min-w-[200px] md:max-w-[280px] md:w-[240px]`}>
         <div className="mb-4 flex items-center gap-2">
           <MessageCircle className="text-[#C505EB]" size={24} />
           <span className="text-lg font-bold text-black dark:text-white">{t("messenger.title")}</span>
@@ -1156,30 +1172,93 @@ export default function MessengerPage() {
           </div>
         ))}
       </div>
-      <div className="flex h-full flex-1 flex-col">
+      <div className={`${isMobileChatOpen ? "flex" : "hidden md:flex"} h-full flex-1 flex-col`}>
         {selectedChat || draftConversation ? (
           <>
             <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-3 text-left"
-                onClick={handleOpenParticipantProfile}
-                disabled={!canOpenParticipantProfile}
-              >
-                <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                  {activeParticipantAvatar ? (
-                    <img src={activeParticipantAvatar} alt={activeParticipantName} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-200">
-                      {activeParticipantName.charAt(0).toUpperCase() || "?"}
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-black dark:text-white">{activeParticipantName}</div>
-                </div>
-              </button>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="md:hidden rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setSelectedChat(null);
+                    setDraftConversation(null);
+                    setIsMobileActionsOpen(false);
+                  }}
+                  aria-label={t("previous")}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="flex min-w-0 items-center gap-3 text-left"
+                  onClick={handleOpenParticipantProfile}
+                  disabled={!canOpenParticipantProfile}
+                >
+                  <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    {activeParticipantAvatar ? (
+                      <img src={activeParticipantAvatar} alt={activeParticipantName} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-200">
+                        {activeParticipantName.charAt(0).toUpperCase() || "?"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-black dark:text-white">{activeParticipantName}</div>
+                  </div>
+                </button>
+              </div>
+              <div className="relative flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="md:hidden rounded-lg border border-gray-300 p-2 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  onClick={() => setIsMobileActionsOpen((prev) => !prev)}
+                  aria-label={t("header.openMenu")}
+                >
+                  <MoreVertical size={18} />
+                </button>
+                {isMobileActionsOpen && (
+                  <div className="absolute right-0 top-11 z-30 min-w-[210px] rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800 md:hidden">
+                    <button
+                      type="button"
+                      className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        setIsMobileActionsOpen(false);
+                        void handleShareContacts();
+                      }}
+                      disabled={isSending || !canShareContacts}
+                    >
+                      {t("messenger.shareContacts")}
+                    </button>
+                    {selectedChat && !selectedChatBlockedByMe && (
+                      <button
+                        type="button"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
+                        onClick={() => {
+                          setIsMobileActionsOpen(false);
+                          void handleBlockParticipant();
+                        }}
+                      >
+                        {t("messenger.blockUser")}
+                      </button>
+                    )}
+                    {selectedChat && (
+                      <button
+                        type="button"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                        onClick={() => {
+                          setIsMobileActionsOpen(false);
+                          setIsReportingOpen(true);
+                        }}
+                      >
+                        {t("messenger.reportUser")}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="hidden md:flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -1229,7 +1308,7 @@ export default function MessengerPage() {
               ) : (
                 activeMessages.map((message) => (
                   <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[60%] rounded-2xl px-4 py-2 ${message.sender.id === currentUserId ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"}`}>
+                    <div className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender.id === currentUserId ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"}`}>
                       <div className="mb-1 flex items-center justify-between">
                         <span className="text-xs font-semibold">{getParticipantName(message.sender)}</span>
                         <span className="ml-2 text-[10px] text-gray-300">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -1394,6 +1473,15 @@ export default function MessengerPage() {
               placeholder={t("messenger.reportDetailsPlaceholder")}
               className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
+            <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={reportAndBlockUser}
+                onChange={(event) => setReportAndBlockUser(event.target.checked)}
+                className="h-4 w-4 accent-[#C505EB]"
+              />
+              <span>{t("messenger.reportAlsoBlockUser")}</span>
+            </label>
             <div className="flex justify-end gap-3">
               <button
                 type="button"

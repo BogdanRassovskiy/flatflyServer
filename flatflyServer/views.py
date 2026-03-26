@@ -103,6 +103,8 @@ def _is_profile_field_filled(profile, attribute_key):
         "location_city": profile.location_city,
         "location_address": profile.location_address,
         "profession": profile.profession,
+        "instagram": profile.instagram,
+        "facebook": profile.facebook,
         "about": profile.about,
         "smoking": profile.smoking,
         "alcohol": profile.alcohol,
@@ -1098,6 +1100,8 @@ def neighbour_detail(request, profile_id):
         "city": profile.city,
         "languages": profile.languages.split(",") if profile.languages else [],
         "profession": profile.profession,
+        "instagram": profile.instagram,
+        "facebook": profile.facebook,
         "about": profile.about,
         "smoking": profile.smoking,
         "alcohol": profile.alcohol,
@@ -1138,6 +1142,8 @@ def neighbour_detail(request, profile_id):
     if include_contacts and request.user.is_authenticated:
         payload["phone"] = profile.phone
         payload["email"] = profile.user.email
+        payload["instagram"] = profile.instagram
+        payload["facebook"] = profile.facebook
 
     return JsonResponse(payload)
 
@@ -1770,6 +1776,8 @@ def listings_view(request):
             type=data.get("type") or data.get("property_type") or "APARTMENT",
             title=data.get("title"),
             description=data.get("description"),
+            # Draft until at least one image passes moderation (see upload_listing_image).
+            is_active=False,
 
             region=region_value,
             city=city_value,
@@ -2249,14 +2257,19 @@ def upload_listing_image(request, listing_id):
             source="listing_image_upload",
             raw_scores=moderation.raw_scores,
             raw_labels=moderation.raw_labels,
+            provider=getattr(moderation, "provider", "unknown"),
             listing=listing,
         )
+        listing_id = listing.id
+        listing.delete()
         return JsonResponse(
             {
                 "detail": "Image rejected by moderation",
                 "reasons": moderation.reasons,
                 "strikes": sanction["strikes"],
                 "banned": sanction["banned"],
+                "listingDeleted": True,
+                "deletedListingId": listing_id,
             },
             status=403,
         )
@@ -2275,6 +2288,9 @@ def upload_listing_image(request, listing_id):
         image=request.FILES["image"],
         is_primary=is_primary,
     )
+
+    listing.is_active = True
+    listing.save(update_fields=["is_active"])
 
     return JsonResponse({
         "id": img.id,
@@ -2299,6 +2315,7 @@ def upload_avatar(request):
             source="avatar_upload",
             raw_scores=moderation.raw_scores,
             raw_labels=moderation.raw_labels,
+            provider=getattr(moderation, "provider", "unknown"),
         )
         return JsonResponse(
             {
@@ -2351,6 +2368,8 @@ def profile_view(request):
             "languages": profile.languages.split(",") if profile.languages else [],
 
             "profession": profile.profession,
+            "instagram": profile.instagram,
+            "facebook": profile.facebook,
             "about": profile.about,
 
             "smoking": profile.smoking,
@@ -2391,6 +2410,8 @@ def profile_view(request):
         ("locationAddress", "location_address"),
         ("languages", "languages"),
         ("profession", "profession"),
+        ("instagram", "instagram"),
+        ("facebook", "facebook"),
         ("about", "about"),
         ("smoking", "smoking"),
         ("alcohol", "alcohol"),

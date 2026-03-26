@@ -25,6 +25,7 @@ export default function Header() {
     // Страницы с объявлениями
     const listingPages = ["/apartments", "/rooms", "/neighbours"];
     const isListingPage = listingPages.includes(pathname);
+    const forceSolidHeader = pathname.startsWith("/messenger");
     const navigate = useNavigate();
     const menuItemsColumn1 = [
         { title: t("favorites"), path: "/profile?tab=favorites" },
@@ -219,7 +220,7 @@ export default function Header() {
     }, [isMenuOpen]);
 
     return(
-        <div className={`fixed top-0 left-0 w-full h-[100px] flex flex-col items-center border-b border-gray-300 dark:border-gray-700 interFont z-50 duration-300 ${scrolled ? "bg-white dark:bg-gray-900 shadow-sm" : "bg-transparent"}`}>
+        <div className={`fixed top-0 left-0 w-full h-[100px] flex flex-col items-center border-b border-gray-300 dark:border-gray-700 interFont z-50 duration-300 ${(scrolled || forceSolidHeader) ? "bg-white dark:bg-gray-900 shadow-sm" : "bg-transparent"}`}>
 
             
 

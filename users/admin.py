@@ -20,7 +20,7 @@ class ProfileInline(admin.StackedInline):
     fields = (
         'avatar', 'name', 'phone', 'age', 'gender', 'city', 'university', 'faculty',
         'verified', 'looking_for_housing',
-        'languages', 'profession', 'about',
+        'languages', 'profession', 'instagram', 'facebook', 'about',
         'smoking', 'alcohol', 'sleep_schedule', 'gamer', 'work_from_home', 'pets'
     )
     
@@ -141,7 +141,7 @@ class ProfileAdmin(admin.ModelAdmin):
             'fields': ('verified', 'looking_for_housing', 'moderation_strikes', 'auth_provider')
         }),
         ('Профессия и языки', {
-            'fields': ('profession', 'languages', 'about')
+            'fields': ('profession', 'instagram', 'facebook', 'languages', 'about')
         }),
         ('Образ жизни', {
             'fields': (

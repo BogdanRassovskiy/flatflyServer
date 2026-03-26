@@ -174,3 +174,64 @@ class RejectedImageModerationLog(models.Model):
 
     def __str__(self):
         return f"RejectedImageModerationLog #{self.id} ({self.source}) user={self.user_id}"
+
+
+class ImageModerationRule(models.Model):
+    PROVIDER_LOCAL_OPENNSFW2 = "local_opennsfw2"
+    PROVIDER_SIGHTENGINE = "sightengine"
+    PROVIDER_CHOICES = [
+        (PROVIDER_LOCAL_OPENNSFW2, "Local OpenNSFW2"),
+        (PROVIDER_SIGHTENGINE, "Sightengine"),
+    ]
+
+    METRIC_NSFW_PROBABILITY = "nsfw_probability"
+    METRIC_SIGHTENGINE_NUDITY_RAW = "nudity_raw"
+    METRIC_SIGHTENGINE_NUDITY_PARTIAL = "nudity_partial"
+    METRIC_SIGHTENGINE_NUDITY_SEXUAL_ACTIVITY = "nudity_sexual_activity"
+    METRIC_SIGHTENGINE_NUDITY_SEXUAL_DISPLAY = "nudity_sexual_display"
+    METRIC_SIGHTENGINE_NUDITY_EROTICA = "nudity_erotica"
+    METRIC_SIGHTENGINE_NUDITY_SUGGESTIVE = "nudity_suggestive"
+    METRIC_SIGHTENGINE_OFFENSIVE_NAZI = "offensive_nazi"
+    METRIC_SIGHTENGINE_OFFENSIVE_TERRORIST = "offensive_terrorist"
+    METRIC_SIGHTENGINE_OFFENSIVE_SUPREMACIST = "offensive_supremacist"
+    METRIC_SIGHTENGINE_OFFENSIVE_OFFENSIVE = "offensive_offensive"
+    METRIC_SIGHTENGINE_WEAPON = "weapon"
+    METRIC_SIGHTENGINE_WEAPON_FIREARM = "weapon_firearm"
+    METRIC_SIGHTENGINE_WEAPON_KNIFE = "weapon_knife"
+    METRIC_SIGHTENGINE_GORE_PROB = "gore_prob"
+    METRIC_SIGHTENGINE_DRUGS = "drugs"
+    METRIC_SIGHTENGINE_RECREATIONAL_DRUGS = "recreational_drugs"
+    METRIC_CHOICES = [
+        (METRIC_NSFW_PROBABILITY, "NSFW probability"),
+        (METRIC_SIGHTENGINE_NUDITY_RAW, "Sightengine nudity raw"),
+        (METRIC_SIGHTENGINE_NUDITY_PARTIAL, "Sightengine nudity partial"),
+        (METRIC_SIGHTENGINE_NUDITY_SEXUAL_ACTIVITY, "Sightengine nudity sexual activity"),
+        (METRIC_SIGHTENGINE_NUDITY_SEXUAL_DISPLAY, "Sightengine nudity sexual display"),
+        (METRIC_SIGHTENGINE_NUDITY_EROTICA, "Sightengine nudity erotica"),
+        (METRIC_SIGHTENGINE_NUDITY_SUGGESTIVE, "Sightengine nudity suggestive"),
+        (METRIC_SIGHTENGINE_OFFENSIVE_NAZI, "Sightengine offensive nazi"),
+        (METRIC_SIGHTENGINE_OFFENSIVE_TERRORIST, "Sightengine offensive terrorist"),
+        (METRIC_SIGHTENGINE_OFFENSIVE_SUPREMACIST, "Sightengine offensive supremacist"),
+        (METRIC_SIGHTENGINE_OFFENSIVE_OFFENSIVE, "Sightengine offensive content"),
+        (METRIC_SIGHTENGINE_WEAPON, "Sightengine weapon"),
+        (METRIC_SIGHTENGINE_WEAPON_FIREARM, "Sightengine weapon firearm"),
+        (METRIC_SIGHTENGINE_WEAPON_KNIFE, "Sightengine weapon knife"),
+        (METRIC_SIGHTENGINE_GORE_PROB, "Sightengine gore prob"),
+        (METRIC_SIGHTENGINE_DRUGS, "Sightengine drugs"),
+        (METRIC_SIGHTENGINE_RECREATIONAL_DRUGS, "Sightengine recreational drugs"),
+    ]
+
+    name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    provider = models.CharField(max_length=64, choices=PROVIDER_CHOICES, default=PROVIDER_LOCAL_OPENNSFW2)
+    metric = models.CharField(max_length=64, choices=METRIC_CHOICES, default=METRIC_NSFW_PROBABILITY)
+    threshold = models.FloatField(default=0.65)
+    reasons = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_active", "provider", "metric", "threshold", "id"]
+
+    def __str__(self):
+        return f"{self.name} ({self.provider}:{self.metric} >= {self.threshold})"

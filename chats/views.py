@@ -199,6 +199,7 @@ class ChatViewSet(viewsets.ModelViewSet):
         reason = str(request.data.get('reason') or '').strip()
         details = str(request.data.get('details') or '').strip()
         consent_confirmed = bool(request.data.get('consent_confirmed'))
+        block_user = bool(request.data.get('block_user'))
 
         allowed_reasons = {choice[0] for choice in ChatReport.REASON_CHOICES}
         if reason not in allowed_reasons:
@@ -215,7 +216,12 @@ class ChatViewSet(viewsets.ModelViewSet):
             details=details,
             consent_confirmed=True,
         )
-        return Response({'status': 'reported', 'report_id': report.id})
+        blocked = False
+        if block_user and other_participant.id != request.user.id:
+            _, created = ChatBlock.objects.get_or_create(blocker=request.user, blocked=other_participant)
+            blocked = created or ChatBlock.objects.filter(blocker=request.user, blocked=other_participant).exists()
+
+        return Response({'status': 'reported', 'report_id': report.id, 'blocked': blocked})
 
 class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all().select_related('sender__profile', 'chat')

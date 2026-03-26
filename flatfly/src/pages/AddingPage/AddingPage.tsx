@@ -393,6 +393,24 @@ export default function AddingPage() {
         const data = await res.json();
         const adId = isEditMode ? editListingId : data.id;
 
+        // Новое объявление создаётся неактивным до успешной загрузки фото (модерация).
+        // Если пользователь не добавляет новых файлов — публикуем без смены картинок.
+        if (!isEditMode && selectedFiles.length === 0) {
+          const activateRes = await fetch(`/api/listings/${adId}/`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCsrfToken(),
+            },
+            body: JSON.stringify({ isActive: true }),
+          });
+          if (!activateRes.ok) {
+            const err = await activateRes.json().catch(() => ({}));
+            throw new Error(String(err?.detail || "").trim() || t("add.publishFailed"));
+          }
+        }
+
         // загружаем только новые изображения; выбранное "главное фото" получает приоритет.
         const existingImageCount = Math.max(0, uploadedImages.length - selectedFiles.length);
         for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
@@ -409,7 +427,13 @@ export default function AddingPage() {
           });
 
           if (!imgRes.ok) {
-            throw new Error(t("add.failedToUploadImage"));
+            const imgErr = await imgRes.json().catch(() => ({}));
+            const detail = String(imgErr?.detail || "").trim();
+            throw new Error(
+              detail === "Image rejected by moderation"
+                ? t("add.imageRejectedByModeration")
+                : detail || t("add.failedToUploadImage"),
+            );
           }
         }
 

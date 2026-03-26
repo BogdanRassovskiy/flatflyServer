@@ -157,6 +157,8 @@ export default function ListingDetailPage() {
         residentsCount?: number;
         contactPhone?: string;
         contactEmail?: string;
+        contactInstagram?: string;
+        contactFacebook?: string;
         profession?: string;
         noise_tolerance?: string;
         cleanliness?: number;
@@ -380,6 +382,8 @@ export default function ListingDetailPage() {
                     neighbourUserId: typeof data.userId === "number" ? data.userId : undefined,
                     contactPhone: data.phone,
                     contactEmail: data.email,
+                    contactInstagram: data.instagram,
+                    contactFacebook: data.facebook,
                 });
                 return;
             }
@@ -408,6 +412,8 @@ export default function ListingDetailPage() {
                 from: data.from,
                 contactPhone: data.contact_phone,
                 contactEmail: data.contact_email,
+                contactInstagram: data.contact_instagram,
+                contactFacebook: data.contact_facebook,
                 currency: data.currency,
                 deposit: data.deposit,
                 rental_period: data.rental_period,
@@ -533,6 +539,10 @@ export default function ListingDetailPage() {
         beds,
         maxResidents,
         residentsCount,
+        contactPhone,
+        contactEmail,
+        contactInstagram,
+        contactFacebook,
         profession,
         noise_tolerance,
         cleanliness,
@@ -2080,6 +2090,31 @@ out center;`;
                                         {t("listing.writeMessage")}
                                     </button>
                                 </>
+                            )}
+
+                            {(contactPhone || contactEmail || contactInstagram || contactFacebook) && (
+                                <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700 space-y-2`}>
+                                    {contactPhone && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200`}>
+                                            <span className={`font-semibold`}>{t("messenger.contactsMessagePhone")}:</span> {contactPhone}
+                                        </div>
+                                    )}
+                                    {contactEmail && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200`}>
+                                            <span className={`font-semibold`}>{t("messenger.contactsMessageEmail")}:</span> {contactEmail}
+                                        </div>
+                                    )}
+                                    {contactInstagram && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200 break-all`}>
+                                            <span className={`font-semibold`}>{t("profile.instagram")}:</span> {contactInstagram}
+                                        </div>
+                                    )}
+                                    {contactFacebook && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200 break-all`}>
+                                            <span className={`font-semibold`}>{t("profile.facebook")}:</span> {contactFacebook}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {type !== "NEIGHBOUR" && mapData && (

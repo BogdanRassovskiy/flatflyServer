@@ -120,6 +120,8 @@ class Profile(models.Model):
     )
     languages = models.CharField(max_length=200, blank=True)  
     profession = models.CharField(max_length=100, blank=True)
+    instagram = models.CharField(max_length=255, blank=True, default="")
+    facebook = models.CharField(max_length=255, blank=True, default="")
     location_region = models.CharField(max_length=32, blank=True, default="")
     location_city = models.CharField(max_length=128, blank=True, default="")
     location_address = models.CharField(max_length=255, blank=True, default="")

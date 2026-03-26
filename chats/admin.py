@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from .models import Chat, Message, ChatBlock, ChatReport, ModerationMessage, RejectedImageModerationLog
+from .models import Chat, Message, ChatBlock, ChatReport, ModerationMessage, RejectedImageModerationLog, ImageModerationRule
 
 User = get_user_model()
 
@@ -98,21 +98,59 @@ class ChatReportAdmin(admin.ModelAdmin):
 
     @admin.display(description="Превью переписки")
     def chat_transcript_preview(self, obj):
-        rows = obj.chat.messages.select_related("sender").order_by("-created_at")[:30]
+        rows = list(obj.chat.messages.select_related("sender").order_by("-created_at")[:30])
         if not rows:
             return "Сообщений нет"
 
-        return format_html_join(
-            "<br>",
-            "<b>{}</b> [{}]: {}",
-            (
-                (
-                    msg.sender.get_username(),
+        # Show oldest -> newest in a compact chat-like UI.
+        rows = list(reversed(rows))
+        bubbles = []
+        for msg in rows:
+            is_reporter = msg.sender_id == obj.reporter_id
+            align_style = "justify-content:flex-end;" if is_reporter else "justify-content:flex-start;"
+            bubble_style = (
+                "max-width:78%;padding:8px 10px;border-radius:12px;"
+                "background:#e9d5ff;color:#2e1065;border:1px solid #d8b4fe;"
+                if is_reporter
+                else "max-width:78%;padding:8px 10px;border-radius:12px;"
+                     "background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;"
+            )
+            sender_name = msg.sender.get_username() or f"user#{msg.sender_id}"
+            sender_role = "Репортер" if is_reporter else "Пользователь"
+            text = (msg.text[:240] + " ...") if len(msg.text) > 240 else msg.text
+            bubbles.append(
+                format_html(
+                    '<div style="display:flex;{}margin:6px 0;">'
+                    '<div style="{}">'
+                    '<div style="font-size:11px;opacity:.75;margin-bottom:3px;">{} ({}) • {}</div>'
+                    '<div style="white-space:pre-wrap;word-break:break-word;">{}</div>'
+                    "</div></div>",
+                    align_style,
+                    bubble_style,
+                    sender_name,
+                    sender_role,
                     timezone.localtime(msg.created_at).strftime("%Y-%m-%d %H:%M"),
-                    (msg.text[:180] + " ...") if len(msg.text) > 180 else msg.text,
+                    text,
                 )
-                for msg in rows
-            ),
+            )
+
+        url = reverse("admin:chats_message_changelist")
+        query = urlencode({"chat__chatid__exact": obj.chat_id})
+        full_chat_link = format_html(
+            '<a href="{}?{}" target="_blank" style="display:inline-block;margin-bottom:8px;'
+            'padding:6px 10px;border-radius:8px;background:#111827;color:#ffffff;'
+            'text-decoration:none;font-size:12px;">Открыть полный чат</a>',
+            url,
+            query,
+        )
+
+        return format_html(
+            '<div style="border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;padding:8px;">'
+            '{}'
+            '<div style="max-height:340px;overflow:auto;">{}</div>'
+            "</div>",
+            full_chat_link,
+            format_html_join("", "{}", ((bubble,) for bubble in bubbles)),
         )
 
     @transaction.atomic
@@ -240,6 +278,18 @@ class RejectedImageModerationLogAdmin(admin.ModelAdmin):
     list_filter = ("source", "provider", "created_at")
     search_fields = ("user__username", "user__email", "listing__title")
     readonly_fields = ("created_at", "user", "source", "listing", "provider", "reasons", "raw_scores", "raw_labels")
+
+    @admin.display(description="Reasons")
+    def reasons_preview(self, obj):
+        return ", ".join(obj.reasons[:4]) if obj.reasons else "-"
+
+
+@admin.register(ImageModerationRule)
+class ImageModerationRuleAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "is_active", "provider", "metric", "threshold", "reasons_preview", "updated_at")
+    list_filter = ("is_active", "provider", "metric")
+    search_fields = ("name",)
+    readonly_fields = ("created_at", "updated_at")
 
     @admin.display(description="Reasons")
     def reasons_preview(self, obj):
