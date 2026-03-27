@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X } from "lucide-react";
+import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X, Crown } from "lucide-react";
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
@@ -1972,6 +1972,25 @@ export default function ProfilePage() {
                                     }`}
                                 >
                                     {profileData.lookingForHousing ? t("profile.active") : t("profile.inactive")}
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+                                <div className="w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-500">
+                                    <Crown size={24} className="max-[770px]:w-5 max-[770px]:h-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg max-[770px]:text-base font-bold">{t("profile.monetizationTitle")}</h3>
+                                    <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300">
+                                        {t("profile.monetizationSubtitle")}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/profile/plans")}
+                                    className="px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 bg-amber-500 text-white hover:bg-amber-600"
+                                >
+                                    {t("profile.openPlans")}
                                 </button>
                             </div>
 

@@ -101,7 +101,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'flatflyServer.middleware.SplitSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -110,6 +110,14 @@ MIDDLEWARE = [
     #google auth
     'allauth.account.middleware.AccountMiddleware',
 ]
+
+# Separate cookie for Django admin session to avoid mixing auth state
+# with the regular app/API session in the same browser.
+ADMIN_SESSION_COOKIE_NAME = os.getenv("ADMIN_SESSION_COOKIE_NAME", "admin_sessionid")
+
+# We intentionally use custom session middleware that isolates admin and app
+# sessions into separate cookies. Silence admin's strict middleware-path check.
+SILENCED_SYSTEM_CHECKS = ["admin.E410"]
 
 ROOT_URLCONF = 'flatflyServer.urls'
 

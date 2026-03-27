@@ -737,7 +737,26 @@
     "errorInvalidFormData": "Could not save: invalid form data.",
     "errorInvalidUniversity": "Please select a university from suggestions.",
     "errorUniversityRequiredForFaculty": "Select a university before choosing faculty.",
-    "errorInvalidFaculty": "Please select a faculty from the selected university."
+    "errorInvalidFaculty": "Please select a faculty from the selected university.",
+    "monetizationTitle": "Premium account",
+    "monetizationSubtitle": "Unlock more profile opportunities. Choose the plan that suits you.",
+    "openPlans": "View plans"
+  },
+  "profilePlans": {
+    "title": "Profile plans",
+    "subtitle": "Monetization placeholder: plan details and bonuses will be added later.",
+    "basic": {
+      "title": "Basic",
+      "subtitle": "Standard account for daily use."
+    },
+    "advanced": {
+      "title": "Advanced",
+      "subtitle": "Extended account with additional capabilities."
+    },
+    "premium": {
+      "title": "Premium",
+      "subtitle": "Top-tier plan with the full set of benefits."
+    }
   },
   "favorites": "Favorites",
   "view_all_favorites": "View and manage all your saved listings in one place.",

@@ -734,7 +734,26 @@
     "errorInvalidFormData": "Nelze uložit: neplatná data formuláře.",
     "errorInvalidUniversity": "Vyberte univerzitu ze seznamu návrhů.",
     "errorUniversityRequiredForFaculty": "Nejprve vyberte univerzitu, potom fakultu.",
-    "errorInvalidFaculty": "Vyberte fakultu ze zvolené univerzity."
+    "errorInvalidFaculty": "Vyberte fakultu ze zvolené univerzity.",
+    "monetizationTitle": "Premium účet",
+    "monetizationSubtitle": "Odemkněte více možností profilu. Vyberte si vhodný tarif.",
+    "openPlans": "Zobrazit tarify"
+  },
+  "profilePlans": {
+    "title": "Tarify profilu",
+    "subtitle": "Příprava monetizace: detaily a bonusy doplníme později.",
+    "basic": {
+      "title": "Základní",
+      "subtitle": "Běžný účet pro každodenní použití."
+    },
+    "advanced": {
+      "title": "Pokročilý",
+      "subtitle": "Rozšířený účet s dalšími možnostmi."
+    },
+    "premium": {
+      "title": "Premium",
+      "subtitle": "Nejvyšší tarif s plnou sadou výhod."
+    }
   },
   "favorites": "Oblíbené",
   "view_all_favorites": "Prohlížejte a spravujte všechny uložené inzeráty na jednom místě.",
