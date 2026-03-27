@@ -303,15 +303,17 @@ export default function Header() {
                                 </div>
                             )}
                         </div>
-                        {/* Иконка чата */}
-                        <Link to="/messenger" className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 hover:border-[#C505EB] dark:hover:border-[#C505EB] duration-300 ml-2 bg-white dark:bg-gray-800" aria-label="Чаты">
-                            <MessageCircle size={22} className="text-[#C505EB]" />
-                            {unreadMessagesCount > 0 && (
-                                <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-[#C505EB] text-white text-[11px] leading-5 text-center font-bold">
-                                    {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
-                                </span>
-                            )}
-                        </Link>
+                        {/* Иконка чата - только для десктопа */}
+                        {isAuthenticated && (
+                            <Link to="/messenger" className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 hover:border-[#C505EB] dark:hover:border-[#C505EB] duration-300 ml-2 bg-white dark:bg-gray-800" aria-label="Чаты">
+                                <MessageCircle size={22} className="text-[#C505EB]" />
+                                {unreadMessagesCount > 0 && (
+                                    <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-[#C505EB] text-white text-[11px] leading-5 text-center font-bold">
+                                        {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
                     </div>
 
                     <div className={`relative`} ref={menuRef}>
@@ -522,6 +524,26 @@ export default function Header() {
                                 {t("header.addListing")}
                             </Link>
                             
+                            {/* Профиль для зарегистрированных пользователей */}
+                            {isAuthenticated && (
+                                <Link
+                                    to="/messenger"
+                                    className={`w-full px-4 py-3 text-lg font-bold rounded-xl duration-300 text-center touch-manipulation active:scale-95 ${
+                                        pathname === "/messenger"
+                                            ? 'bg-[#C505EB] text-white shadow-md'
+                                            : 'text-[#333333] dark:text-gray-200 bg-[#F9F9F9] dark:bg-gray-800 hover:bg-[#F5F5F5] dark:hover:bg-gray-700 active:bg-[#EEEEEE] dark:active:bg-gray-600'
+                                    }`}
+                                    onClick={() => {
+                                        setTimeout(() => {
+                                            setIsMenuOpen(false);
+                                        }, 100);
+                                    }}
+                                >
+                                    {t("messenger.title")}
+                                    {unreadMessagesCount > 0 ? ` (${unreadMessagesCount > 9 ? "9+" : unreadMessagesCount})` : ""}
+                                </Link>
+                            )}
+
                             {/* Профиль для зарегистрированных пользователей */}
                             {isAuthenticated && (
                                 <Link

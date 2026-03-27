@@ -1408,6 +1408,11 @@ def login_view(request):
 
     profile = user.profile
 
+    if not user.is_active:
+        return JsonResponse({
+            "error": "Account is blocked"
+        }, status=403)
+
     # Если аккаунт Google
     if profile.auth_provider == "google":
         return JsonResponse({
@@ -2587,6 +2592,9 @@ def apple_callback(request):
             name=f"{first_name} {last_name}".strip()
         )
 
+    if not user.is_active:
+        return HttpResponse("Account is blocked", status=403)
+
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     return redirect("/apartments")
 def google_callback(request):
@@ -2650,6 +2658,9 @@ def google_callback(request):
             auth_provider="google",
             name=f"{first_name} {last_name}".strip()
         )
+
+    if not user.is_active:
+        return HttpResponse("Account is blocked", status=403)
 
     # 4. Логиним
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")

@@ -1,8 +1,18 @@
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
 from django.db import transaction
 from django.utils import timezone
 
 from .models import ListingFilterConfig, ListingFilterOptionConfig, CzechMunicipality, ListingReport, Listing
+from chats.models import Chat, Message, ModerationMessage
+
+
+class ListingReportActionForm(ActionForm):
+	apply_strike = forms.BooleanField(
+		required=False,
+		label="Дать страйк владельцу при подтверждении",
+	)
 
 @admin.register(ListingFilterConfig)
 class ListingFilterConfigAdmin(admin.ModelAdmin):
@@ -30,18 +40,53 @@ class ListingFilterOptionConfigAdmin(admin.ModelAdmin):
 
 @admin.register(ListingReport)
 class ListingReportAdmin(admin.ModelAdmin):
+	action_form = ListingReportActionForm
 	list_display = ("id", "listing", "reporter", "listing_owner", "reason", "status", "created_at")
 	list_filter = ("reason", "status", "strike_applied", "listing_deleted", "created_at")
 	search_fields = ("listing__title", "reporter__username", "listing_owner__username", "details")
 	readonly_fields = ("listing", "reporter", "listing_owner", "created_at", "reviewed_by", "reviewed_at", "strike_applied", "listing_deleted")
-	actions = ("reject_reports", "confirm_delete_listing", "confirm_delete_listing_and_strike")
+	actions = ("reject_reports", "confirm_delete_listing")
+
+	def _notify_listing_owner(self, listing_owner, report: ListingReport):
+		support_user, _ = listing_owner.__class__.objects.get_or_create(
+			username="support",
+			defaults={
+				"email": "support@flatfly.local",
+				"is_staff": True,
+				"is_active": True,
+			},
+		)
+		chat = (
+			Chat.objects
+			.filter(participants=support_user)
+			.filter(participants=listing_owner)
+			.first()
+		)
+		if not chat:
+			chat = Chat.objects.create()
+			chat.participants.add(support_user, listing_owner)
+
+		reason_label = report.get_reason_display() or report.reason
+		text = (
+			"Ваше объявление было удалено после проверки жалобы модератором. "
+			f"Причина жалобы: {reason_label}."
+		)
+		msg = Message.objects.create(chat=chat, sender=support_user, text=text)
+		ModerationMessage.objects.create(
+			target_user=listing_owner,
+			message=text,
+			created_by=support_user,
+			linked_chat=chat,
+			linked_message=msg,
+		)
 
 	@transaction.atomic
 	def _resolve(self, report: ListingReport, moderator, with_strike: bool):
 		listing_deleted = False
-		if not report.listing_deleted and Listing.objects.filter(id=report.listing_id).exists():
-			Listing.objects.filter(id=report.listing_id).delete()
+		if not report.listing_deleted and Listing.objects.filter(id=report.listing_id, is_active=True).exists():
+			Listing.objects.filter(id=report.listing_id).update(is_active=False)
 			listing_deleted = True
+			self._notify_listing_owner(report.listing_owner, report)
 
 		strike_applied = False
 		if with_strike and not report.strike_applied:
@@ -70,18 +115,14 @@ class ListingReportAdmin(admin.ModelAdmin):
 		)
 		self.message_user(request, f"Отклонено жалоб: {updated}.", level=messages.INFO)
 
-	@admin.action(description="Подтвердить и удалить объявление")
+	@admin.action(description="Подтвердить (удалить объявление, страйк по галочке)")
 	def confirm_delete_listing(self, request, queryset):
+		with_strike = str(request.POST.get("apply_strike", "")).lower() in {"1", "true", "on", "yes"}
 		count = 0
 		for report in queryset.select_for_update():
-			self._resolve(report, request.user, with_strike=False)
+			self._resolve(report, request.user, with_strike=with_strike)
 			count += 1
-		self.message_user(request, f"Подтверждено и удалено объявлений: {count}.", level=messages.SUCCESS)
-
-	@admin.action(description="Подтвердить, удалить объявление и дать 1 страйк")
-	def confirm_delete_listing_and_strike(self, request, queryset):
-		count = 0
-		for report in queryset.select_for_update():
-			self._resolve(report, request.user, with_strike=True)
-			count += 1
-		self.message_user(request, f"Подтверждено, удалено и выдан страйк: {count}.", level=messages.SUCCESS)
+		if with_strike:
+			self.message_user(request, f"Подтверждено, удалено и выдан страйк: {count}.", level=messages.SUCCESS)
+		else:
+			self.message_user(request, f"Подтверждено и удалено объявлений: {count}.", level=messages.SUCCESS)
