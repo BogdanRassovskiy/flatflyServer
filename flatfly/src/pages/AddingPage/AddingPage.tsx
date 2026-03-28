@@ -5,6 +5,7 @@ import {useLanguage} from "../../contexts/LanguageContext";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import { getCsrfToken } from "../../utils/csrf";
 import MapPicker from "../../components/MapPicker/MapPicker";
+import ListingPromotionPanel, { type ListingPromotionTier } from "./ListingPromotionPanel";
 
 type MunicipalitySuggestion = {
   name: string;
@@ -104,6 +105,7 @@ export default function AddingPage() {
     const [isLoadingListing, setIsLoadingListing] = useState(false);
     const [showLeaveHomeAction, setShowLeaveHomeAction] = useState(false);
     const [isLeavingHome, setIsLeavingHome] = useState(false);
+    const [showPromotionStep, setShowPromotionStep] = useState(false);
 
     // Функция показа уведомления
     const showNotification = (message: string, type: 'success' | 'error') => {
@@ -294,28 +296,41 @@ export default function AddingPage() {
             reader.readAsDataURL(file);
         });
     };
-    const handlePublish = async () => {
+    const validatePublishForm = (): boolean => {
       if (!typeAd) {
-        showNotification(t("add.selectAdType"), 'error');
-        return;
+        showNotification(t("add.selectAdType"), "error");
+        return false;
       }
-
       if (!title || !description || !price) {
-        showNotification(t("add.fillRequiredFields"), 'error');
-        return;
+        showNotification(t("add.fillRequiredFields"), "error");
+        return false;
       }
-
       if (!region) {
-        showNotification(t("add.selectRegionRequired"), 'error');
-        return;
+        showNotification(t("add.selectRegionRequired"), "error");
+        return false;
       }
-
       if (!city || !isCityFromList) {
-        showNotification(t("add.selectCityFromList"), 'error');
+        showNotification(t("add.selectCityFromList"), "error");
+        return false;
+      }
+      return true;
+    };
+
+    const handlePublishClick = () => {
+      if (!validatePublishForm()) {
         return;
       }
+      if (isEditMode) {
+        void executePublish("standard");
+        return;
+      }
+      setShowPromotionStep(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
+    const executePublish = async (promotionTier: ListingPromotionTier = "standard") => {
       try {
+        setIsLoadingListing(true);
         setShowLeaveHomeAction(false);
         const payload = {
               property_type: typeAd,
@@ -437,7 +452,18 @@ export default function AddingPage() {
           }
         }
 
-        showNotification(isEditMode ? t("add.updatedSuccessfully") : t("add.adSuccessfullyPublished"), 'success');
+        const successMessage = (() => {
+          if (isEditMode) {
+            return t("add.updatedSuccessfully");
+          }
+          if (promotionTier !== "standard") {
+            return t("add.promotion.publishedWithOption");
+          }
+          return t("add.adSuccessfullyPublished");
+        })();
+        showNotification(successMessage, "success");
+
+        setShowPromotionStep(false);
 
         // Редирект на страницу профиля с вкладкой "Мои объявления"
         setTimeout(() => {
@@ -466,7 +492,9 @@ export default function AddingPage() {
       } catch (err) {
         console.error(err);
         const message = err instanceof Error && err.message ? err.message : t("add.publishFailed");
-        showNotification(message, 'error');
+        showNotification(message, "error");
+      } finally {
+        setIsLoadingListing(false);
       }
     };
 
@@ -791,8 +819,18 @@ export default function AddingPage() {
 
                 <div className={`w-full flex flex-col items-center mt-[124px] mb-[100px]`}>
 
-                    <span className={`font-bold text-[32px] mb-6 text-black dark:text-white`}>{t("add.title")}</span>
+                    <span className={`font-bold text-[32px] mb-6 text-black dark:text-white text-center max-[770px]:text-2xl`}>
+                        {showPromotionStep && !isEditMode ? t("add.promotion.stepTitle") : t("add.title")}
+                    </span>
 
+                    {showPromotionStep && !isEditMode ? (
+                        <ListingPromotionPanel
+                            onBack={() => setShowPromotionStep(false)}
+                            onPublish={(tier) => void executePublish(tier)}
+                            isPublishing={isLoadingListing}
+                        />
+                    ) : (
+                    <>
                     <div className={`flex flex-col items-center w-full max-w-[850px] py-10 px-[72px] max-[770px]:py-5 max-[770px]:px-[20px] border border-[#666666] dark:border-gray-600 bg-white dark:bg-gray-800 rounded-[24px]`}>
                         <div className={`w-full flex items-center justify-between gap-2`}>
                             <div onClick={()=>setTypeAd(`BYT`)} className={`cursor-pointer relative flex flex-col items-center ${typeAd==="BYT"? `bg-[#C505EB] shadow-md`:``} duration-300 pt-9 max-[770px]:pt-4 max-[770px]:w-[100px] max-[770px]:h-[84px] w-[180px] h-[164px] rounded-[18px] border border-[#666666] dark:border-gray-600 gap-2`}>
@@ -1423,7 +1461,8 @@ export default function AddingPage() {
 
                       {/* PUBLISH */}
                       <button
-                        onClick={handlePublish}
+                        type="button"
+                        onClick={handlePublishClick}
                         disabled={isLoadingListing}
                         className={`mt-12 max-[770px]:mt-4 w-full h-11 flex items-center justify-center rounded-full 
                                     text-white text-xl font-semibold bg-[#C505EB] hover:bg-[#BA00F8] transition disabled:opacity-60 disabled:cursor-not-allowed`}
@@ -1442,6 +1481,8 @@ export default function AddingPage() {
                       )}
 
                     </div>
+                    </>
+                    )}
 
                 </div>
 

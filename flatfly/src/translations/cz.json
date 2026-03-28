@@ -467,7 +467,31 @@
     "uploadedImage": "Nahraný obrázek {index}",
     "previewImage": "Náhled obrázku {index}",
     "setMainPhoto": "Nastavit jako hlavní",
-    "mainPhoto": "Hlavní"
+    "mainPhoto": "Hlavní",
+    "promotion": {
+      "stepTitle": "Propagace inzerátu",
+      "title": "Zvolte způsob zveřejnění",
+      "subtitle": "Příprava monetizace: auto-zvýraznění, premium a další. Detaily a ceny doplníme později.",
+      "backToForm": "Zpět do formuláře",
+      "detailsSoon": "Detaily brzy",
+      "footnote": "Zatím se všechny varianty zveřejní stejně; placené funkce zapneme později.",
+      "publishedWithOption": "Inzerát byl zveřejněn. Zvolená funkce bude dostupná později — zatím platí běžné zveřejnění.",
+      "standard": {
+        "title": "Standardní zveřejnění",
+        "subtitle": "Zdarma: inzerát v běžném výpisu.",
+        "cta": "Zveřejnit"
+      },
+      "autoBoost": {
+        "title": "S auto-zvýrazněním",
+        "subtitle": "Inzerát se bude pravidelně posouvat ve výsledcích (příprava).",
+        "cta": "Zvolit a zveřejnit"
+      },
+      "premium": {
+        "title": "Premium",
+        "subtitle": "Maximální viditelnost a extra výhody (příprava).",
+        "cta": "Zvolit a zveřejnit"
+      }
+    }
   },
   "footer": {
     "home": "Domů",

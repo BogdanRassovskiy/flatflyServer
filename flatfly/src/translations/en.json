@@ -468,7 +468,31 @@
     "uploadedImage": "Uploaded image {index}",
     "previewImage": "Preview image {index}",
     "setMainPhoto": "Set as main",
-    "mainPhoto": "Main"
+    "mainPhoto": "Main",
+    "promotion": {
+      "stepTitle": "Listing promotion",
+      "title": "Choose how to publish",
+      "subtitle": "Placeholder for monetization: auto-boost, premium, and more. Details and pricing will be added later.",
+      "backToForm": "Back to form",
+      "detailsSoon": "Details coming soon",
+      "footnote": "All options publish the same way for now; paid features will be enabled later.",
+      "publishedWithOption": "Listing published. The selected option will be available later — standard listing applies for now.",
+      "standard": {
+        "title": "Standard listing",
+        "subtitle": "Free: your listing appears in the regular feed.",
+        "cta": "Publish"
+      },
+      "autoBoost": {
+        "title": "With auto-boost",
+        "subtitle": "Listing is periodically bumped in search results (placeholder).",
+        "cta": "Choose and publish"
+      },
+      "premium": {
+        "title": "Premium",
+        "subtitle": "Maximum visibility and extra perks (placeholder).",
+        "cta": "Choose and publish"
+      }
+    }
   },
   "footer": {
     "home": "Home",
