@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from .models import ListingFilterConfig, ListingFilterOptionConfig, CzechMunicipality, ListingReport, Listing
 from chats.models import Chat, Message, ModerationMessage
+from flatflyServer.telegram_channel import delete_listing_from_channel
 
 
 class ListingReportActionForm(ActionForm):
@@ -83,8 +84,11 @@ class ListingReportAdmin(admin.ModelAdmin):
 	@transaction.atomic
 	def _resolve(self, report: ListingReport, moderator, with_strike: bool):
 		listing_deleted = False
-		if not report.listing_deleted and Listing.objects.filter(id=report.listing_id, is_active=True).exists():
-			Listing.objects.filter(id=report.listing_id).update(is_active=False)
+		listing = Listing.objects.filter(id=report.listing_id).first()
+		if listing and not report.listing_deleted and listing.is_active:
+			delete_listing_from_channel(listing, clear_fields=True)
+			listing.is_active = False
+			listing.save(update_fields=["is_active"])
 			listing_deleted = True
 			self._notify_listing_owner(report.listing_owner, report)
 

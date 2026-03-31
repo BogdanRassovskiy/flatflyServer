@@ -434,6 +434,10 @@ export default function AddingPage() {
           formData.append("image", file);
           const imageGlobalIndex = existingImageCount + fileIndex;
           formData.append("is_primary", imageGlobalIndex === primaryImageIndex ? "true" : "false");
+          const isLastUpload = fileIndex === selectedFiles.length - 1;
+          if (isLastUpload) {
+            formData.append("publish_now", "true");
+          }
 
           const imgRes = await fetch(`/api/listings/${adId}/images/`, {
             method: "POST",

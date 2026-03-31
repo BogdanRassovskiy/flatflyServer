@@ -496,6 +496,8 @@ export default function ProfilePage() {
     const [myHomeLoading, setMyHomeLoading] = useState(false);
     const [myHomeError, setMyHomeError] = useState<string | null>(null);
     const [leavingHome, setLeavingHome] = useState(false);
+    const [isLeaveHomeModalOpen, setIsLeaveHomeModalOpen] = useState(false);
+    const [leaveHomeErrorMessage, setLeaveHomeErrorMessage] = useState<string | null>(null);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
     const [inviteError, setInviteError] = useState<string | null>(null);
@@ -636,12 +638,9 @@ export default function ProfilePage() {
     };
 
     const handleLeaveHome = async () => {
-        if (!window.confirm(t("profile.leaveHomeConfirm"))) {
-            return;
-        }
-
         try {
             setLeavingHome(true);
+            setLeaveHomeErrorMessage(null);
             const res = await fetch(`/api/listings/leave-home/`, {
                 method: "POST",
                 credentials: "include",
@@ -656,8 +655,10 @@ export default function ProfilePage() {
             }
 
             await fetchMyHome();
+            await fetchMyListings(1);
+            setIsLeaveHomeModalOpen(false);
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.leaveHomeFailed"));
+            setLeaveHomeErrorMessage(e instanceof Error ? e.message : t("profile.leaveHomeFailed"));
         } finally {
             setLeavingHome(false);
         }
@@ -2260,7 +2261,10 @@ export default function ProfilePage() {
                                     )}
 
                                     <button
-                                        onClick={handleLeaveHome}
+                                        onClick={() => {
+                                            setLeaveHomeErrorMessage(null);
+                                            setIsLeaveHomeModalOpen(true);
+                                        }}
                                         disabled={leavingHome}
                                         className="px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
                                     >
@@ -2330,6 +2334,54 @@ export default function ProfilePage() {
                                 alt={t("profile.inviteByQr")}
                                 className="w-full h-full object-contain"
                             />
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isLeaveHomeModalOpen && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => setIsLeaveHomeModalOpen(false)}
+                        aria-label={t("profile.leaveHome")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsLeaveHomeModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.leaveHome")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            {t("profile.leaveHome")}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            {t("profile.leaveHomeConfirm")}
+                        </p>
+                        {leaveHomeErrorMessage && (
+                            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {leaveHomeErrorMessage}
+                            </div>
+                        )}
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsLeaveHomeModalOpen(false)}
+                                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleLeaveHome}
+                                disabled={leavingHome}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                            >
+                                {leavingHome ? t("profile.leavingHome") : t("profile.leaveHome")}
+                            </button>
                         </div>
                     </div>
                 </div>

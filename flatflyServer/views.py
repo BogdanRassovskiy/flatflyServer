@@ -35,6 +35,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from urllib.parse import urlencode
 from .image_moderation import moderate_image, apply_moderation_strike_and_notify
+from .telegram_channel import publish_listing_to_channel, delete_listing_from_channel
 User = get_user_model()
 DEBUG_MODE=True;
 
@@ -1454,10 +1455,12 @@ def listing_detail(request, listing_id):
             return JsonResponse({"detail": "Forbidden"}, status=403)
 
         if request.method == "DELETE":
+            delete_listing_from_channel(listing, clear_fields=False)
             listing.delete()
             return JsonResponse({"detail": "Deleted"})
 
         data = json.loads(request.body or "{}")
+        was_active = bool(listing.is_active)
 
         if "city" in data or "region" in data:
             next_region = data.get("region", listing.region)
@@ -1605,6 +1608,10 @@ def listing_detail(request, listing_id):
                 listing.geo_lng = resolved_lng
 
         listing.save()
+        if was_active and not listing.is_active:
+            delete_listing_from_channel(listing, clear_fields=True)
+        elif (not was_active) and listing.is_active:
+            publish_listing_to_channel(listing)
         return JsonResponse({"detail": "Updated"})
 
     ordered_images = get_ordered_listing_images(listing)
@@ -2216,6 +2223,10 @@ def leave_home(request):
     listing = resident.listing
     total_residents = ListingResident.objects.filter(listing=listing).count()
     if total_residents <= 1:
+        if listing.owner_id == request.user.id:
+            delete_listing_from_channel(listing, clear_fields=False)
+            listing.delete()
+            return JsonResponse({"detail": "Sole resident listing removed"})
         return JsonResponse({"detail": "Cannot leave as sole resident"}, status=400)
 
     resident.delete()
@@ -2266,6 +2277,7 @@ def upload_listing_image(request, listing_id):
             listing=listing,
         )
         listing_id = listing.id
+        delete_listing_from_channel(listing, clear_fields=False)
         listing.delete()
         return JsonResponse(
             {
@@ -2296,6 +2308,10 @@ def upload_listing_image(request, listing_id):
 
     listing.is_active = True
     listing.save(update_fields=["is_active"])
+    publish_now_raw = str(request.POST.get("publish_now", "")).strip().lower()
+    publish_now = publish_now_raw in {"1", "true", "yes", "on"}
+    if publish_now:
+        publish_listing_to_channel(listing, force_refresh=True)
 
     return JsonResponse({
         "id": img.id,

@@ -45,6 +45,13 @@ if not DEBUG:
 GOOGLE_CLIENT_ID="382119089928-1jj9i247ccga761fkcbr4pq7m42kqhdg.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
+TELEGRAM_BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN",
+    "8777443271:AAGkYChHYTs5DyDpqKcrhc0zOKWq68mH7_w",
+)
+TELEGRAM_CHANNEL_CHAT_ID = os.getenv("TELEGRAM_CHANNEL_CHAT_ID", "-1003759647230")
+LISTING_PUBLIC_BASE_URL = os.getenv("LISTING_PUBLIC_BASE_URL", "https://flatfly.eu")
+
 # Google OAuth redirect URI (по умолчанию на прод-домен)
 GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",

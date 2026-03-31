@@ -166,6 +166,9 @@ class Listing(models.Model):
     deposit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    telegram_channel_message_id = models.BigIntegerField(null=True, blank=True)
+    telegram_channel_message_ids = models.JSONField(default=list, blank=True)
+    telegram_channel_posted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.city if self.city else self.region})"
