@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
 import { getImageUrl } from "../../utils/defaultImage";
+import NeighbourMobileListRow from "./NeighbourMobileListRow";
 
 interface Neighbour {
   id: number;
@@ -49,6 +50,41 @@ interface NeighbourFilterState {
   interests: string;
   neighbourFrom: string;
 }
+
+function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[] {
+  const getBadgeValue = (fieldName: string, value?: string | boolean): string | null => {
+    if (value === null || value === undefined || value === "") return null;
+
+    if (typeof value === "boolean") {
+      return value ? t(`badges.${fieldName}`) : null;
+    }
+
+    const normalizedValue = String(value).toLowerCase().replace(/\s+/g, "");
+    if (normalizedValue === "no") return null;
+    if (normalizedValue === "yes") {
+      return t(`badges.${fieldName}`);
+    }
+    return t(`badges.${normalizedValue}`) || String(value);
+  };
+
+  const potentialBadges: (string | null)[] = [
+    getBadgeValue("verified", n.verified),
+    getBadgeValue("lookingForHousing", n.looking_for_housing),
+    getBadgeValue(n.gender || "", n.gender),
+    getBadgeValue("smoking", n.smoking),
+    getBadgeValue("alcohol", n.alcohol),
+    getBadgeValue("pets", n.pets),
+    getBadgeValue("sleepSchedule", n.sleep_schedule),
+    getBadgeValue("gamer", n.gamer),
+    getBadgeValue("workFromHome", n.work_from_home),
+    getBadgeValue("withChildren", n.with_children),
+    getBadgeValue("withDisability", n.with_disability),
+    getBadgeValue("pensioner", n.pensioner),
+  ];
+
+  return potentialBadges.filter((b): b is string => b !== null).slice(0, 6);
+}
+
 export default function NeighboursPage() {
   const { t } = useLanguage();
 
@@ -142,10 +178,18 @@ export default function NeighboursPage() {
     }
   };
 
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage === pagination) return;
+    setPagination(nextPage);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont">
-      <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
-        <div className="w-full flex flex-col items-start my-[150px]">
+      <div className="w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 xl:px-16 flex flex-col items-center">
+        <div className="flex w-full max-[770px]:mt-[calc(100px+10px)] max-[770px]:mb-10 min-[771px]:my-[120px] flex-col items-start">
 
           <NeighboursFilterPanel
             filters={filters}
@@ -153,79 +197,54 @@ export default function NeighboursPage() {
           />
 
           {loading ? (
-            <div className="text-xl mt-10">Loading...</div>
+            <div className="mt-5 text-xl max-[770px]:mt-4 min-[771px]:mt-10">Loading...</div>
           ) : neighbours.length === 0 ? (
-            <div className="text-xl mt-10 opacity-60">
+            <div className="mt-5 text-xl opacity-60 max-[770px]:mt-4 min-[771px]:mt-10">
               {t("No neighbours found")}
             </div>
           ) : (
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8 md:mt-[50px]">
-              {neighbours.map((n) => {
-                const badges: string[] = [];
-
-                // Функция для получения локализованного значения badge
-                const getBadgeValue = (fieldName: string, value?: string | boolean): string | null => {
-                  if (value === null || value === undefined || value === "") return null;
-                  
-                  if (typeof value === "boolean") {
-                    return value ? t(`badges.${fieldName}`) : null;
-                  }
-                  
-                  // Нормализуем значение
-                  const normalizedValue = String(value).toLowerCase().replace(/\s+/g, "");
-                  
-                  // Если значение "no", не показываем плашку
-                  if (normalizedValue === "no") return null;
-                  
-                  // Если значение "yes", показываем название характеристики
-                  if (normalizedValue === "yes") {
-                    return t(`badges.${fieldName}`);
-                  }
-                  
-                  // Для остальных значений показываем локализованное значение
-                  return t(`badges.${normalizedValue}`) || String(value);
-                };
-
-                // Собираем badges с учетом приоритета
-                const potentialBadges: (string | null)[] = [
-                  getBadgeValue("verified", n.verified),
-                  getBadgeValue("lookingForHousing", n.looking_for_housing),
-                  getBadgeValue(n.gender || "", n.gender),
-                  getBadgeValue("smoking", n.smoking),
-                  getBadgeValue("alcohol", n.alcohol),
-                  getBadgeValue("pets", n.pets),
-                  getBadgeValue("sleepSchedule", n.sleep_schedule),
-                  getBadgeValue("gamer", n.gamer),
-                  getBadgeValue("workFromHome", n.work_from_home),
-                  getBadgeValue("withChildren", n.with_children),
-                  getBadgeValue("withDisability", n.with_disability),
-                  getBadgeValue("pensioner", n.pensioner),
-                ];
-
-                // Фильтруем null и ограничиваем до 6
-                potentialBadges
-                  .filter((b): b is string => b !== null)
-                  .slice(0, 6)
-                  .forEach(b => badges.push(b));
-
-                return (
-                  <SaleCard
+            <>
+              {/* Мобильный список: строки как в соцсетях — удобнее скроллить */}
+              <div className="mx-auto mt-3 flex w-full max-w-lg min-[771px]:hidden flex-col rounded-2xl border border-gray-100 bg-white px-3 py-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+                {neighbours.map((n) => (
+                  <NeighbourMobileListRow
                     key={n.id}
-                    id={String(n.id)}
+                    id={n.id}
                     name={n.name}
+                    avatar={n.avatar}
+                    fromLabel={regionValueToLabel(n.city)}
                     age={n.age}
-                    from={regionValueToLabel(n.city)}
-                    image={getImageUrl(n.avatar)}
-                    badges={badges}
+                    matchPercentage={n.matchPercentage}
                     ratingAverage={n.ratingAverage}
                     ratingCount={n.ratingCount}
-                    matchPercentage={n.matchPercentage}
-                    type="NEIGHBOUR"
-                    is_favorite={n.is_favorite}
+                    initialFavorite={!!n.is_favorite}
                   />
-                );
-              })}
-            </div>
+                ))}
+              </div>
+
+              <div className="hidden min-[771px]:mt-6 min-[771px]:grid w-full justify-center justify-items-center gap-5 sm:gap-6 lg:gap-7 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
+                {neighbours.map((n) => {
+                  const badges = buildNeighbourBadges(n, t);
+                  return (
+                    <SaleCard
+                      key={n.id}
+                      compactGrid
+                      id={String(n.id)}
+                      name={n.name}
+                      age={n.age}
+                      from={regionValueToLabel(n.city)}
+                      image={getImageUrl(n.avatar)}
+                      badges={badges}
+                      ratingAverage={n.ratingAverage}
+                      ratingCount={n.ratingCount}
+                      matchPercentage={n.matchPercentage}
+                      type="NEIGHBOUR"
+                      is_favorite={n.is_favorite}
+                    />
+                  );
+                })}
+              </div>
+            </>
           )}
 
           {/* Пагинация */}
@@ -234,7 +253,7 @@ export default function NeighboursPage() {
               {Array.from({ length: totalPages }).map((_, index) => (
                 <div
                   key={index}
-                  onClick={() => setPagination(index + 1)}
+                  onClick={() => handlePageChange(index + 1)}
                   className={`flex items-center justify-center duration-300 cursor-pointer 
                               text-lg font-semibold w-8 h-8 rounded-full ${
                     index + 1 === pagination
@@ -249,7 +268,7 @@ export default function NeighboursPage() {
 
             {pagination < totalPages && (
               <div
-                onClick={() => setPagination(pagination + 1)}
+                onClick={() => handlePageChange(pagination + 1)}
                 className="flex items-center gap-1 cursor-pointer text-black dark:text-white"
               >
                 <span className="text-lg font-semibold">Další</span>

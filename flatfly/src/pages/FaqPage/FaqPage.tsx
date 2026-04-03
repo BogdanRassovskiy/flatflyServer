@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 
@@ -94,6 +95,15 @@ export default function FaqPage() {
                             );
                         })
                     )}
+
+                    <div className="mt-8 flex justify-center">
+                        <Link
+                            to="/contact"
+                            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#C505EB] px-8 py-3 text-center text-base font-semibold text-white shadow-sm transition hover:bg-[#BA00F8] dark:shadow-none"
+                        >
+                            {t("faq.askAnotherQuestion")}
+                        </Link>
+                    </div>
                 </div>
             </div>
 

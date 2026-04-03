@@ -443,6 +443,16 @@ const NeighboursCategories = [
     return(
         <div className={`w-full flex flex-col interFont`}>
 
+            {/* Мобильная кнопка: десктоп-бар целиком скрыт до 771px — без этого фильтр недоступен */}
+            <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="mb-2 flex min-[771px]:hidden w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#DDDDDD] bg-white px-4 py-3 shadow-md dark:border-gray-600 dark:bg-gray-800 dark:shadow-gray-900/40 active:scale-[0.99]"
+            >
+                <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
+                <span className="text-lg font-bold text-[#C505EB]">{t("filter.filters")}</span>
+            </button>
+
             {/* Десктопная версия */}
             <div className="hidden min-[771px]:flex w-full h-[64px] items-center justify-between 
                 border border-[#DDDDDD] dark:border-gray-600 rounded-full 

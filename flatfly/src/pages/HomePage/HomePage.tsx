@@ -17,9 +17,9 @@ export default function HomePage() {
     return(
         <div className={`w-screen min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent`}>
 
-            <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
+            <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-10 max-[770px]:px-3 flex flex-col items-center`}>
                 {/*Hero title*/}
-                <div className={`mt-[214px] flex flex-col items-center `}>
+                <div className={`mt-[156px] max-[770px]:mt-[130px] flex flex-col items-center `}>
                     <span className={`text-[60px] max-[770px]:text-[32px] font-extrabold text-[#555555] dark:text-gray-300 interFont leading-16 max-[770px]:leading-10 text-center`}>
                         <span className={`text-[64px] max-[770px]:text-[36px]`}>
                             <span className={`bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent`}>FlatFly,</span> {t("home.title").replace("FlatFly, ", "")}
@@ -30,13 +30,13 @@ export default function HomePage() {
                 </div>
 
                 {/*HeroCards*/}
-                <div className={`w-full flex max-[770px]:flex-col items-center justify-between max-[1220px]:gap-3 min-[1220px]:gap-6 mt-[130px]`}>
+                <div className={`w-full flex max-[770px]:flex-col items-center justify-center max-[770px]:gap-4 max-[1220px]:gap-3 min-[1220px]:gap-6 mt-[64px] max-[770px]:mt-[34px]`}>
                     {HeroCards.map((value, index)=>
                         <HeroCard key={index} title={value.title} subtitle={value.subtitle} image={value.image} type={"HERO"} link={value.link}/>
                     )}
                 </div>
 
-                <div className={`mt-[151px] mb-[123px] w-full h-[513px] max-[770px]:h-auto flex max-[770px]:flex-col-reverse max-[770px]:items-center items-start justify-between max-[770px]:gap-10 `}>
+                <div id="about" className={`mt-[151px] mb-[80px] w-full min-h-[513px] max-[770px]:min-h-0 max-[770px]:h-auto flex max-[770px]:flex-col-reverse max-[770px]:items-center items-start justify-between max-[770px]:gap-10 `}>
 
                     <div className={`min-[770px]:w-1/2 max-[770px]:w-full min-[770px]:flex-shrink-0 flex flex-col min-[770px]:items-start max-[770px]:items-center `}>
                         <span className={`text-[40px] font-bold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent `}>{t("home.aboutTitle")}</span>
@@ -61,6 +61,26 @@ export default function HomePage() {
                         <img className={`min-[770px]:w-[394px] min-[770px]:h-[394px] max-[770px]:w-[200px] max-[770px]:h-[200px] object-contain`} src={logo} alt="FlatFly Logo"/>
                     </div>
 
+                </div>
+
+                <div className="w-full mb-[120px] max-[770px]:mb-[80px]">
+                    <div className="w-full flex max-[770px]:flex-col items-center justify-center gap-8 max-[770px]:gap-6">
+                        {[
+                            { image: keys, role: t("home.team.founder"), name: "Bogdan" },
+                            { image: wall, role: t("home.team.designer"), name: "Michaela" },
+                            { image: furniture, role: t("home.team.it"), name: "Alex" },
+                        ].map((member, index) => (
+                            <div key={index} className="flex flex-col items-center text-center">
+                                <img
+                                    src={member.image}
+                                    alt={member.role}
+                                    className="w-[130px] h-[130px] rounded-full object-cover border-4 border-[#C505EB]/30"
+                                />
+                                <span className="mt-3 text-[20px] max-[770px]:text-[18px] font-bold text-black dark:text-white">{member.role}</span>
+                                <span className="text-[15px] text-[#666666] dark:text-gray-400">{member.name}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
             </div>

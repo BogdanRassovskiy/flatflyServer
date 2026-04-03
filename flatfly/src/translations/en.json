@@ -8,6 +8,7 @@
     "faq": "FAQ",
     "contact": "Contact",
     "addListing": "Add Listing",
+    "findNeighbor": "Find a neighbor",
     "about": "About",
     "searchPlaceholder": "Search city, school or roommate...",
     "login": "Login",
@@ -76,6 +77,12 @@
     "deleteError": "Failed to delete chat",
     "cancel": "Cancel"
   },
+  "neighbours": {
+    "openProfile": "Profile",
+    "saveShort": "Save",
+    "removeShort": "Remove",
+    "matchHint": "match"
+  },
   "home": {
     "title": "FlatFly, reliable co-living",
     "subtitle": "for your new life chapter.",
@@ -85,7 +92,7 @@
     },
     "heroCard2": {
       "title": "Looking for a roommate",
-      "subtitle": "Looking for a roommate"
+      "subtitle": "Find a roommate to search for housing together"
     },
     "heroCard3": {
       "title": "Offering apartment",
@@ -93,7 +100,12 @@
     },
     "aboutTitle": "Who we are",
     "aboutText1": "It all started with frustration from searching for housing on Facebook. Endless scrolling in groups, outdated listings and zero certainty about who you'll actually be living with. We told ourselves it had to be better. We wanted to create a place that wouldn't just be a bulletin board with listings, but a space that truly connects people who click.",
-    "aboutText2": "Our idea got real shape thanks to cooperation with the Innovation Center of Ústí Region (ICUK). Within the business incubator, we were able to turn our vision into a functional platform. We fine-tuned features, tested beta versions and focused on what's missing elsewhere – simplicity and trust.\n\nToday FlatFly is a ready project that helps not only students, but everyone looking for a new start. Whether you're moving for work, school, or starting a new life chapter, we want finding a home to be safe and stress-free for you."
+    "aboutText2": "Our idea got real shape thanks to cooperation with the Innovation Center of Ústí Region (ICUK). Within the business incubator, we were able to turn our vision into a functional platform. We fine-tuned features, tested beta versions and focused on what's missing elsewhere – simplicity and trust.\n\nToday FlatFly is a ready project that helps not only students, but everyone looking for a new start. Whether you're moving for work, school, or starting a new life chapter, we want finding a home to be safe and stress-free for you.",
+    "team": {
+      "founder": "Founder",
+      "designer": "Designer",
+      "it": "IT"
+    }
   },
   "filter": {
     "location": "Region",
@@ -190,10 +202,11 @@
     "energyClass": "Energy Class",
     "selected": "selected",
     "moveInDatePlaceholder": "Select date",
-    "filters": "Filters",
+    "filters": "Customize filters",
     "foundListingsCount": "Found listings",
     "applyFilters": "Apply Filters",
     "resetFilters": "Reset",
+    "clearPinned": "Clear selection",
     "close": "Close",
     "writeMessage": "Write message",
     "listing.writeMessage": "Write message",
@@ -253,6 +266,11 @@
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
+    "favoriteAddedSuccess": "Saved to your favorites",
+    "morePhotosInDetail": "Open the listing to see all photos",
+    "photoGallery": "Listing photos",
+    "viewAllPhotos": "View all {count} photos",
     "share": "Share",
     "close": "Close",
     "condition": "Condition",
@@ -373,6 +391,7 @@
     "title": "Frequently Asked Questions",
     "loading": "Loading FAQ...",
     "empty": "No questions yet",
+    "askAnotherQuestion": "Ask another question",
     "chat": {
       "title": "FAQ Chat",
       "welcome": "Hi! Ask your question and I will pick the most relevant answer from FAQ.",
@@ -394,10 +413,16 @@
     "namePlaceholder": "e.g. John Doe",
     "email": "E-mail",
     "emailPlaceholder": "e.g. john@example.com",
+    "emailInvalid": "Please enter a valid email address",
     "message": "Message",
     "messagePlaceholder": "I need advice on...",
     "send": "Send",
-    "contacts": "Contacts"
+    "contacts": "Contacts",
+    "fillAllFields": "Please fill in all fields",
+    "sendSuccess": "Message sent successfully",
+    "sendFailed": "Failed to send",
+    "serverError": "Server error",
+    "sending": "Sending..."
   },
   "add": {
     "title": "New listing",
@@ -623,6 +648,23 @@
       "myHome": "My Home"
     },
     "photoHint": "Click to upload profile photo",
+    "intro": "Intro",
+    "information": "Information",
+    "neighbourSidebarTabs": "Profile sections: information and photos",
+    "coResidents": "Housemates",
+    "coverHint": "Cover photo",
+    "uploadCover": "Upload cover",
+    "changeCover": "Change cover",
+    "addGalleryPhoto": "Add gallery photo",
+    "captionOptional": "Short caption (no links)",
+    "removePhoto": "Remove",
+    "saveCaption": "Save caption",
+    "galleryLimit": "Up to 24 gallery photos",
+    "linkNotAllowedInCaption": "Links are not allowed in captions",
+    "gallery": {
+      "title": "Photos",
+      "empty": "No photos yet"
+    },
     "name": "Full Name",
     "namePlaceholder": "Enter your full name",
     "phone": "Phone Number",

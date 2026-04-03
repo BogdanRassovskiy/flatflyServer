@@ -1,10 +1,16 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 
+export type AuthUser = {
+    email: string;
+    name: string;
+    avatar?: string | null;
+};
+
 interface AuthContextType {
     isAuthenticated: boolean;
-    user: { email: string; name: string } | null;
-    login: (email: string, name: string) => void;
+    user: AuthUser | null;
+    login: (email: string, name: string, avatar?: string | null) => void;
     logout: () => void;
 }
 
@@ -12,7 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [user, setUser] = useState<{ email: string; name: string } | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
 
     useEffect(() => {
       fetch("/api/me/", {
@@ -22,9 +28,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!res.ok) throw new Error();
           return res.json();
         })
-        .then(data => {
+        .then((data: Record<string, unknown>) => {
           setIsAuthenticated(true);
-          setUser(data);
+          const email = String(data.email || "");
+          const nameFromApi = String(data.name || "").trim();
+          const fromParts = [data.first_name, data.last_name]
+            .map((x) => String(x || "").trim())
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          const name =
+            nameFromApi ||
+            fromParts ||
+            String(data.username || "").trim() ||
+            (email ? email.split("@")[0] : "");
+          setUser({
+            email,
+            name,
+            avatar: typeof data.avatar === "string" ? data.avatar : null,
+          });
         })
         .catch(() => {
           setIsAuthenticated(false);
@@ -32,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
-    const login = (email: string, name: string) => {
-        const userData = { email, name };
+    const login = (email: string, name: string, avatar?: string | null) => {
+        const userData: AuthUser = { email, name, avatar: avatar ?? null };
         setIsAuthenticated(true);
         setUser(userData);
         

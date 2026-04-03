@@ -97,6 +97,7 @@ class Profile(models.Model):
 
     # === BASIC INFO ===
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    cover_photo = models.ImageField(upload_to="profile_covers/", blank=True, null=True)
 
     name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
@@ -187,6 +188,26 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+
+
+class ProfileGalleryPhoto(models.Model):
+    """Фото в галерее профиля (без ссылок в подписи — проверяется в API)."""
+
+    profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name="gallery_photos",
+    )
+    image = models.ImageField(upload_to="profile_gallery/")
+    caption = models.CharField(max_length=200, blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"Gallery #{self.id} for profile {self.profile_id}"
 
 
 class ProfileCompletionWeight(models.Model):

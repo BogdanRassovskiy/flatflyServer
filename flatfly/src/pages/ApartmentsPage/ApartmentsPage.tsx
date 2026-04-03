@@ -35,6 +35,7 @@ interface Listing {
   moveInDate?: string | null;
 
   image?: string | null;
+  images?: string[];
   is_favorite?: boolean;
   matchPercentage?: number;
 }
@@ -207,7 +208,7 @@ export default function ApartmentsPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
-      <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
+      <div className="w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 xl:px-16 flex flex-col items-center">
         <div className="w-full flex flex-col items-start my-[150px]">
 
           <FilterPanel
@@ -228,10 +229,11 @@ export default function ApartmentsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-8 md:mt-[50px]">
+            <div className="mt-8 grid w-full justify-center justify-items-center gap-5 sm:mt-12 sm:gap-6 lg:gap-7 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)] md:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}
+                  compactGrid
                   id={listing.id}
                   title={listing.title}
                   price={Number(listing.price)}
@@ -244,6 +246,7 @@ export default function ApartmentsPage() {
                   rooms={listing.rooms || ""}
                   amenities={listing.amenities || []}
                   image={getImageUrl(listing.image)}
+                  images={listing.images}
                   type={listing.type as any}
                   is_favorite={listing.is_favorite}
                   matchPercentage={listing.matchPercentage}

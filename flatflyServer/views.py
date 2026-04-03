@@ -14,9 +14,9 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 import jwt
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
-from django.db.models import Q, Avg, Count
+from django.db.models import Q, Avg, Count, Max, Prefetch
 from django.utils import timezone
-from users.models import Profile, ProfileCompletionWeight, ProfileRankingConfig, ProfileReview, University, UniversityFaculty
+from users.models import Profile, ProfileCompletionWeight, ProfileGalleryPhoto, ProfileRankingConfig, ProfileReview, University, UniversityFaculty
 from chats.models import ChatBlock
 from users.neighbour_ranking import (
     apply_neighbour_hard_filters,
@@ -34,6 +34,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.urls import reverse
 from urllib.parse import urlencode
+from django.core.files.base import ContentFile
 from .image_moderation import moderate_image, apply_moderation_strike_and_notify
 from .telegram_channel import publish_listing_to_channel, delete_listing_from_channel
 User = get_user_model()
@@ -927,12 +928,33 @@ def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Not authenticated"}, status=401)
     user = request.user
+    profile = None
+    try:
+        profile = user.profile
+    except Profile.DoesNotExist:
+        profile = None
+
+    display_name = ""
+    avatar_url = None
+    if profile:
+        display_name = str(profile.name or "").strip()
+        if profile.avatar:
+            avatar_url = request.build_absolute_uri(profile.avatar.url)
+    if not display_name:
+        display_name = f"{user.first_name} {user.last_name}".strip()
+    if not display_name:
+        display_name = user.username or ""
+    if not display_name and user.email:
+        display_name = user.email.split("@", 1)[0]
+
     return JsonResponse({
         "id": user.id,
         "username": user.username,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
+        "name": display_name,
+        "avatar": avatar_url,
     })
 def neighbours_list(request):
     qs = Profile.objects.all().annotate(
@@ -992,7 +1014,7 @@ def neighbours_list(request):
 
     # PAGINATION
     page = int(request.GET.get("page", 1))
-    paginator = Paginator(ranked_rows, 12)
+    paginator = Paginator(ranked_rows, 10)
     page_obj = paginator.get_page(page)
 
     # Собираем избранные соседи текущего пользователя
@@ -1146,7 +1168,155 @@ def neighbour_detail(request, profile_id):
         payload["instagram"] = profile.instagram
         payload["facebook"] = profile.facebook
 
+    gallery_qs = profile.gallery_photos.all()[:24]
+    payload["coverPhoto"] = request.build_absolute_uri(profile.cover_photo.url) if profile.cover_photo else None
+    payload["gallery"] = [
+        {
+            "id": p.id,
+            "url": request.build_absolute_uri(p.image.url),
+            "caption": (p.caption or "")[:200],
+        }
+        for p in gallery_qs
+    ]
+
+    co_residents = []
+    if target_residency:
+        for r in (
+            ListingResident.objects.filter(listing=target_residency.listing)
+            .exclude(profile_id=profile.id)
+            .select_related("profile", "profile__user")
+        ):
+            p = r.profile
+            co_residents.append(
+                {
+                    "id": p.id,
+                    "name": (p.name or "").strip() or p.user.get_username(),
+                    "avatar": request.build_absolute_uri(p.avatar.url) if p.avatar else None,
+                    "age": p.age,
+                }
+            )
+    payload["coResidents"] = co_residents
+
     return JsonResponse(payload)
+
+
+def _profile_gallery_caption_ok(caption: str) -> bool:
+    s = (caption or "").strip().lower()
+    if "http://" in s or "https://" in s or "www." in s:
+        return False
+    return True
+
+
+PROFILE_GALLERY_MAX = 24
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def upload_profile_cover(request):
+    if "cover" not in request.FILES:
+        return JsonResponse({"detail": "No cover image"}, status=400)
+    moderation = moderate_image(request.FILES["cover"])
+    if moderation.violation:
+        sanction = apply_moderation_strike_and_notify(
+            user=request.user,
+            reasons=moderation.reasons,
+            source="profile_cover_upload",
+            raw_scores=moderation.raw_scores,
+            raw_labels=moderation.raw_labels,
+            provider=getattr(moderation, "provider", "unknown"),
+        )
+        return JsonResponse(
+            {
+                "detail": "Cover rejected by moderation",
+                "reasons": moderation.reasons,
+                "strikes": sanction["strikes"],
+                "banned": sanction["banned"],
+            },
+            status=403,
+        )
+    profile = request.user.profile
+    profile.cover_photo = request.FILES["cover"]
+    profile.save(update_fields=["cover_photo"])
+    return JsonResponse(
+        {
+            "detail": "Cover uploaded",
+            "coverPhoto": request.build_absolute_uri(profile.cover_photo.url),
+        }
+    )
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def profile_gallery_add(request):
+    if "image" not in request.FILES:
+        return JsonResponse({"detail": "No image"}, status=400)
+    profile = request.user.profile
+    if ProfileGalleryPhoto.objects.filter(profile=profile).count() >= PROFILE_GALLERY_MAX:
+        return JsonResponse({"detail": "Gallery limit reached"}, status=400)
+    caption = str(request.POST.get("caption") or "").strip()[:200]
+    if not _profile_gallery_caption_ok(caption):
+        return JsonResponse({"detail": "Caption cannot contain links"}, status=400)
+    moderation = moderate_image(request.FILES["image"])
+    if moderation.violation:
+        sanction = apply_moderation_strike_and_notify(
+            user=request.user,
+            reasons=moderation.reasons,
+            source="profile_gallery_upload",
+            raw_scores=moderation.raw_scores,
+            raw_labels=moderation.raw_labels,
+            provider=getattr(moderation, "provider", "unknown"),
+        )
+        return JsonResponse(
+            {
+                "detail": "Image rejected by moderation",
+                "reasons": moderation.reasons,
+                "strikes": sanction["strikes"],
+                "banned": sanction["banned"],
+            },
+            status=403,
+        )
+    next_order = (
+        ProfileGalleryPhoto.objects.filter(profile=profile).aggregate(Max("sort_order"))["sort_order__max"] or 0
+    ) + 1
+    photo = ProfileGalleryPhoto.objects.create(
+        profile=profile,
+        image=request.FILES["image"],
+        caption=caption,
+        sort_order=next_order,
+    )
+    return JsonResponse(
+        {
+            "id": photo.id,
+            "url": request.build_absolute_uri(photo.image.url),
+            "caption": photo.caption or "",
+        },
+        status=201,
+    )
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["DELETE", "PATCH", "POST"])
+def profile_gallery_item(request, photo_id):
+    profile = request.user.profile
+    photo = get_object_or_404(ProfileGalleryPhoto, id=photo_id, profile=profile)
+    if request.method == "DELETE":
+        photo.image.delete(save=False)
+        photo.delete()
+        return JsonResponse({"detail": "Deleted"})
+    # PATCH caption (JSON or form)
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    caption = str(data.get("caption") if isinstance(data.get("caption"), str) else request.POST.get("caption") or "").strip()[:200]
+    if not _profile_gallery_caption_ok(caption):
+        return JsonResponse({"detail": "Caption cannot contain links"}, status=400)
+    photo.caption = caption
+    photo.save(update_fields=["caption"])
+    return JsonResponse({"id": photo.id, "caption": photo.caption})
 
 
 @login_required
@@ -1912,6 +2082,12 @@ def listings_view(request):
     price_histogram = _build_price_histogram(histogram_qs)
 
     qs = _apply_hard_filters(qs, requested_filters, config_by_code, option_configs_by_parent)
+    qs = qs.prefetch_related(
+        Prefetch(
+            "images",
+            queryset=ListingImage.objects.order_by("-is_primary", "id"),
+        )
+    )
 
     ranked_items = []
     for listing in qs:
@@ -2016,7 +2192,7 @@ def listings_view(request):
 
     # ---- Пагинация ----
 
-    paginator = Paginator(ranked_listings, 9)
+    paginator = Paginator(ranked_listings, 10)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
 
@@ -2032,6 +2208,8 @@ def listings_view(request):
     for listing in page_obj:
         main_image = get_primary_listing_image(listing)
         ranking_data = listing_scores.get(listing.id, {"relevance_score": 0.0, "match_percentage": 0})
+        preview_images = list(listing.images.all())[:4]
+        image_list_urls = [request.build_absolute_uri(img.image.url) for img in preview_images]
 
         results.append({
             "id": listing.id,
@@ -2066,6 +2244,7 @@ def listings_view(request):
             "matchPercentage": ranking_data["match_percentage"],
 
             "image": request.build_absolute_uri(main_image.image.url) if main_image else None,
+            "images": image_list_urls,
             "is_favorite": listing.id in favorite_ids,
         })
 
@@ -2368,8 +2547,18 @@ def profile_view(request):
 
         completion_data = _calculate_profile_completion(profile)
 
+        gallery_own = profile.gallery_photos.all()[:24]
         return JsonResponse({
             "photo": profile.avatar.url if profile.avatar else "",
+            "coverPhoto": profile.cover_photo.url if profile.cover_photo else "",
+            "gallery": [
+                {
+                    "id": p.id,
+                    "url": p.image.url,
+                    "caption": (p.caption or "")[:200],
+                }
+                for p in gallery_own
+            ],
             "name": profile.name,
             "phone": profile.phone,
             "age": profile.age,
@@ -2613,6 +2802,50 @@ def apple_callback(request):
 
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     return redirect("/apartments")
+
+
+def _try_apply_google_avatar_photo(profile, picture_url):
+    """Best-effort: save Google profile picture as avatar for new OAuth sign-ups."""
+    if not picture_url:
+        return
+    url = str(picture_url).strip()
+    if not url.startswith(("http://", "https://")):
+        return
+    if profile.avatar:
+        return
+    if "googleusercontent.com" in url:
+        url = re.sub(r"=s\d+", "=s512", url, count=1)
+    try:
+        resp = requests.get(
+            url,
+            timeout=12,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; FlatFly/1.0; +https://flatfly.eu)",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.content
+        if not data or len(data) > 8 * 1024 * 1024:
+            return
+        upload = ContentFile(data)
+        moderation = moderate_image(upload)
+        if moderation.violation:
+            return
+        upload.seek(0)
+        ct = (resp.headers.get("Content-Type") or "").lower()
+        if "png" in ct:
+            ext = ".png"
+        elif "webp" in ct:
+            ext = ".webp"
+        elif "gif" in ct:
+            ext = ".gif"
+        else:
+            ext = ".jpg"
+        profile.avatar.save(f"google_oauth_{profile.pk}{ext}", upload, save=True)
+    except Exception:
+        return
+
+
 def google_callback(request):
     error = request.GET.get("error")
     if error:
@@ -2645,6 +2878,19 @@ def google_callback(request):
     first_name = payload.get("given_name", "")
     last_name = payload.get("family_name", "")
     google_id = payload.get("sub")
+    picture_url = payload.get("picture")
+    access_token = token_data.get("access_token")
+    if not picture_url and access_token:
+        try:
+            uir = requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10,
+            )
+            if uir.ok:
+                picture_url = uir.json().get("picture")
+        except Exception:
+            pass
 
     if not email:
         return HttpResponse("Google did not return email", status=400)
@@ -2674,6 +2920,7 @@ def google_callback(request):
             auth_provider="google",
             name=f"{first_name} {last_name}".strip()
         )
+        _try_apply_google_avatar_photo(profile, picture_url)
 
     if not user.is_active:
         return HttpResponse("Account is blocked", status=403)
@@ -2760,6 +3007,8 @@ def get_favorites(request):
         for listing in listings:
             images = ListingImage.objects.filter(listing=listing).order_by("-is_primary", "id")
             image_url = images.first().image.url if images.exists() else None
+            preview_imgs = list(images[:4])
+            image_urls_preview = [request.build_absolute_uri(img.image.url) for img in preview_imgs]
             all_favorites.append({
                 "id": listing.id,
                 "type": "LISTING",
@@ -2771,6 +3020,7 @@ def get_favorites(request):
                 "region": listing.region,
                 "area": listing.size,
                 "image_url": image_url,
+                "images": image_urls_preview,
                 "amenities": listing.amenities or [],
                 "is_favorite": True,
             })

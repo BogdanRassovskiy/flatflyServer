@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { ChangeEvent } from "react";
-import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X, Crown } from "lucide-react";
+import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X, Crown, ImagePlus, Trash2 } from "lucide-react";
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
@@ -10,9 +10,17 @@ import SaleCard from "../../components/SaleCard/SaleCard";
 import { getImageUrl } from "../../utils/defaultImage";
 import MapPicker from "../../components/MapPicker/MapPicker";
 
+interface ProfileGalleryItem {
+    id: number;
+    url: string;
+    caption: string;
+}
+
 interface ProfileData {
     // Основная информация
     photo: string;
+    coverPhoto: string;
+    gallery: ProfileGalleryItem[];
     name: string;
     phone: string;
     age: string;
@@ -64,6 +72,35 @@ interface ProfileCompletionData {
     totalFields: number;
 }
 
+/** Ключи заполненности профиля (как в API) → вкладка профиля */
+const PROFILE_COMPLETION_KEY_TO_SECTION: Record<string, "basic" | "social" | "status"> = {
+    name: "basic",
+    phone: "basic",
+    age: "basic",
+    gender: "basic",
+    city: "basic",
+    location_city: "basic",
+    location_address: "basic",
+    university: "basic",
+    faculty: "basic",
+    profession: "basic",
+    languages: "basic",
+    about: "basic",
+    smoking: "social",
+    alcohol: "social",
+    sleep_schedule: "social",
+    noise_tolerance: "social",
+    gamer: "social",
+    work_from_home: "social",
+    pets: "social",
+    cleanliness: "social",
+    introvert_extrovert: "social",
+    guests_parties: "social",
+    preferred_gender: "social",
+    preferred_age_range: "social",
+    verified: "status",
+};
+
 const normalizeNoiseTolerance = (value: unknown): string => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
@@ -79,6 +116,8 @@ export default function ProfilePage() {
     const navigate = useNavigate();
     const location = useLocation();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
     
     const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome">("basic");
     const [isSaving, setIsSaving] = useState(false);
@@ -123,6 +162,8 @@ export default function ProfilePage() {
     
     const [profileData, setProfileData] = useState<ProfileData>({
         photo: "",
+        coverPhoto: "",
+        gallery: [],
         name: user?.name || "",
         phone: "",
         age: "",
@@ -187,6 +228,14 @@ export default function ProfilePage() {
           setProfileData(prev => ({
             ...prev,
             ...data,
+            coverPhoto: String(data.coverPhoto || ""),
+            gallery: Array.isArray(data.gallery)
+                ? data.gallery.map((g: { id?: number; url?: string; caption?: string }) => ({
+                      id: Number(g.id),
+                      url: String(g.url || ""),
+                      caption: String(g.caption || "").slice(0, 200),
+                  }))
+                : [],
                         noiseTolerance: normalizeNoiseTolerance(data.noiseTolerance),
             locationRegion: String(data.locationRegion || ""),
             locationCity: String(data.locationCity || ""),
@@ -440,6 +489,23 @@ export default function ProfilePage() {
         { key: "myHome", label: t("profile.sections.myHome") },
     ];
 
+    const sectionMissingCounts = useMemo(() => {
+        const keys = profileCompletion.missingFieldKeys ?? [];
+        const tally: Record<(typeof sections)[number]["key"], number> = {
+            basic: 0,
+            social: 0,
+            status: 0,
+            favorites: 0,
+            myListings: 0,
+            myHome: 0,
+        };
+        for (const k of keys) {
+            const sec = PROFILE_COMPLETION_KEY_TO_SECTION[k] ?? "basic";
+            tally[sec] += 1;
+        }
+        return tally;
+    }, [profileCompletion.missingFieldKeys]);
+
     const currentSectionIndex = sections.findIndex(s => s.key === activeSection);
     const canGoPrevious = currentSectionIndex > 0;
     const canGoNext = currentSectionIndex < sections.length - 1;
@@ -476,6 +542,7 @@ export default function ProfilePage() {
         looking_for_housing?: boolean;
         // Общее
         image_url?: string | null;
+        images?: string[];
         is_favorite?: boolean;
         is_active?: boolean;
     };
@@ -503,6 +570,9 @@ export default function ProfilePage() {
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [inviteQrLink, setInviteQrLink] = useState("");
+    const [galleryModalItem, setGalleryModalItem] = useState<ProfileGalleryItem | null>(null);
+    const [galleryModalCaption, setGalleryModalCaption] = useState("");
+    const [galleryModalBusy, setGalleryModalBusy] = useState(false);
     const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
@@ -605,6 +675,7 @@ export default function ProfilePage() {
                     area: listing.usable_area,
                     amenities: listing.amenities || [],
                     image_url: listing.image || null,
+                    images: Array.isArray(listing.images) ? listing.images : undefined,
                     is_favorite: listing.is_favorite || false,
                     is_active: listing.isActive !== false,
                 };
@@ -772,6 +843,7 @@ export default function ProfilePage() {
             type: (favorite.room_type === "APARTMENT" ? "APARTMENT" : "ROOM") as "APARTMENT" | "ROOM" | "NEIGHBOUR",
             price: favorite.price,
             image: getImageUrl(favorite.image_url),
+            images: favorite.images,
             title: favorite.title,
             region: favorite.region,
             address: favorite.city,
@@ -840,6 +912,120 @@ export default function ProfilePage() {
         console.error("Avatar upload error:", err);
         alert(t("profile.errorUploadingAvatar"));
       }
+    };
+
+    const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("cover", file);
+        try {
+            const response = await fetch("/api/profile/cover/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(typeof data.detail === "string" ? data.detail : "fail");
+            }
+            if (data.coverPhoto) {
+                setProfileData((prev) => ({ ...prev, coverPhoto: String(data.coverPhoto) }));
+            }
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        }
+        e.target.value = "";
+    };
+
+    const handleGalleryAdd = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (profileData.gallery.length >= 24) {
+            alert(t("profile.galleryLimit"));
+            e.target.value = "";
+            return;
+        }
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("caption", "");
+        try {
+            const response = await fetch("/api/profile/gallery/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                alert(typeof data.detail === "string" ? data.detail : t("profile.errorUploadingAvatar"));
+                e.target.value = "";
+                return;
+            }
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: [
+                    ...prev.gallery,
+                    {
+                        id: Number(data.id),
+                        url: String(data.url || ""),
+                        caption: String(data.caption || ""),
+                    },
+                ],
+            }));
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        }
+        e.target.value = "";
+    };
+
+    const deleteGalleryPhoto = async (photoId: number): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/profile/gallery/${photoId}/`, {
+                method: "DELETE",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+            });
+            if (!response.ok) throw new Error();
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: prev.gallery.filter((g) => g.id !== photoId),
+            }));
+            return true;
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+            return false;
+        }
+    };
+
+    const saveGalleryCaption = async (photoId: number, caption: string): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/profile/gallery/${photoId}/`, {
+                method: "PATCH",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ caption: caption.slice(0, 200) }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                alert(typeof data.detail === "string" ? data.detail : t("profile.linkNotAllowedInCaption"));
+                return false;
+            }
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: prev.gallery.map((g) =>
+                    g.id === photoId ? { ...g, caption: String(data.caption ?? caption) } : g,
+                ),
+            }));
+            return true;
+        } catch {
+            alert(t("profile.errorSavingProfile"));
+            return false;
+        }
     };
 
     const toggleLanguage = (langCode: string) => {
@@ -1128,9 +1314,11 @@ export default function ProfilePage() {
                                     className="transition-all duration-700 ease-out"
                                 />
                             </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
                                 <span className="text-[34px] max-[770px]:text-[30px] font-extrabold leading-none text-[#C505EB]">{completionPercent}%</span>
-                                <span className="text-[11px] uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t("profile.completion")}</span>
+                                <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
+                                    {t("profile.completion")}
+                                </span>
                             </div>
                         </div>
 
@@ -1144,49 +1332,48 @@ export default function ProfilePage() {
                                     .replace("{{missing}}", String(profileCompletion.missingCount || 0))
                                     .replace("{{total}}", String(profileCompletion.totalFields || 0))}
                             </p>
-                            {profileCompletion.missingFields.length > 0 ? (
-                                <div className="mt-3">
-                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2">
-                                        {t("profile.completionMissingListTitle")}
-                                    </p>
-                                    <ul className="grid grid-cols-1 min-[1025px]:grid-cols-2 gap-1.5 text-sm max-[770px]:text-xs text-gray-700 dark:text-gray-200">
-                                        {profileCompletion.missingFields.map((item, index) => {
-                                            const key = profileCompletion.missingFieldKeys[index] || "";
-                                            const localized = key ? t(`profile.completionFields.${key}`) : "";
-                                            const displayValue = localized && localized !== `profile.completionFields.${key}` ? localized : item;
-                                            return (
-                                            <li key={`missing-field-${index}`} className="flex items-start gap-2">
-                                                <span className="mt-1 inline-block w-1.5 h-1.5 rounded-full bg-[#C505EB]" />
-                                                <span>{displayValue}</span>
-                                            </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <p className="text-sm font-semibold text-green-600 dark:text-green-400 mt-3">
+                            {profileCompletion.missingCount === 0 ? (
+                                <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
                                     {t("profile.completionNoMissing")}
                                 </p>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </div>
 
-                {/* Section Tabs - Desktop */}
-                <div className={`hidden min-[771px]:flex flex-wrap items-center gap-2 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
-                    {sections.map((section) => (
-                        <button
-                            key={section.key}
-                            onClick={() => setActiveSection(section.key)}
-                            className={`px-6 py-3 rounded-lg font-semibold text-lg whitespace-nowrap transition-all duration-300 ${
-                                activeSection === section.key
-                                    ? "bg-[#C505EB] text-white shadow-md"
-                                    : "text-gray-600 dark:text-gray-400 hover:text-[#C505EB]"
-                            }`}
-                        >
-                            {section.label}
-                        </button>
-                    ))}
+                {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
+                <div className="mb-6 hidden min-[771px]:block">
+                    <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                        {sections.map((section) => {
+                            const miss = sectionMissingCounts[section.key];
+                            const active = activeSection === section.key;
+                            return (
+                                <button
+                                    key={section.key}
+                                    type="button"
+                                    onClick={() => setActiveSection(section.key)}
+                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-semibold whitespace-nowrap transition-all duration-300 ${
+                                        active
+                                            ? "bg-[#C505EB] text-white shadow-md"
+                                            : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
+                                    }`}
+                                >
+                                    <span>{section.label}</span>
+                                    {miss > 0 ? (
+                                        <span
+                                            className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+                                                active
+                                                    ? "bg-white/25 text-white"
+                                                    : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
+                                            }`}
+                                        >
+                                            {miss > 99 ? "99+" : miss}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Section Tabs - Mobile (Carousel) */}
@@ -1203,11 +1390,18 @@ export default function ProfilePage() {
                         <ChevronLeft size={20} />
                     </button>
                     
-                    <div className={`flex-1 flex items-center justify-center px-4`}>
-                        <span className={`text-base font-semibold text-[#C505EB]`}>
+                    <div className="flex flex-1 items-center justify-center gap-2 px-2">
+                        <span className="text-base font-semibold text-[#C505EB]">
                             {sections[currentSectionIndex].label}
                         </span>
-                        <span className={`ml-2 text-xs text-gray-500`}>
+                        {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
+                            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
+                                {sectionMissingCounts[sections[currentSectionIndex].key] > 99
+                                    ? "99+"
+                                    : sectionMissingCounts[sections[currentSectionIndex].key]}
+                            </span>
+                        ) : null}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                             ({currentSectionIndex + 1}/{sections.length})
                         </span>
                     </div>
@@ -1231,31 +1425,115 @@ export default function ProfilePage() {
                     {/* Основная информация */}
                     {activeSection === "basic" && (
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
-                            {/* Photo Upload */}
-                            <div className={`flex flex-col items-center gap-4 max-[770px]:gap-3`}>
-                                <div className={`relative`}>
-                                    <div className={`w-40 h-40 max-[770px]:w-32 max-[770px]:h-32 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-4 border-[#C505EB]`}>
-                                        {profileData.photo ? (
-                                            <img src={profileData.photo} alt="Profile" className={`w-full h-full object-cover`} />
-                                        ) : (
-                                            <User size={80} className={`max-[770px]:w-16 max-[770px]:h-16 text-gray-400`} />
-                                        )}
-                                    </div>
+                            {/* Обложка + аватар (стиль профиля) */}
+                            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-600 dark:bg-zinc-900/50">
+                                <div className="relative h-36 w-full min-[480px]:h-44 bg-gradient-to-br from-[#C505EB]/20 via-zinc-200 to-[#08E2BE]/15 dark:from-[#C505EB]/10 dark:via-zinc-800 dark:to-[#08E2BE]/10">
+                                    {profileData.coverPhoto ? (
+                                        <img
+                                            src={getImageUrl(profileData.coverPhoto)}
+                                            alt=""
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : null}
                                     <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`absolute bottom-0 right-0 w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full bg-[#C505EB] flex items-center justify-center hover:bg-[#BA00F8] transition-colors shadow-lg`}
+                                        type="button"
+                                        onClick={() => coverInputRef.current?.click()}
+                                        className="absolute bottom-2 right-2 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
                                     >
-                                        <Camera size={24} className={`max-[770px]:w-5 max-[770px]:h-5 text-white`} />
+                                        <ImagePlus size={18} />
+                                        {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
                                     </button>
                                     <input
-                                        ref={fileInputRef}
+                                        ref={coverInputRef}
                                         type="file"
                                         accept="image/*"
-                                        onChange={handlePhotoUpload}
-                                        className={`hidden`}
+                                        className="hidden"
+                                        onChange={handleCoverUpload}
                                     />
                                 </div>
-                                <span className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400 text-center px-4`}>{t("profile.photoHint")}</span>
+                                <div className="relative flex flex-col items-center px-4 pb-5 pt-0">
+                                    <div className="-mt-14 flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-lg dark:border-gray-800 dark:bg-gray-700 min-[480px]:h-32 min-[480px]:w-32">
+                                                {profileData.photo ? (
+                                                    <img
+                                                        src={profileData.photo}
+                                                        alt="Profile"
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <User size={56} className="text-gray-400" />
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-[#C505EB] shadow-lg transition-colors hover:bg-[#BA00F8]"
+                                            >
+                                                <Camera size={20} className="text-white" />
+                                            </button>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handlePhotoUpload}
+                                                className="hidden"
+                                            />
+                                        </div>
+                                        <p className="mt-2 max-w-md text-center text-xs text-gray-600 dark:text-gray-400">
+                                            {t("profile.photoHint")}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-center text-sm text-gray-500 dark:text-gray-400">{t("profile.coverHint")}</p>
+
+                            {/* Галерея */}
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-lg font-bold">{t("profile.gallery.title")}</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => galleryInputRef.current?.click()}
+                                        disabled={profileData.gallery.length >= 24}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-[#C505EB] px-3 py-2 text-sm font-semibold text-[#C505EB] transition hover:bg-[#C505EB]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <ImagePlus size={18} />
+                                        {t("profile.addGalleryPhoto")}
+                                    </button>
+                                    <input
+                                        ref={galleryInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleGalleryAdd}
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{t("profile.captionOptional")}</p>
+                                <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-5">
+                                    {profileData.gallery.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setGalleryModalItem(item);
+                                                setGalleryModalCaption(item.caption);
+                                            }}
+                                            className="group relative aspect-square overflow-hidden rounded-md bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[#C505EB] focus:ring-offset-2 dark:bg-gray-700 dark:focus:ring-offset-gray-900"
+                                        >
+                                            <img
+                                                src={getImageUrl(item.url)}
+                                                alt=""
+                                                className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                                            />
+                                            {item.caption ? (
+                                                <span className="pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-6 text-left text-[10px] font-medium leading-tight text-white opacity-0 transition group-hover:opacity-100 sm:text-[11px]">
+                                                    {item.caption}
+                                                </span>
+                                            ) : null}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Name */}
@@ -2040,7 +2318,12 @@ export default function ProfilePage() {
                                         <div className="flex justify-center gap-2 mt-4">
                                             <button
                                                 disabled={favPage === 1}
-                                                onClick={() => setFavPage(Math.max(1, favPage - 1))}
+                                                onClick={() => {
+                                                    const p = Math.max(1, favPage - 1);
+                                                    if (p === favPage) return;
+                                                    setFavPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                             >
                                                 {t("previous")}
@@ -2049,7 +2332,11 @@ export default function ProfilePage() {
                                                 {Array.from({ length: favTotalPages }, (_, i) => i + 1).map((page) => (
                                                     <button
                                                         key={page}
-                                                        onClick={() => setFavPage(page)}
+                                                        onClick={() => {
+                                                            if (page === favPage) return;
+                                                            setFavPage(page);
+                                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                                        }}
                                                         className={`px-3 py-2 rounded-lg ${
                                                             favPage === page ? "bg-blue-600 text-white" : "bg-white border hover:bg-gray-50"
                                                         }`}
@@ -2060,7 +2347,12 @@ export default function ProfilePage() {
                                             </div>
                                             <button
                                                 disabled={favPage === favTotalPages}
-                                                onClick={() => setFavPage(Math.min(favTotalPages, favPage + 1))}
+                                                onClick={() => {
+                                                    const p = Math.min(favTotalPages, favPage + 1);
+                                                    if (p === favPage) return;
+                                                    setFavPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                             >
                                                 {t("next")}
@@ -2119,7 +2411,12 @@ export default function ProfilePage() {
                                         <div className="flex justify-center gap-2 mt-4">
                                             <button
                                                 disabled={myListingsPage === 1}
-                                                onClick={() => setMyListingsPage(Math.max(1, myListingsPage - 1))}
+                                                onClick={() => {
+                                                    const p = Math.max(1, myListingsPage - 1);
+                                                    if (p === myListingsPage) return;
+                                                    setMyListingsPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                                             >
                                                 {t("previous")}
@@ -2128,7 +2425,11 @@ export default function ProfilePage() {
                                                 {Array.from({ length: myListingsTotalPages }, (_, i) => i + 1).map((page) => (
                                                     <button
                                                         key={page}
-                                                        onClick={() => setMyListingsPage(page)}
+                                                        onClick={() => {
+                                                            if (page === myListingsPage) return;
+                                                            setMyListingsPage(page);
+                                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                                        }}
                                                         className={`px-3 py-2 rounded-lg ${
                                                             myListingsPage === page ? "bg-[#C505EB] text-white" : "bg-white dark:bg-gray-700 border dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                                                         }`}
@@ -2139,7 +2440,12 @@ export default function ProfilePage() {
                                             </div>
                                             <button
                                                 disabled={myListingsPage === myListingsTotalPages}
-                                                onClick={() => setMyListingsPage(Math.min(myListingsTotalPages, myListingsPage + 1))}
+                                                onClick={() => {
+                                                    const p = Math.min(myListingsTotalPages, myListingsPage + 1);
+                                                    if (p === myListingsPage) return;
+                                                    setMyListingsPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                                             >
                                                 {t("next")}
@@ -2305,6 +2611,95 @@ export default function ProfilePage() {
                     )}
                 </div>
             </div>
+            {galleryModalItem && (
+                <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/60"
+                        onClick={() => {
+                            if (!galleryModalBusy) {
+                                setGalleryModalItem(null);
+                                setGalleryModalCaption("");
+                            }
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!galleryModalBusy) {
+                                    setGalleryModalItem(null);
+                                    setGalleryModalCaption("");
+                                }
+                            }}
+                            className="absolute right-3 top-3 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <div className="mb-4 max-h-[min(50vh,320px)] overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
+                            <img
+                                src={getImageUrl(galleryModalItem.url)}
+                                alt=""
+                                className="mx-auto max-h-[min(50vh,320px)] w-full object-contain"
+                            />
+                        </div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            {t("profile.captionOptional")}
+                        </label>
+                        <textarea
+                            value={galleryModalCaption}
+                            onChange={(e) => setGalleryModalCaption(e.target.value)}
+                            rows={3}
+                            maxLength={200}
+                            className="mb-4 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                            placeholder={t("profile.captionOptional")}
+                        />
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={galleryModalBusy}
+                                onClick={async () => {
+                                    setGalleryModalBusy(true);
+                                    const ok = await deleteGalleryPhoto(galleryModalItem.id);
+                                    setGalleryModalBusy(false);
+                                    if (ok) {
+                                        setGalleryModalItem(null);
+                                        setGalleryModalCaption("");
+                                    }
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            >
+                                <Trash2 size={16} />
+                                {t("profile.removePhoto")}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={galleryModalBusy}
+                                onClick={async () => {
+                                    setGalleryModalBusy(true);
+                                    const ok = await saveGalleryCaption(
+                                        galleryModalItem.id,
+                                        galleryModalCaption.trim(),
+                                    );
+                                    setGalleryModalBusy(false);
+                                    if (ok) {
+                                        setGalleryModalItem(null);
+                                        setGalleryModalCaption("");
+                                    }
+                                }}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {galleryModalBusy ? t("profile.saving") : t("profile.saveCaption")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {isQrModalOpen && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                     <button
