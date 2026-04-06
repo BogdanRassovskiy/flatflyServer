@@ -19,9 +19,9 @@ export default function HomePage() {
 
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-10 max-[770px]:px-3 flex flex-col items-center`}>
                 {/*Hero title*/}
-                <div className={`mt-[156px] max-[770px]:mt-[130px] flex flex-col items-center `}>
-                    <span className={`text-[60px] max-[770px]:text-[32px] font-extrabold text-[#555555] dark:text-gray-300 interFont leading-16 max-[770px]:leading-10 text-center`}>
-                        <span className={`text-[64px] max-[770px]:text-[36px]`}>
+                <div className={`mt-[132px] max-[770px]:mt-[130px] flex flex-col items-center `}>
+                    <span className={`text-[52px] max-[770px]:text-[32px] font-extrabold text-[#555555] dark:text-gray-300 interFont leading-[1.02] max-[770px]:leading-10 text-center`}>
+                        <span className={`text-[56px] max-[770px]:text-[36px]`}>
                             <span className={`bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent`}>FlatFly,</span> {t("home.title").replace("FlatFly, ", "")}
                         </span>
                          <br className={`max-[770px]:hidden`}/>
@@ -30,7 +30,7 @@ export default function HomePage() {
                 </div>
 
                 {/*HeroCards*/}
-                <div className={`w-full flex max-[770px]:flex-col items-center justify-center max-[770px]:gap-4 max-[1220px]:gap-3 min-[1220px]:gap-6 mt-[64px] max-[770px]:mt-[34px]`}>
+                <div className={`w-full flex max-[770px]:flex-col items-center justify-center max-[770px]:gap-4 max-[1220px]:gap-3 min-[1220px]:gap-4 mt-[42px] max-[770px]:mt-[34px]`}>
                     {HeroCards.map((value, index)=>
                         <HeroCard key={index} title={value.title} subtitle={value.subtitle} image={value.image} type={"HERO"} link={value.link}/>
                     )}
@@ -64,22 +64,44 @@ export default function HomePage() {
                 </div>
 
                 <div className="w-full mb-[120px] max-[770px]:mb-[80px]">
-                    <div className="w-full flex max-[770px]:flex-col items-center justify-center gap-8 max-[770px]:gap-6">
+                    <div className="w-full flex max-[770px]:flex-col items-center justify-center gap-10 max-[770px]:gap-6">
                         {[
-                            { image: keys, role: t("home.team.founder"), name: "Bogdan" },
-                            { image: wall, role: t("home.team.designer"), name: "Michaela" },
-                            { image: furniture, role: t("home.team.it"), name: "Alex" },
+                            { image: keys, role: t("home.team.founder"), name: "Michal Krechler" },
+                            { image: wall, role: t("home.team.designer"), name: "Tomáš Hájek" },
+                            { image: furniture, role: t("home.team.it"), name: "Bogdan Rassovskiy" },
                         ].map((member, index) => (
                             <div key={index} className="flex flex-col items-center text-center">
                                 <img
                                     src={member.image}
                                     alt={member.role}
-                                    className="w-[130px] h-[130px] rounded-full object-cover border-4 border-[#C505EB]/30"
+                                    className="h-[148px] w-[148px] rounded-full border-4 border-[#C505EB]/30 object-cover max-[770px]:h-[132px] max-[770px]:w-[132px]"
                                 />
                                 <span className="mt-3 text-[20px] max-[770px]:text-[18px] font-bold text-black dark:text-white">{member.role}</span>
                                 <span className="text-[15px] text-[#666666] dark:text-gray-400">{member.name}</span>
                             </div>
                         ))}
+                    </div>
+                    <div className="mt-8 flex w-full flex-wrap items-center justify-center gap-3 text-center">
+                        <a
+                            href="mailto:info@flatfly.cz"
+                            className="rounded-xl border border-[#C505EB]/40 bg-white/80 px-4 py-2 text-sm font-semibold text-[#333333] shadow-sm transition hover:bg-[#C505EB]/10 dark:bg-gray-800/80 dark:text-gray-200"
+                        >
+                            E-mail: info@flatfly.cz
+                        </a>
+                        <a
+                            href="tel:+420777123456"
+                            className="rounded-xl border border-[#C505EB]/40 bg-white/80 px-4 py-2 text-sm font-semibold text-[#333333] shadow-sm transition hover:bg-[#C505EB]/10 dark:bg-gray-800/80 dark:text-gray-200"
+                        >
+                            {t("contact.phone")}: +420 777 123 456
+                        </a>
+                        <a
+                            href="https://flatfly.cz"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-[#C505EB]/40 bg-white/80 px-4 py-2 text-sm font-semibold text-[#333333] shadow-sm transition hover:bg-[#C505EB]/10 dark:bg-gray-800/80 dark:text-gray-200"
+                        >
+                            Website: flatfly.cz
+                        </a>
                     </div>
                 </div>
 

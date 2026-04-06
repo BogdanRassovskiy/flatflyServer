@@ -22,11 +22,11 @@ export default function HeroCard({title,subtitle,image,type,date,link}:HeroCardP
         switch (type) {
             case "HERO":
                 return (
-                    <div className={`flex w-full flex-col items-center px-[25px] pt-4 text-center max-[1220px]:px-2 max-[770px]:px-3 max-[770px]:pt-2`}>
-                        <span className={`font-bold text-[24px] leading-snug text-black max-[1220px]:text-lg max-[770px]:text-[16px] dark:text-white`}>
+                    <div className={`flex w-full flex-col items-center px-[22px] pt-3.5 text-center max-[1220px]:px-2 max-[770px]:px-3 max-[770px]:pt-2`}>
+                        <span className={`font-bold text-[22px] leading-snug text-black max-[1220px]:text-lg max-[770px]:text-[16px] dark:text-white`}>
                             {title}
                         </span>
-                        <span className={`mt-1 font-semibold text-[17px] text-[#666666] max-[1220px]:mt-0.5 max-[1220px]:text-[13px] max-[770px]:text-xs dark:text-gray-400`}>
+                        <span className={`mt-1 font-semibold text-[15px] text-[#666666] max-[1220px]:mt-0.5 max-[1220px]:text-[13px] max-[770px]:text-xs dark:text-gray-400`}>
                             {subtitle}
                         </span>
                     </div>
@@ -55,8 +55,8 @@ export default function HeroCard({title,subtitle,image,type,date,link}:HeroCardP
     }
 
     const CardContent = (
-        <div className={`flex flex-col items-center ${isHero ? 'w-[340px] h-[372px] max-[1220px]:w-[236px] max-[1220px]:h-[270px]' : 'w-[384px] h-[420px] max-[1220px]:w-[254px] max-[1220px]:h-[290px]'} bg-white dark:bg-gray-800 rounded-xl border ${type==="HERO"? `border-[#C505EB] dark:border-[#C505EB]` :`border-[#828282] dark:border-gray-600`} overflow-hidden relative ${link ? 'cursor-pointer hover:shadow-lg dark:hover:shadow-gray-900/50 duration-300' : ''}`}>
-            <div className={`w-full ${isHero ? 'h-[234px] max-[1220px]:h-[166px]' : 'h-[282px] max-[1220px]:h-[182px]'} flex-shrink-0 flex flex-col items-center overflow-hidden`}>
+        <div className={`flex flex-col items-center ${isHero ? 'w-[296px] h-[326px] max-[1220px]:w-[236px] max-[1220px]:h-[270px]' : 'w-[384px] h-[420px] max-[1220px]:w-[254px] max-[1220px]:h-[290px]'} bg-white dark:bg-gray-800 rounded-xl border ${type==="HERO"? `border-[#C505EB] dark:border-[#C505EB]` :`border-[#828282] dark:border-gray-600`} overflow-hidden relative ${link ? 'cursor-pointer hover:shadow-lg dark:hover:shadow-gray-900/50 duration-300' : ''}`}>
+            <div className={`w-full ${isHero ? 'h-[194px] max-[1220px]:h-[166px]' : 'h-[282px] max-[1220px]:h-[182px]'} flex-shrink-0 flex flex-col items-center overflow-hidden`}>
                 <img className={`w-full h-full object-cover`} src={image} alt={`furniture`}/>
             </div>
             <ContentHandler/>

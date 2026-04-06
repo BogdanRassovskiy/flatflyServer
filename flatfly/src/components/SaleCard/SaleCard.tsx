@@ -50,6 +50,8 @@ interface SaleCardProps extends SaleCardTypes {
     onRemoveFavorite?: (id: string | number) => void;
     /** Компактная сетка списков: фиксированные размеры по ширине окна */
     compactGrid?: boolean;
+    /** Более плотные пропорции карточек соседей (десктоп-сетка 5 в ряд) */
+    denseNeighbourDesktop?: boolean;
 }
 
 export default function SaleCard({
@@ -76,6 +78,7 @@ export default function SaleCard({
     matchPercentage,
     onRemoveFavorite,
     compactGrid = false,
+    denseNeighbourDesktop = false,
 }: SaleCardProps) {
     const { t } = useLanguage();
     const cg = compactGrid;
@@ -446,6 +449,7 @@ export default function SaleCard({
             case "APARTMENT":
                 return <ApartmentOrRoomBody />;
             case "NEIGHBOUR":
+                const visibleBadges = cg ? badges.slice(0, 4) : badges;
                 return (
                     <div
                         className={`w-full flex flex-col items-stretch ${listingBodyPadding} ${cg ? "min-h-0 flex-1 gap-0.5 overflow-hidden" : "gap-1.5"}`}
@@ -469,11 +473,11 @@ export default function SaleCard({
                                 {Number(ratingCount || 0)}
                             </p>
                         )}
-                        {badges.length > 0 ? (
+                        {visibleBadges.length > 0 ? (
                             <div
-                                className={`mt-auto flex flex-wrap items-center gap-1.5 overflow-hidden ${cg ? "max-h-[40px]" : "gap-2 mt-1"}`}
+                                className={`flex flex-wrap items-center gap-1.5 ${cg ? "mt-1" : "mt-1 gap-2"}`}
                             >
-                                {badges.map((value, index) => (
+                                {visibleBadges.map((value, index) => (
                                     <span
                                         key={index}
                                         className={`rounded-md border border-zinc-400/60 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[#06B396] dark:border-zinc-500 dark:text-[#08E2BE] ${
@@ -493,10 +497,18 @@ export default function SaleCard({
     };
 
     const cardShell = cg
-        ? "h-[283px] w-[256px] max-w-full shrink-0 sm:h-[299px] sm:w-[272px] lg:h-[311px] lg:w-[288px] xl:h-[323px] xl:w-[300px] rounded-lg shadow-sm"
+        ? normalizedType === "NEIGHBOUR"
+            ? denseNeighbourDesktop
+                ? "h-[300px] w-[220px] max-w-full shrink-0 sm:h-[312px] sm:w-[220px] lg:h-[324px] lg:w-[228px] xl:h-[336px] xl:w-[236px] rounded-lg shadow-sm"
+                : "h-[312px] w-[256px] max-w-full shrink-0 sm:h-[326px] sm:w-[272px] lg:h-[340px] lg:w-[288px] xl:h-[352px] xl:w-[300px] rounded-lg shadow-sm"
+            : "h-[283px] w-[256px] max-w-full shrink-0 sm:h-[299px] sm:w-[272px] lg:h-[311px] lg:w-[288px] xl:h-[323px] xl:w-[300px] rounded-lg shadow-sm"
         : "w-full max-w-[384px] min-h-[380px] max-[1220px]:min-h-[300px] rounded-xl shadow-md";
     const imgFrame = cg
-        ? "h-[128px] shrink-0 sm:h-[138px] lg:h-[148px] xl:h-[156px]"
+        ? normalizedType === "NEIGHBOUR"
+            ? denseNeighbourDesktop
+                ? "h-[160px] shrink-0 sm:h-[168px] lg:h-[176px] xl:h-[184px]"
+                : "h-[168px] shrink-0 sm:h-[178px] lg:h-[190px] xl:h-[198px]"
+            : "h-[128px] shrink-0 sm:h-[138px] lg:h-[148px] xl:h-[156px]"
         : "h-[240px] max-[1220px]:h-[170px] shrink-0";
     const topOverlayPad = cg ? "p-2 sm:p-2.5" : "p-3";
     const heartBtn = cg
@@ -528,7 +540,7 @@ export default function SaleCard({
             <div className={`relative flex w-full flex-col items-start overflow-hidden ${imgFrame}`}>
                 {normalizedType === "NEIGHBOUR" ? (
                     <img
-                        className={`absolute left-0 top-0 h-full w-full object-cover ${!is_active ? "grayscale" : ""}`}
+                        className="absolute left-0 top-0 h-full w-full object-cover"
                         src={getImageUrl(image)}
                         alt={address}
                     />
@@ -561,7 +573,7 @@ export default function SaleCard({
                                                 <img
                                                     src={src}
                                                     alt=""
-                                                    className={`absolute left-0 top-0 h-full w-full scale-[1.08] object-cover blur-md ${!is_active ? "grayscale" : ""}`}
+                                                    className="absolute left-0 top-0 h-full w-full scale-[1.08] object-cover blur-md"
                                                     aria-hidden
                                                 />
                                                 <div className="absolute inset-0 flex items-center justify-center bg-black/45 px-2">
@@ -572,7 +584,7 @@ export default function SaleCard({
                                             </>
                                         ) : (
                                             <img
-                                                className={`absolute left-0 top-0 h-full w-full object-cover ${!is_active ? "grayscale" : ""}`}
+                                                className="absolute left-0 top-0 h-full w-full object-cover"
                                                 src={src}
                                                 alt={address}
                                             />
@@ -612,7 +624,7 @@ export default function SaleCard({
                     </>
                 ) : (
                     <img
-                        className={`absolute left-0 top-0 h-full w-full object-cover ${!is_active ? "grayscale" : ""}`}
+                        className="absolute left-0 top-0 h-full w-full object-cover"
                         src={listingHeroSrc}
                         alt={address}
                     />

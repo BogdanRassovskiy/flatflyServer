@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Heart, Menu, Moon, Sun, X, ChevronDown, MessageCircle, Plus } from "lucide-react";
+import { CircleUser, Globe, Heart, Menu, Moon, Sun, X, MessageCircle, Plus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -14,11 +14,9 @@ export default function Header() {
     const [isDark, setIsDark] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-    const [isBlogMenuOpen, setIsBlogMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
     const langMenuRef = useRef<HTMLDivElement>(null);
-    const blogMenuRef = useRef<HTMLDivElement>(null);
     const location = useLocation();
     const pathname = location.pathname;
     const showLangInHeader =
@@ -27,9 +25,7 @@ export default function Header() {
     const { language, setLanguage, t } = useLanguage();
     const { isAuthenticated, logout, user } = useAuth();
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-    // Страницы с объявлениями
-    const listingPages = ["/apartments", "/rooms", "/neighbours"];
-    const isListingPage = listingPages.includes(pathname);
+    const [menuAvatarFailed, setMenuAvatarFailed] = useState(false);
     const forceSolidHeader = pathname.startsWith("/messenger");
     const navigate = useNavigate();
     const menuItemsColumn1 = [
@@ -121,6 +117,10 @@ export default function Header() {
         return () => window.clearInterval(intervalId);
     }, [isAuthenticated, pathname]);
 
+    useEffect(() => {
+        setMenuAvatarFailed(false);
+    }, [user?.avatar]);
+
     // Переключение темы
     const toggleTheme = () => {
         // Используем функциональное обновление для гарантии правильного значения
@@ -187,27 +187,7 @@ export default function Header() {
     useEffect(() => {
         setIsMenuOpen(false);
         setIsLangMenuOpen(false);
-        setIsBlogMenuOpen(false);
     }, [pathname]);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            const target = event.target as Node;
-            if (blogMenuRef.current && !blogMenuRef.current.contains(target)) {
-                setIsBlogMenuOpen(false);
-            }
-        };
-
-        if (isBlogMenuOpen) {
-            document.addEventListener("mousedown", handleClickOutside as EventListener);
-            document.addEventListener("touchstart", handleClickOutside as EventListener);
-        }
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside as EventListener);
-            document.removeEventListener("touchstart", handleClickOutside as EventListener);
-        };
-    }, [isBlogMenuOpen]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -249,6 +229,16 @@ export default function Header() {
     const desktopSolidBar = scrolled || forceSolidHeader;
     const mobileElevatedBar = desktopSolidBar || isMenuOpen;
 
+    const emailTrim = user?.email?.trim() ?? "";
+    const nameTrim = user?.name?.trim() ?? "";
+    const usernameTrim = user?.username?.trim() ?? "";
+    const menuPrimaryLabel = user
+        ? nameTrim || emailTrim || usernameTrim || t("header.profile")
+        : "";
+    const showMenuEmailSubline = Boolean(
+        user && emailTrim && menuPrimaryLabel !== emailTrim
+    );
+
     return(
         <div
             className={`fixed left-0 top-0 z-50 flex h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
@@ -271,43 +261,7 @@ export default function Header() {
                     </span>
                 </Link>
 
-                <div className="hidden min-[771px]:flex min-w-0 items-center justify-center px-2">
-                    {!isListingPage && (
-                        <div className="relative" ref={blogMenuRef}>
-                            <button
-                                type="button"
-                                onClick={() => setIsBlogMenuOpen(!isBlogMenuOpen)}
-                                className="flex items-center gap-1 text-xl font-semibold text-black duration-300 hover:text-[#C505EB] dark:text-white dark:hover:text-[#D946EF]"
-                                aria-expanded={isBlogMenuOpen}
-                                aria-haspopup="true"
-                            >
-                                <span>{t("header.blog")}</span>
-                                <ChevronDown
-                                    size={18}
-                                    className={`text-[#C505EB] transition-transform duration-200 ${isBlogMenuOpen ? "rotate-180" : ""}`}
-                                />
-                            </button>
-                            {isBlogMenuOpen && (
-                                <div className="absolute left-1/2 z-[100] mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-[#E5E5E5] bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                                    <Link
-                                        to="/#about"
-                                        className="block px-4 py-2.5 text-base font-semibold text-[#333333] hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-200 dark:hover:text-[#D946EF]"
-                                        onClick={() => setIsBlogMenuOpen(false)}
-                                    >
-                                        {t("header.about")}
-                                    </Link>
-                                    <Link
-                                        to="/blog"
-                                        className="block px-4 py-2.5 text-base font-semibold text-[#333333] hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-200 dark:hover:text-[#D946EF]"
-                                        onClick={() => setIsBlogMenuOpen(false)}
-                                    >
-                                        {t("header.blog")}
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                <div className="hidden min-[771px]:flex min-w-0 items-center justify-center px-2" />
 
                 <div className="flex shrink-0 items-center justify-end gap-1 max-[770px]:gap-1 min-[771px]:gap-2">
                     <div
@@ -430,14 +384,19 @@ export default function Header() {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {isAuthenticated && user ? (
-                                    <div className="rounded-xl bg-gray-100 p-3 dark:bg-zinc-900/90">
+                                    <Link
+                                        to="/profile"
+                                        className="block rounded-xl bg-gray-100 p-3 transition-colors hover:bg-[#C505EB]/10 dark:bg-zinc-900/90 dark:hover:bg-[#C505EB]/15"
+                                        onClick={() => setIsMenuOpen(false)}
+                                    >
                                         <div className="flex gap-3">
                                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-gray-200 shadow-sm dark:border-zinc-600 dark:bg-zinc-700">
-                                                {user.avatar ? (
+                                                {user.avatar && !menuAvatarFailed ? (
                                                     <img
                                                         src={getImageUrl(user.avatar)}
                                                         alt=""
                                                         className="h-full w-full object-cover"
+                                                        onError={() => setMenuAvatarFailed(true)}
                                                     />
                                                 ) : (
                                                     <div className="flex h-full w-full items-center justify-center">
@@ -447,16 +406,16 @@ export default function Header() {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-[15px] font-bold text-[#333333] dark:text-white">
-                                                    {user.name || user.email}
+                                                    {menuPrimaryLabel}
                                                 </p>
-                                                {user.email ? (
+                                                {showMenuEmailSubline ? (
                                                     <p className="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-400">
-                                                        {user.email}
+                                                        {emailTrim}
                                                     </p>
                                                 ) : null}
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 ) : null}
 
                                 <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
@@ -493,19 +452,7 @@ export default function Header() {
                                     </div>
                                 </div>
 
-                                {isAuthenticated ? (
-                                    <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
-                                        <Link
-                                            to="/profile"
-                                            className={`block px-4 py-2.5 text-left text-[15px] font-semibold transition-colors hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-100 ${
-                                                pathname === "/profile" ? "text-[#C505EB]" : "text-[#333333]"
-                                            }`}
-                                            onClick={() => setIsMenuOpen(false)}
-                                        >
-                                            {t("header.profile")}
-                                        </Link>
-                                    </div>
-                                ) : (
+                                {isAuthenticated ? null : (
                                     <div className="rounded-xl border border-gray-200/90 bg-gray-50 p-2 dark:border-zinc-600 dark:bg-zinc-900/60">
                                         <Link
                                             to="/auth"

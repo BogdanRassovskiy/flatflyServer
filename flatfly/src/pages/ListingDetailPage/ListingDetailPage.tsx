@@ -118,9 +118,11 @@ function NeighbourFbRow({ label, value }: { label: string; value: ReactNode }) {
 function NeighbourFbCard({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <h2 className="border-b border-zinc-200 px-4 py-3 text-[17px] font-bold tracking-tight text-zinc-900 dark:border-gray-700 dark:text-white">
-                {title}
-            </h2>
+            {title ? (
+                <h2 className="border-b border-zinc-200 px-4 py-3 text-[17px] font-bold tracking-tight text-zinc-900 dark:border-gray-700 dark:text-white">
+                    {title}
+                </h2>
+            ) : null}
             <div className="px-4 py-3">{children}</div>
         </section>
     );
@@ -138,19 +140,16 @@ const listingGalleryHeight =
 function ListingImageCollage({
     images,
     totalCount,
-    inactive,
     altPrefix,
     onCellClick,
     viewAllLabel,
 }: {
     images: string[];
     totalCount: number;
-    inactive: boolean;
     altPrefix: string;
     onCellClick: (index: number) => void;
     viewAllLabel: string;
 }) {
-    const gray = inactive ? "grayscale" : "";
     const frame = "w-full rounded-2xl bg-zinc-200/90 p-1 dark:bg-zinc-800";
     const tile = "relative min-h-0 min-w-0 overflow-hidden rounded-xl bg-zinc-300/80 dark:bg-zinc-700/80";
 
@@ -158,7 +157,7 @@ function ListingImageCollage({
         <img
             src={src}
             alt={`${altPrefix} – ${idx + 1}`}
-            className={`h-full w-full object-cover ${gray}`}
+            className="h-full w-full object-cover"
             draggable={false}
         />
     );
@@ -813,7 +812,7 @@ export default function ListingDetailPage() {
     const [reviewComment, setReviewComment] = useState("");
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewError, setReviewError] = useState<string | null>(null);
-    const [neighbourProfileTab, setNeighbourProfileTab] = useState<"info" | "photos">("info");
+    const [neighbourLeftTab, setNeighbourLeftTab] = useState<"info" | "reviews">("info");
     const [universityPoint, setUniversityPoint] = useState<[number, number] | null>(null);
     const [workPoint, setWorkPoint] = useState<[number, number] | null>(null);
     const [universityRoutePoints, setUniversityRoutePoints] = useState<Array<[number, number]>>([]);
@@ -860,7 +859,7 @@ export default function ListingDetailPage() {
     }, [id, type, router]);
 
     useEffect(() => {
-        setNeighbourProfileTab("info");
+        setNeighbourLeftTab("info");
     }, [id]);
 
     const handleContactClick = () => {
@@ -1663,7 +1662,7 @@ out center;`;
                                             <img 
                                                     src={getImageUrl(image)}
                                                     alt={String(name || "Profile")}
-                                                    className={`h-full w-full object-cover ${!isActive ? "grayscale" : ""}`}
+                                                    className="h-full w-full object-cover"
                                                 draggable={false}
                                             />
                                             </button>
@@ -1747,7 +1746,6 @@ out center;`;
                                 <ListingImageCollage
                                     images={allImages.slice(0, 5)}
                                     totalCount={allImages.length}
-                                    inactive={!isActive}
                                     altPrefix={String(title || address || name || "Listing")}
                                     onCellClick={(i) => {
                                         setCurrentImageIndex(i);
@@ -1794,22 +1792,16 @@ out center;`;
                 >
                     {type === "NEIGHBOUR" ? (
                         <>
-                            <aside className="flex w-full shrink-0 flex-col gap-4 min-[900px]:w-[360px]">
+                            <aside className="flex w-full shrink-0 flex-col gap-2 min-[900px]:w-[380px]">
                                 <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                                    <div
-                                        className="flex border-b border-zinc-200 dark:border-gray-700"
-                                        role="tablist"
-                                        aria-label={t("profile.neighbourSidebarTabs")}
-                                    >
-                                    <button
-                                        type="button"
+                                    <div className="flex border-b border-zinc-200 dark:border-gray-700" role="tablist" aria-label={t("profile.neighbourSidebarTabs")}>
+                                        <button
+                                            type="button"
                                             role="tab"
-                                            id="neighbour-tab-info"
-                                            aria-selected={neighbourProfileTab === "info"}
-                                            aria-controls="neighbour-panel-info"
-                                            onClick={() => setNeighbourProfileTab("info")}
+                                            aria-selected={neighbourLeftTab === "info"}
+                                            onClick={() => setNeighbourLeftTab("info")}
                                             className={`min-h-[48px] flex-1 px-3 py-3 text-center text-[15px] font-semibold transition-colors ${
-                                                neighbourProfileTab === "info"
+                                                neighbourLeftTab === "info"
                                                     ? "border-b-[3px] border-[#C505EB] text-[#C505EB] dark:border-[#D946EF] dark:text-[#D946EF]"
                                                     : "border-b-[3px] border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
                                             }`}
@@ -1819,206 +1811,158 @@ out center;`;
                                         <button
                                             type="button"
                                             role="tab"
-                                            id="neighbour-tab-photos"
-                                            aria-selected={neighbourProfileTab === "photos"}
-                                            aria-controls="neighbour-panel-photos"
-                                            onClick={() => setNeighbourProfileTab("photos")}
+                                            aria-selected={neighbourLeftTab === "reviews"}
+                                            onClick={() => setNeighbourLeftTab("reviews")}
                                             className={`min-h-[48px] flex-1 px-3 py-3 text-center text-[15px] font-semibold transition-colors ${
-                                                neighbourProfileTab === "photos"
+                                                neighbourLeftTab === "reviews"
                                                     ? "border-b-[3px] border-[#C505EB] text-[#C505EB] dark:border-[#D946EF] dark:text-[#D946EF]"
                                                     : "border-b-[3px] border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
                                             }`}
                                         >
-                                            {t("profile.gallery.title")}
-                                            {profileGallery.length > 0 ? (
-                                                <span className="ml-1.5 tabular-nums text-xs font-bold opacity-80">
-                                                    ({profileGallery.length})
-                                                </span>
-                                            ) : null}
+                                            {t("listing.ratingAndReviews")}
                                         </button>
                                     </div>
+                                </section>
+                                <section className={`overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900 ${neighbourLeftTab === "info" ? "" : "hidden"}`}>
                                     <div className="px-4 py-3">
-                                        {neighbourProfileTab === "info" ? (
-                                            <div
-                                                id="neighbour-panel-info"
-                                                role="tabpanel"
-                                                aria-labelledby="neighbour-tab-info"
-                                            >
-                                                {description ? (
-                                                    <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
-                                                        {description}
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                                        {t("profile.aboutPlaceholder")}
-                                                    </p>
-                                                )}
-                                                {badges.length > 0 ? (
-                                                    <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                                                        {badges.map((badge, index) => (
-                                                            <span
-                                                                key={index}
-                                                                className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                                                            >
-                                                                {badge}
-                                                            </span>
-                                                        ))}
+                                        {description ? (
+                                            <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+                                                {description}
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                                {t("profile.aboutPlaceholder")}
+                                            </p>
+                                        )}
+                                        {badges.length > 0 ? (
+                                            <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                                                {badges.map((badge, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                                                    >
+                                                        {badge}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                        {(contactPhone || contactEmail || contactInstagram || contactFacebook) && (
+                                            <div className="mt-4 space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                                                <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+                                                    <MessageCircle size={18} className="text-zinc-500" />
+                                                    {t("listing.contact")}
+                                                </div>
+                                                {contactPhone ? (
+                                                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("messenger.contactsMessagePhone")}:
+                                                        </span>{" "}
+                                                        {contactPhone}
                                                     </div>
                                                 ) : null}
-                                                {(contactPhone || contactEmail || contactInstagram || contactFacebook) && (
-                                                    <div className="mt-4 space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                                                        <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
-                                                            <MessageCircle size={18} className="text-zinc-500" />
-                                                            {t("listing.contact")}
-                                                        </div>
-                                                        {contactPhone ? (
-                                                            <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                                                                <span className="font-medium text-zinc-500 dark:text-zinc-400">
-                                                                    {t("messenger.contactsMessagePhone")}:
-                                                                </span>{" "}
-                                                                {contactPhone}
-                                                            </div>
-                                                        ) : null}
-                                                        {contactEmail ? (
-                                                            <div className="text-sm text-zinc-700 dark:text-zinc-300">
-                                                                <span className="font-medium text-zinc-500 dark:text-zinc-400">
-                                                                    {t("messenger.contactsMessageEmail")}:
-                                                                </span>{" "}
-                                                                {contactEmail}
-                                                            </div>
-                                                        ) : null}
-                                                        {contactInstagram ? (
-                                                            <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
-                                                                <span className="font-medium text-zinc-500 dark:text-zinc-400">
-                                                                    {t("profile.instagram")}:
-                                                                </span>{" "}
-                                                                {contactInstagram}
-                                                            </div>
-                                                        ) : null}
-                                                        {contactFacebook ? (
-                                                            <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
-                                                                <span className="font-medium text-zinc-500 dark:text-zinc-400">
-                                                                    {t("profile.facebook")}:
-                                                                </span>{" "}
-                                                                {contactFacebook}
-                                                            </div>
-                                                        ) : null}
+                                                {contactEmail ? (
+                                                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("messenger.contactsMessageEmail")}:
+                                                        </span>{" "}
+                                                        {contactEmail}
                                                     </div>
-                                                )}
-                                                <div className="mt-4 border-t border-zinc-100 pt-2 dark:border-zinc-800">
-                                                    <NeighbourFbRow label={t("listing.origin")} value={from || null} />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.languages.title")}
-                                                        value={languages && languages.length > 0 ? languages.join(", ") : null}
-                                                    />
-                                                    <NeighbourFbRow label={t("profile.profession")} value={profession || null} />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.smoking")}
-                                                        value={smoking ? getLifestyleValueLabel(smoking) : null}
-                                                    />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.alcohol")}
-                                                        value={alcohol ? getLifestyleValueLabel(alcohol) : null}
-                                                    />
-                                                    <NeighbourFbRow label={t("profile.pets")} value={pets || null} />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.sleepSchedule")}
-                                                        value={sleep_schedule ? getLifestyleValueLabel(sleep_schedule) : null}
-                                                    />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.gamer")}
-                                                        value={gamer ? getLifestyleValueLabel(gamer) : null}
-                                                    />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.workFromHome")}
-                                                        value={work_from_home ? getLifestyleValueLabel(work_from_home) : null}
-                                                    />
-                                                    <NeighbourFbRow label={t("profile.noiseTolerance")} value={noise_tolerance || null} />
-                                                    <NeighbourFbRow
-                                                        label={t("listing.scores")}
-                                                        value={
-                                                            cleanliness !== undefined || introvert_extrovert !== undefined
-                                                                ? [
-                                                                      cleanliness !== undefined
-                                                                          ? `${t("profile.cleanliness")}: ${cleanliness}/10`
-                                                                          : null,
-                                                                      introvert_extrovert !== undefined
-                                                                          ? `${t("profile.introvertExtrovert")}: ${introvert_extrovert}/10`
-                                                                          : null,
-                                                                  ]
-                                                                      .filter(Boolean)
-                                                                      .join(" · ")
-                                                                : null
-                                                        }
-                                                    />
-                                                    <NeighbourFbRow label={t("profile.guestsParties")} value={guests_parties || null} />
-                                                    <NeighbourFbRow
-                                                        label={t("listing.preferences")}
-                                                        value={
-                                                            preferred_gender || preferred_age_range
-                                                                ? [
-                                                                      preferred_gender
-                                                                          ? `${t("profile.preferredGender")}: ${preferred_gender}`
-                                                                          : null,
-                                                                      preferred_age_range
-                                                                          ? `${t("profile.preferredAgeRange")}: ${preferred_age_range}`
-                                                                          : null,
-                                                                  ]
-                                                                      .filter(Boolean)
-                                                                      .join(" · ")
-                                                                : null
-                                                        }
-                                                    />
-                                                    <NeighbourFbRow
-                                                        label={t("profile.sections.status")}
-                                                        value={
-                                                            [verified ? t("badges.verified") : null, looking_for_housing ? t("badges.lookingForHousing") : null]
-                                                                .filter(Boolean)
-                                                                .join(" · ") || null
-                                                        }
-                                                    />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div
-                                                id="neighbour-panel-photos"
-                                                role="tabpanel"
-                                                aria-labelledby="neighbour-tab-photos"
-                                            >
-                                                {profileGallery.length > 0 ? (
-                                                    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-5">
-                                                        {profileGallery.map((item) => {
-                                                            const gi = allImages.findIndex((u) => u === item.url);
-                                                            const openIdx = gi >= 0 ? gi : 0;
-                                                            return (
-                                                                <button
-                                                                    key={item.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setCurrentImageIndex(openIdx);
-                                                                        setIsModalOpen(true);
-                                                                    }}
-                                                                    className="relative aspect-square overflow-hidden rounded-md bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C505EB] dark:bg-zinc-800"
-                                    >
-                                        <img 
-                                                                        src={getImageUrl(item.url)}
-                                                                        alt=""
-                                                                        className="h-full w-full object-cover"
-                                        />
-                                    </button>
-                                                            );
-                                                        })}
+                                                ) : null}
+                                                {contactInstagram ? (
+                                                    <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("profile.instagram")}:
+                                                        </span>{" "}
+                                                        {contactInstagram}
                                                     </div>
-                                                ) : (
-                                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("profile.gallery.empty")}</p>
-                                                )}
+                                                ) : null}
+                                                {contactFacebook ? (
+                                                    <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("profile.facebook")}:
+                                                        </span>{" "}
+                                                        {contactFacebook}
+                                                    </div>
+                                                ) : null}
                                             </div>
                                         )}
+                                        <div className="mt-4 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                                            <NeighbourFbRow label={t("listing.origin")} value={from || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.languages.title")}
+                                                value={languages && languages.length > 0 ? languages.join(", ") : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.profession")} value={profession || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.smoking")}
+                                                value={smoking ? getLifestyleValueLabel(smoking) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.alcohol")}
+                                                value={alcohol ? getLifestyleValueLabel(alcohol) : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.pets")} value={pets || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.sleepSchedule")}
+                                                value={sleep_schedule ? getLifestyleValueLabel(sleep_schedule) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.gamer")}
+                                                value={gamer ? getLifestyleValueLabel(gamer) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.workFromHome")}
+                                                value={work_from_home ? getLifestyleValueLabel(work_from_home) : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.noiseTolerance")} value={noise_tolerance || null} />
+                                            <NeighbourFbRow
+                                                label={t("listing.scores")}
+                                                value={
+                                                    cleanliness !== undefined || introvert_extrovert !== undefined
+                                                        ? [
+                                                              cleanliness !== undefined
+                                                                  ? `${t("profile.cleanliness")}: ${cleanliness}/10`
+                                                                  : null,
+                                                              introvert_extrovert !== undefined
+                                                                  ? `${t("profile.introvertExtrovert")}: ${introvert_extrovert}/10`
+                                                                  : null,
+                                                          ]
+                                                              .filter(Boolean)
+                                                              .join(" · ")
+                                                        : null
+                                                }
+                                            />
+                                            <NeighbourFbRow label={t("profile.guestsParties")} value={guests_parties || null} />
+                                            <NeighbourFbRow
+                                                label={t("listing.preferences")}
+                                                value={
+                                                    preferred_gender || preferred_age_range
+                                                        ? [
+                                                              preferred_gender
+                                                                  ? `${t("profile.preferredGender")}: ${preferred_gender}`
+                                                                  : null,
+                                                              preferred_age_range
+                                                                  ? `${t("profile.preferredAgeRange")}: ${preferred_age_range}`
+                                                                  : null,
+                                                          ]
+                                                              .filter(Boolean)
+                                                              .join(" · ")
+                                                        : null
+                                                }
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.sections.status")}
+                                                value={
+                                                    [verified ? t("badges.verified") : null, looking_for_housing ? t("badges.lookingForHousing") : null]
+                                                        .filter(Boolean)
+                                                        .join(" · ") || null
+                                                }
+                                            />
+                                        </div>
                                     </div>
                                 </section>
-                            </aside>
-                            <div className="flex min-w-0 flex-1 flex-col gap-4">
-                                <NeighbourFbCard title={t("listing.ratingAndReviews")}>
+                                <div className={neighbourLeftTab === "reviews" ? "" : "hidden"}>
+                                <NeighbourFbCard title="">
                                     <div className="flex items-center gap-2">
                                         {[1, 2, 3, 4, 5].map((star) => (
                                             <Icon
@@ -2099,6 +2043,50 @@ out center;`;
                                         )}
                                     </div>
                                 </NeighbourFbCard>
+                                </div>
+                            </aside>
+                            <div className="flex min-w-0 flex-1 flex-col gap-4">
+                                <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                                    <div className="border-b border-zinc-200 px-4 py-3 text-[15px] font-semibold text-[#C505EB] dark:border-gray-700 dark:text-[#D946EF]">
+                                        {t("profile.gallery.title")}
+                                        {profileGallery.length > 0 ? (
+                                            <span className="ml-1.5 tabular-nums text-xs font-bold opacity-80">
+                                                ({profileGallery.length})
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <div className="px-4 py-3">
+                                        {profileGallery.length > 0 ? (
+                                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                                                {profileGallery.map((item) => {
+                                                    const gi = allImages.findIndex((u) => u === item.url);
+                                                    const openIdx = gi >= 0 ? gi : 0;
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setCurrentImageIndex(openIdx);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="relative aspect-square overflow-hidden rounded-md bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C505EB] dark:bg-zinc-800"
+                                                        >
+                                                            <img
+                                                                src={getImageUrl(item.url)}
+                                                                alt=""
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                                {`${String(name || "Этот пользователь")} пока что не сделал ни одной публикации`}
+                                            </p>
+                                        )}
+                                    </div>
+                                </section>
                                 {canRemoveFromHome ? (
                                     <div className="rounded-lg border border-red-200 bg-white p-4 dark:border-red-900/40 dark:bg-gray-900">
                                         <button

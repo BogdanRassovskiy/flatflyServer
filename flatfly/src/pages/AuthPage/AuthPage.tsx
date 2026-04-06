@@ -138,8 +138,14 @@ export default function AuthPage() {
           return;
         }
 
-        // login / register → логиним
-        login(data.email, data.name);
+        // login / register → логиним (API отдаёт { user: { email, name, ... } })
+        const apiUser =
+          data.user && typeof data.user === "object"
+            ? (data.user as Record<string, unknown>)
+            : (data as Record<string, unknown>);
+        const email = String(apiUser.email ?? "").trim();
+        const name = String(apiUser.name ?? "").trim();
+        login(email, name);
 
         const redirectTo = searchParams.get("redirect") || "/";
         router(redirectTo);
@@ -186,19 +192,17 @@ export default function AuthPage() {
     };
 
     const isLogin = mode === "login";
-    const inputH = isLogin ? "h-14 sm:h-[60px]" : "h-11 sm:h-12";
-    const inputText = isLogin ? "text-base sm:text-lg" : "text-sm sm:text-base";
-    const labelText = isLogin ? "text-lg sm:text-xl font-bold" : "text-base sm:text-lg font-bold";
-    const submitBtnClass = isLogin
-        ? "h-14 sm:h-[60px] text-xl sm:text-2xl"
-        : "h-12 sm:h-[52px] text-base sm:text-lg";
+    const inputH = "h-9 sm:h-[42px]";
+    const inputText = "text-[13px] sm:text-sm";
+    const labelText = "text-sm sm:text-base font-bold";
+    const submitBtnClass = "h-10 sm:h-[46px] text-sm sm:text-base";
 
     return (
         <div
             className={`w-full flex flex-col items-center interFont text-black dark:text-white bg-transparent ${
                 isLogin
-                    ? "min-h-[calc(100dvh-5.5rem)] justify-center px-4 sm:px-6 py-6 sm:py-8"
-                    : "min-h-screen flex flex-col pt-6 pb-10 max-[770px]:pb-8"
+                    ? "min-h-screen px-4 pb-10 pt-[108px] sm:px-6 sm:pt-[116px]"
+                    : "min-h-screen flex flex-col pb-10 pt-[108px] max-[770px]:pb-8 sm:pt-[116px]"
             }`}
         >
             <div
@@ -211,29 +215,29 @@ export default function AuthPage() {
                 <div
                     className={`w-full flex items-center ${
                         isLogin
-                            ? "max-w-[min(100%,640px)] sm:max-w-[600px] flex-col justify-center"
+                            ? "max-w-[min(100%,520px)] sm:max-w-[520px] flex-col justify-center"
                             : "max-w-[1100px] w-full justify-center max-[1024px]:flex-col items-center gap-8 max-[1024px]:gap-8"
                     }`}
                 >
                     {/* Left Side - Decorative Content (Desktop only) — скрыто на входе, чтобы всё помещалось без скролла */}
-                    <div className={`hidden min-[1025px]:flex flex-col items-start justify-center shrink-0 max-w-[400px] ${isLogin ? "!hidden" : ""}`}>
-                        <div className={`mb-5`}>
-                            <h1 className={`text-[40px] font-extrabold mb-3 bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent leading-tight`}>
+                    <div className={`hidden min-[1025px]:flex flex-col items-start justify-center shrink-0 max-w-[380px] ${isLogin ? "!hidden" : ""}`}>
+                        <div className={`mb-4`}>
+                            <h1 className={`text-[34px] font-extrabold mb-2 bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent leading-tight`}>
                                 {mode === "login" ? t("auth.loginTitle") : t("auth.registerTitle")}
                             </h1>
-                            <p className={`text-base text-gray-600 dark:text-gray-400 leading-snug`}>
+                            <p className={`text-sm text-gray-600 dark:text-gray-400 leading-snug`}>
                                 {mode === "login" ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}
                             </p>
                         </div>
                         
                         {/* Decorative Elements */}
-                        <div className={`w-full flex flex-col gap-3 mt-5`}>
-                            <div className={`flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[#C505EB]/10 to-[#08E2BE]/10 border border-[#C505EB]/20`}>
-                                <div className={`w-10 h-10 rounded-full bg-gradient-to-r from-[#C505EB] to-[#08E2BE] flex items-center justify-center shrink-0`}>
-                                    <Mail className={`text-white`} size={20} />
+                        <div className={`mt-4 flex w-full flex-col gap-2.5`}>
+                            <div className={`flex items-center gap-2.5 rounded-xl border border-[#C505EB]/20 bg-gradient-to-r from-[#C505EB]/10 to-[#08E2BE]/10 p-2.5`}>
+                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#C505EB] to-[#08E2BE]`}>
+                                    <Mail className={`text-white`} size={18} />
                                 </div>
                                 <div>
-                                    <h3 className={`font-bold text-base text-black dark:text-white`}>
+                                    <h3 className={`text-sm font-bold text-black dark:text-white`}>
                                         {t("auth.feature1Title")}
                                     </h3>
                                     <p className={`text-xs text-gray-600 dark:text-gray-400`}>
@@ -242,12 +246,12 @@ export default function AuthPage() {
                                 </div>
                             </div>
                             
-                            <div className={`flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[#C505EB]/10 to-[#08E2BE]/10 border border-[#C505EB]/20`}>
-                                <div className={`w-10 h-10 rounded-full bg-gradient-to-r from-[#C505EB] to-[#08E2BE] flex items-center justify-center shrink-0`}>
-                                    <Lock className={`text-white`} size={20} />
+                            <div className={`flex items-center gap-2.5 rounded-xl border border-[#C505EB]/20 bg-gradient-to-r from-[#C505EB]/10 to-[#08E2BE]/10 p-2.5`}>
+                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#C505EB] to-[#08E2BE]`}>
+                                    <Lock className={`text-white`} size={18} />
                                 </div>
                                 <div>
-                                    <h3 className={`font-bold text-base text-black dark:text-white`}>
+                                    <h3 className={`text-sm font-bold text-black dark:text-white`}>
                                         {t("auth.feature2Title")}
                                     </h3>
                                     <p className={`text-xs text-gray-600 dark:text-gray-400`}>
@@ -262,25 +266,25 @@ export default function AuthPage() {
                     <div
                         className={`w-full flex flex-col items-center ${
                             isLogin
-                                ? "max-w-[min(100%,640px)] sm:max-w-[600px] w-full"
-                                : "w-full max-w-[min(100%,520px)] sm:max-w-[520px] min-[1025px]:max-w-[540px] shrink-0"
+                                ? "max-w-[min(100%,520px)] sm:max-w-[520px] w-full"
+                                : "w-full max-w-[min(100%,480px)] sm:max-w-[480px] min-[1025px]:max-w-[500px] shrink-0"
                         }`}
                     >
                         {/* Заголовок: на входе — один компактный по центру */}
                         {isLogin ? (
-                            <h1 className="text-3xl sm:text-4xl max-[770px]:text-[1.75rem] font-bold mb-6 sm:mb-7 text-center w-full">
+                            <h1 className="mb-3 w-full text-center text-[1.35rem] font-bold sm:mb-4 sm:text-[1.65rem]">
                                 {t("auth.loginTitle")}
                             </h1>
                         ) : (
                             <>
-                                <h1 className="min-[1025px]:hidden text-[1.625rem] sm:text-3xl max-[770px]:text-2xl font-bold mb-5 text-center w-full">
+                                <h1 className="mb-3 w-full text-center text-[1.45rem] font-bold max-[770px]:text-[1.35rem] sm:text-[1.7rem] min-[1025px]:hidden">
                                     {mode === "register"
                                         ? t("auth.registerTitle")
                                         : mode === "forgot"
                                           ? t("resetPassword.title")
                                           : t("auth.loginTitle")}
                                 </h1>
-                                <h1 className="hidden min-[1025px]:block text-3xl sm:text-4xl font-bold mb-6 text-center w-full">
+                                <h1 className="mb-4 hidden min-[1025px]:block w-full text-center text-[1.75rem] font-bold">
                                     {mode === "register"
                                         ? t("auth.registerTitle")
                                         : mode === "forgot"
@@ -293,7 +297,7 @@ export default function AuthPage() {
                         {/* Email/Password Form */}
                         <form
                             onSubmit={handleSubmit}
-                            className={`w-full flex flex-col ${isLogin ? "gap-4 sm:gap-5" : "gap-3.5 sm:gap-4"}`}
+                            className={`w-full flex flex-col ${isLogin ? "gap-3 sm:gap-3.5" : "gap-2.5 sm:gap-3"}`}
                         >
                             {mode === "register" && (
                                 <div className={`w-full flex flex-col items-start gap-2`}>
@@ -317,7 +321,7 @@ export default function AuthPage() {
 
                             <div className={`w-full flex flex-col items-start gap-2`}>
                                 <label className={`${labelText} text-black dark:text-white flex items-center gap-2`}>
-                                    <Mail size={isLogin ? 24 : 20} />
+                                    <Mail size={isLogin ? 20 : 18} />
                                     {t("auth.email")}
                                 </label>
                                 <input
@@ -339,7 +343,7 @@ export default function AuthPage() {
                               <div>
                                 {<div className={`w-full flex flex-col items-start gap-2`}>
                                 <label className={`${labelText} text-black dark:text-white flex items-center gap-2`}>
-                                    <Lock size={isLogin ? 24 : 20} />
+                                    <Lock size={isLogin ? 20 : 18} />
                                     {t("auth.password")}
                                 </label>
                                 <div className={`w-full relative`}>

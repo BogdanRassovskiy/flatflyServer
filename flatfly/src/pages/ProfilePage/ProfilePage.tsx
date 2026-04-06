@@ -572,6 +572,7 @@ export default function ProfilePage() {
     const [inviteQrLink, setInviteQrLink] = useState("");
     const [galleryModalItem, setGalleryModalItem] = useState<ProfileGalleryItem | null>(null);
     const [galleryModalCaption, setGalleryModalCaption] = useState("");
+    const [galleryUploadInProgress, setGalleryUploadInProgress] = useState(0);
     const [galleryModalBusy, setGalleryModalBusy] = useState(false);
     const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
@@ -917,6 +918,15 @@ export default function ProfilePage() {
     const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        const previousCover = profileData.coverPhoto;
+
+        // Мгновенный предпросмотр, чтобы не ждать ответа сервера
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileData((prev) => ({ ...prev, coverPhoto: String(reader.result || "") }));
+        };
+        reader.readAsDataURL(file);
+
         const formData = new FormData();
         formData.append("cover", file);
         try {
@@ -934,6 +944,8 @@ export default function ProfilePage() {
                 setProfileData((prev) => ({ ...prev, coverPhoto: String(data.coverPhoto) }));
             }
         } catch {
+            // Если загрузка не удалась — возвращаем предыдущее изображение
+            setProfileData((prev) => ({ ...prev, coverPhoto: previousCover }));
             alert(t("profile.errorUploadingAvatar"));
         }
         e.target.value = "";
@@ -950,6 +962,7 @@ export default function ProfilePage() {
         const formData = new FormData();
         formData.append("image", file);
         formData.append("caption", "");
+        setGalleryUploadInProgress((prev) => prev + 1);
         try {
             const response = await fetch("/api/profile/gallery/", {
                 method: "POST",
@@ -976,8 +989,10 @@ export default function ProfilePage() {
             }));
         } catch {
             alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setGalleryUploadInProgress((prev) => Math.max(0, prev - 1));
+            e.target.value = "";
         }
-        e.target.value = "";
     };
 
     const deleteGalleryPhoto = async (photoId: number): Promise<boolean> => {
@@ -1533,6 +1548,16 @@ export default function ProfilePage() {
                                             ) : null}
                                         </button>
                                     ))}
+                                    {galleryUploadInProgress > 0 ? (
+                                        <div className="relative aspect-square overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
+                                                <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/70 border-t-[#C505EB]" />
+                                                <span className="px-1 text-center text-[10px] font-semibold text-white sm:text-[11px]">
+                                                    {t("loading")}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -2305,11 +2330,12 @@ export default function ProfilePage() {
                             )}
                             {!favLoading && favListings.length > 0 && (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {favListings.map((listing) => (
                                             <SaleCard
                                                 key={listing.id}
                                                 {...convertToSaleCardType(listing)}
+                                                compactGrid
                                                 onRemoveFavorite={() => handleRemoveFavorite(listing.id, listing.type)}
                                             />
                                         ))}
@@ -2393,15 +2419,18 @@ export default function ProfilePage() {
                             )}
                             {!myListingsLoading && myListings.length > 0 && (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {myListings.map((listing) => (
                                             <div
                                                 key={listing.id}
                                                 onClick={handleMyListingsCardClick}
-                                                className={listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""}
+                                                className={`w-[256px] min-[480px]:w-[272px] lg:w-[288px] xl:w-[300px] ${
+                                                    listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""
+                                                }`}
                                             >
                                                 <SaleCard
                                                     {...convertToSaleCardType(listing)}
+                                                    compactGrid
                                                     linkState={{ profileTab: "myListings" }}
                                                 />
                                             </div>

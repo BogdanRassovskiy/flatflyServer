@@ -222,13 +222,14 @@ export default function NeighboursPage() {
                 ))}
               </div>
 
-              <div className="hidden min-[771px]:mt-6 min-[771px]:grid w-full justify-center justify-items-center gap-5 sm:gap-6 lg:gap-7 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
+              <div className="hidden min-[771px]:mt-6 min-[771px]:grid w-full justify-center justify-items-center gap-4 lg:gap-5 [grid-template-columns:repeat(auto-fill,220px)] lg:[grid-template-columns:repeat(auto-fill,228px)] xl:[grid-template-columns:repeat(auto-fill,236px)]">
                 {neighbours.map((n) => {
                   const badges = buildNeighbourBadges(n, t);
                   return (
                     <SaleCard
                       key={n.id}
                       compactGrid
+                      denseNeighbourDesktop
                       id={String(n.id)}
                       name={n.name}
                       age={n.age}

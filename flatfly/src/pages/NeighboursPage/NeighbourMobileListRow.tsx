@@ -131,7 +131,7 @@ export default function NeighbourMobileListRow({
         <div className="flex gap-2">
           <Link
             to={profilePath}
-            className="flex min-w-0 flex-[1.4] touch-manipulation items-center justify-center rounded-lg bg-[#1877F2] px-2 py-2.5 text-center text-[13px] font-semibold leading-tight text-white shadow-sm active:bg-[#1664D8] dark:bg-[#1877F2] dark:active:bg-[#1664D8]"
+            className="flex min-w-0 flex-[1.4] touch-manipulation items-center justify-center rounded-lg bg-gradient-to-r from-[#C505EB] to-[#BA00F8] px-2 py-2.5 text-center text-[13px] font-semibold leading-tight text-white shadow-sm active:opacity-90"
           >
             {t("neighbours.openProfile")}
           </Link>
