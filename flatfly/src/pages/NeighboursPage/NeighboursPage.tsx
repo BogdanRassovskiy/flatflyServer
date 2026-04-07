@@ -50,7 +50,22 @@ interface NeighbourFilterState {
   neighbourFrom: string;
 }
 
-function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[] {
+type NeighbourBadgeIcon =
+  | "gamepad"
+  | "moon"
+  | "gender"
+  | "alcohol"
+  | "smoking"
+  | "pets"
+  | "work"
+  | "children"
+  | "accessibility";
+type NeighbourBadge = {
+  label: string;
+  icon?: NeighbourBadgeIcon;
+};
+
+function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): NeighbourBadge[] {
   const getBadgeValue = (fieldName: string, value?: string | boolean): string | null => {
     if (value === null || value === undefined || value === "") return null;
 
@@ -66,20 +81,22 @@ function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[
     return t(`badges.${normalizedValue}`) || String(value);
   };
 
-  const potentialBadges: (string | null)[] = [
-    getBadgeValue("verified", n.verified),
-    getBadgeValue(n.gender || "", n.gender),
-    getBadgeValue("smoking", n.smoking),
-    getBadgeValue("alcohol", n.alcohol),
-    getBadgeValue("pets", n.pets),
-    getBadgeValue("sleepSchedule", n.sleep_schedule),
-    getBadgeValue("gamer", n.gamer),
-    getBadgeValue("workFromHome", n.work_from_home),
-    getBadgeValue("withChildren", n.with_children),
-    getBadgeValue("withDisability", n.with_disability),
+  const rows: Array<{ label: string | null; icon?: NeighbourBadgeIcon }> = [
+    { label: getBadgeValue(n.gender || "", n.gender), icon: "gender" },
+    { label: getBadgeValue("smoking", n.smoking), icon: "smoking" },
+    { label: getBadgeValue("alcohol", n.alcohol), icon: "alcohol" },
+    { label: getBadgeValue("pets", n.pets), icon: "pets" },
+    { label: getBadgeValue("sleepSchedule", n.sleep_schedule), icon: "moon" },
+    { label: getBadgeValue("gamer", n.gamer), icon: "gamepad" },
+    { label: getBadgeValue("workFromHome", n.work_from_home), icon: "work" },
+    { label: getBadgeValue("withChildren", n.with_children), icon: "children" },
+    { label: getBadgeValue("withDisability", n.with_disability), icon: "accessibility" },
   ];
 
-  return potentialBadges.filter((b): b is string => b !== null).slice(0, 6);
+  return rows
+    .filter((r): r is { label: string; icon?: NeighbourBadgeIcon } => r.label !== null)
+    .slice(0, 6)
+    .map((r) => ({ label: r.label, icon: r.icon }));
 }
 
 export default function NeighboursPage() {
@@ -236,6 +253,7 @@ export default function NeighboursPage() {
                       from={regionValueToLabel(n.city)}
                       image={getImageUrl(n.avatar)}
                       badges={badges}
+                      verified={n.verified}
                       ratingAverage={n.ratingAverage}
                       ratingCount={n.ratingCount}
                       matchPercentage={n.matchPercentage}

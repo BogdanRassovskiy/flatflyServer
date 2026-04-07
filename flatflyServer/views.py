@@ -1002,7 +1002,7 @@ def neighbours_list(request):
     qs = Profile.objects.all().annotate(
         rating_average=Avg("received_reviews__rating"),
         rating_count=Count("received_reviews"),
-    )
+    ).exclude(user__username="support")
 
     # Do not show the current user's own profile in neighbours list.
     if request.user.is_authenticated:

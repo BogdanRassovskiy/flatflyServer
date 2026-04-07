@@ -6,6 +6,7 @@ import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import {getCsrfToken} from "../../utils/csrf";
 import {getImageUrl} from "../../utils/defaultImage";
+import defaultProfileCover from "../../assets/default-profile-cover.png";
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -1626,22 +1627,16 @@ out center;`;
                         {type === "NEIGHBOUR" ? (
                             <>
                                 <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-200 shadow-md ring-1 ring-zinc-200/90 dark:bg-gray-900 dark:ring-gray-700">
-                                    {coverPhoto ? (
-                                        <>
-                                            <img
-                                                src={getImageUrl(coverPhoto)}
-                                                alt=""
-                                                className="absolute inset-0 h-full w-full object-cover"
-                                            />
-                                            <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
-                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
-                                        </>
-                                    ) : null}
-                                    <div className={`relative h-[140px] w-full min-[480px]:h-[180px] min-[900px]:h-[220px] ${
-                                        coverPhoto
-                                            ? ""
-                                            : "bg-gradient-to-br from-[#C505EB]/25 via-zinc-200 to-[#08E2BE]/20 dark:from-[#C505EB]/15 dark:via-zinc-800 dark:to-[#08E2BE]/12"
-                                    }`}>
+                                    <>
+                                        <img
+                                            src={getImageUrl(coverPhoto || defaultProfileCover)}
+                                            alt=""
+                                            className="absolute inset-0 h-full w-full object-cover"
+                                        />
+                                        <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
+                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
+                                    </>
+                                    <div className="relative h-[140px] w-full min-[480px]:h-[180px] min-[900px]:h-[220px]">
                                         <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-4 sm:top-4">
                                             <button
                                                 type="button"

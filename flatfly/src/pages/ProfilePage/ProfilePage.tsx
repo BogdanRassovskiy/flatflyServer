@@ -9,6 +9,7 @@ import { getCsrfToken } from "../../utils/csrf";
 import SaleCard from "../../components/SaleCard/SaleCard";
 import { getImageUrl } from "../../utils/defaultImage";
 import MapPicker from "../../components/MapPicker/MapPicker";
+import defaultProfileCover from "../../assets/default-profile-cover.png";
 
 interface ProfileGalleryItem {
     id: number;
@@ -200,6 +201,7 @@ export default function ProfilePage() {
         withChildren: false,
         withDisability: false,
     });
+    const effectiveCoverPhoto = profileData.coverPhoto || defaultProfileCover;
     const CZECH_REGIONS = [
       { value: "PRAGUE", label: "Praha" },
       { value: "STREDOCESKY", label: "Středočeský kraj" },
@@ -1647,27 +1649,19 @@ export default function ProfilePage() {
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
                             {/* Обложка + аватар (стиль профиля) */}
                             <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-600 dark:bg-zinc-900/50">
-                                {profileData.coverPhoto ? (
-                                    <>
-                                        <img
-                                            src={getImageUrl(profileData.coverPhoto)}
-                                            alt=""
-                                            className="absolute inset-0 h-full w-full object-cover"
-                                        />
-                                        <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
-                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
-                                    </>
-                                ) : null}
+                                <>
+                                    <img
+                                        src={getImageUrl(effectiveCoverPhoto)}
+                                        alt=""
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                    />
+                                    <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
+                                </>
                                 <div
-                                    className={`relative h-36 w-full min-[480px]:h-44 ${
-                                        profileData.coverPhoto
-                                            ? ""
-                                            : "bg-gradient-to-br from-[#C505EB]/20 via-zinc-200 to-[#08E2BE]/15 dark:from-[#C505EB]/10 dark:via-zinc-800 dark:to-[#08E2BE]/10"
-                                    }`}
+                                    className="relative h-36 w-full min-[480px]:h-44"
                                 >
-                                    {profileData.coverPhoto ? (
-                                        <div className="absolute inset-0" />
-                                    ) : null}
+                                    <div className="absolute inset-0" />
                                     <button
                                         type="button"
                                         onClick={() => coverInputRef.current?.click()}
