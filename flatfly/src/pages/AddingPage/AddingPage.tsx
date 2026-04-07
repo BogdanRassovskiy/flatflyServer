@@ -469,10 +469,14 @@ export default function AddingPage() {
 
         setShowPromotionStep(false);
 
-        // Редирект на страницу профиля с вкладкой "Мои объявления"
+        if (!isEditMode) {
+          navigate("/listing-published");
+          return;
+        }
+
         setTimeout(() => {
           navigate('/profile?tab=myListings');
-        }, 1500);
+        }, 1200);
 
         // опционально: очистка формы
         setTitle("");

@@ -10,6 +10,7 @@ from . import views
 
 
 urlpatterns = [
+    path("i18n/", include("django.conf.urls.i18n")),
     path('admin', RedirectView.as_view(url='/admin/', permanent=True)),
     # админка (по желанию)
     path('admin/', admin.site.urls),

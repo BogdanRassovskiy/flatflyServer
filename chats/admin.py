@@ -1,15 +1,75 @@
 from urllib.parse import urlencode
 
 from django.contrib import admin, messages
-from django.contrib.auth import get_user_model
+from django.contrib.admin import SimpleListFilter
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils import translation
 from django.utils.html import format_html, format_html_join
 
 from .models import Chat, Message, ChatBlock, ChatReport, ModerationMessage, RejectedImageModerationLog, ImageModerationRule
+from .support_profile import get_or_create_flatfly_support_user
 
-User = get_user_model()
+
+def _t(ru: str, cs: str, en: str) -> str:
+    lang = (translation.get_language() or "cs").split("-")[0]
+    if lang == "ru":
+        return ru
+    if lang == "cs":
+        return cs
+    return en
+
+
+def _chat_reason_label(reason_code: str, locale: str) -> str:
+    mapping = {
+        ChatReport.REASON_INSULT: {"ru": "Оскорбление", "cs": "Urážka", "en": "Insult"},
+        ChatReport.REASON_THREAT: {"ru": "Угроза", "cs": "Výhrůžka", "en": "Threat"},
+        ChatReport.REASON_SPAM: {"ru": "Спам", "cs": "Spam", "en": "Spam"},
+        ChatReport.REASON_FRAUD: {"ru": "Мошенничество", "cs": "Podvod", "en": "Fraud"},
+        ChatReport.REASON_INAPPROPRIATE: {"ru": "Неприемлемый контент", "cs": "Nevhodný obsah", "en": "Inappropriate content"},
+        ChatReport.REASON_OTHER: {"ru": "Другое", "cs": "Jiné", "en": "Other"},
+    }
+    lang = "ru" if locale == "ru" else ("cs" if locale == "cs" else "en")
+    return mapping.get(reason_code, {}).get(lang, reason_code)
+
+
+def _chat_status_label(status_code: str, locale: str) -> str:
+    mapping = {
+        ChatReport.STATUS_PENDING: {"ru": "Ожидает", "cs": "Čeká", "en": "Pending"},
+        ChatReport.STATUS_APPROVED: {"ru": "Подтверждена", "cs": "Potvrzeno", "en": "Approved"},
+        ChatReport.STATUS_REJECTED: {"ru": "Отклонена", "cs": "Zamítnuto", "en": "Rejected"},
+    }
+    lang = "ru" if locale == "ru" else ("cs" if locale == "cs" else "en")
+    return mapping.get(status_code, {}).get(lang, status_code)
+
+
+class ChatReportReasonFilter(SimpleListFilter):
+    title = "Reason"
+    parameter_name = "reason"
+
+    def lookups(self, request, model_admin):
+        locale = (translation.get_language() or "cs").split("-")[0]
+        return [(code, _chat_reason_label(code, locale)) for code, _ in ChatReport.REASON_CHOICES]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(reason=self.value())
+        return queryset
+
+
+class ChatReportStatusFilter(SimpleListFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        locale = (translation.get_language() or "cs").split("-")[0]
+        return [(code, _chat_status_label(code, locale)) for code, _ in ChatReport.STATUS_CHOICES]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(status=self.value())
+        return queryset
 
 
 @admin.register(Chat)
@@ -41,13 +101,13 @@ class ChatReportAdmin(admin.ModelAdmin):
         "chat",
         "reporter",
         "reported_user",
-        "reason",
-        "status",
+        "reason_localized",
+        "status_localized",
         "strike_applied",
         "open_chat_messages",
         "created_at",
     )
-    list_filter = ("reason", "status", "consent_confirmed", "strike_applied", "created_at")
+    list_filter = (ChatReportReasonFilter, ChatReportStatusFilter, "consent_confirmed", "strike_applied", "created_at")
     search_fields = (
         "reporter__username",
         "reporter__email",
@@ -87,20 +147,48 @@ class ChatReportAdmin(admin.ModelAdmin):
     )
     actions = ("approve_reports", "reject_reports")
 
+    @admin.display(description="Reason")
+    def reason_localized(self, obj: ChatReport):
+        locale = (translation.get_language() or "cs").split("-")[0]
+        return _chat_reason_label(obj.reason, locale)
+
+    @admin.display(description="Status")
+    def status_localized(self, obj: ChatReport):
+        locale = (translation.get_language() or "cs").split("-")[0]
+        return _chat_status_label(obj.status, locale)
+
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        locale = (translation.get_language() or "cs").split("-")[0]
+        if db_field.name == "reason":
+            kwargs["choices"] = [(code, _chat_reason_label(code, locale)) for code, _ in ChatReport.REASON_CHOICES]
+        elif db_field.name == "status":
+            kwargs["choices"] = [(code, _chat_status_label(code, locale)) for code, _ in ChatReport.STATUS_CHOICES]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if "approve_reports" in actions:
+            func, name, _desc = actions["approve_reports"]
+            actions["approve_reports"] = (func, name, _t("Подтвердить жалобу (дать страйк)", "Potvrdit report (udělit strike)", "Approve report (apply strike)"))
+        if "reject_reports" in actions:
+            func, name, _desc = actions["reject_reports"]
+            actions["reject_reports"] = (func, name, _t("Отклонить жалобу (без страйка)", "Zamítnout report (bez strike)", "Reject report (no strike)"))
+        return actions
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("chat", "reporter__profile", "reported_user__profile")
 
-    @admin.display(description="Переписка")
+    @admin.display(description="Messages")
     def open_chat_messages(self, obj):
         url = reverse("admin:chats_message_changelist")
         query = urlencode({"chat__chatid__exact": obj.chat_id})
-        return format_html('<a href="{}?{}" target="_blank">Открыть сообщения чата</a>', url, query)
+        return format_html('<a href="{}?{}" target="_blank">{}</a>', url, query, _t("Открыть сообщения чата", "Otevřít zprávy chatu", "Open chat messages"))
 
-    @admin.display(description="Превью переписки")
+    @admin.display(description="Chat preview")
     def chat_transcript_preview(self, obj):
         rows = list(obj.chat.messages.select_related("sender").order_by("-created_at")[:30])
         if not rows:
-            return "Сообщений нет"
+            return _t("Сообщений нет", "Žádné zprávy", "No messages")
 
         # Show oldest -> newest in a compact chat-like UI.
         rows = list(reversed(rows))
@@ -116,7 +204,7 @@ class ChatReportAdmin(admin.ModelAdmin):
                      "background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;"
             )
             sender_name = msg.sender.get_username() or f"user#{msg.sender_id}"
-            sender_role = "Репортер" if is_reporter else "Пользователь"
+            sender_role = _t("Репортер", "Reportující", "Reporter") if is_reporter else _t("Пользователь", "Uživatel", "User")
             text = (msg.text[:240] + " ...") if len(msg.text) > 240 else msg.text
             bubbles.append(
                 format_html(
@@ -139,9 +227,10 @@ class ChatReportAdmin(admin.ModelAdmin):
         full_chat_link = format_html(
             '<a href="{}?{}" target="_blank" style="display:inline-block;margin-bottom:8px;'
             'padding:6px 10px;border-radius:8px;background:#111827;color:#ffffff;'
-            'text-decoration:none;font-size:12px;">Открыть полный чат</a>',
+            'text-decoration:none;font-size:12px;">{}</a>',
             url,
             query,
+            _t("Открыть полный чат", "Otevřít celý chat", "Open full chat"),
         )
 
         return format_html(
@@ -190,7 +279,11 @@ class ChatReportAdmin(admin.ModelAdmin):
                 banned_count += 1
         self.message_user(
             request,
-            f"Подтверждено: {applied}. Автобан (3 страйка): {banned_count}.",
+            _t(
+                f"Подтверждено: {applied}. Автобан (3 страйка): {banned_count}.",
+                f"Potvrzeno: {applied}. Auto-ban (3 striky): {banned_count}.",
+                f"Approved: {applied}. Auto-ban (3 strikes): {banned_count}.",
+            ),
             level=messages.SUCCESS,
         )
 
@@ -201,7 +294,11 @@ class ChatReportAdmin(admin.ModelAdmin):
             reviewed_by=request.user,
             reviewed_at=timezone.now(),
         )
-        self.message_user(request, f"Отклонено жалоб: {updated}.", level=messages.INFO)
+        self.message_user(
+            request,
+            _t(f"Отклонено жалоб: {updated}.", f"Zamítnuté reporty: {updated}.", f"Rejected reports: {updated}."),
+            level=messages.INFO,
+        )
 
     def save_model(self, request, obj, form, change):
         if change and "status" in form.changed_data:
@@ -209,9 +306,9 @@ class ChatReportAdmin(admin.ModelAdmin):
                 super().save_model(request, obj, form, change)
                 changed, banned = self._apply_strike(obj, request.user)
                 if changed:
-                    msg = "Жалоба подтверждена, страйк выдан."
+                    msg = _t("Жалоба подтверждена, страйк выдан.", "Report potvrzen, strike udělen.", "Report approved, strike applied.")
                     if banned:
-                        msg += " Пользователь автоматически заблокирован (3 страйка)."
+                        msg += _t(" Пользователь автоматически заблокирован (3 страйка).", " Uživatel byl automaticky zablokován (3 striky).", " User was automatically banned (3 strikes).")
                     self.message_user(request, msg, level=messages.SUCCESS)
             elif obj.status == ChatReport.STATUS_REJECTED:
                 obj.reviewed_by = request.user
@@ -231,7 +328,7 @@ class ModerationMessageAdmin(admin.ModelAdmin):
     autocomplete_fields = ("target_user",)
     fields = ("target_user", "message", "created_by", "sent_at", "linked_chat", "linked_message", "chat_link")
 
-    @admin.display(description="Чат")
+    @admin.display(description="Chat")
     def chat_link(self, obj):
         if not obj.linked_chat_id:
             return "-"
@@ -243,14 +340,7 @@ class ModerationMessageAdmin(admin.ModelAdmin):
         if change:
             return super().save_model(request, obj, form, change)
 
-        support_user, _ = User.objects.get_or_create(
-            username="support",
-            defaults={
-                "email": "support@flatfly.local",
-                "is_staff": True,
-                "is_active": True,
-            },
-        )
+        support_user = get_or_create_flatfly_support_user()
 
         chat = (
             Chat.objects

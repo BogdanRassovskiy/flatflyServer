@@ -40,31 +40,6 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const [universitiesLoading, setUniversitiesLoading] = useState(false);
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
 
-    // Load user profile to set default gender
-    useEffect(() => {
-        const loadUserGender = async () => {
-            try {
-                const response = await fetch("/api/profile/", {
-                    credentials: "include",
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    // Set default gender filter to opposite of user's gender
-                    if (data.gender && !filters.gender) {
-                        const oppositeGender = data.gender === "male" ? "female" : "male";
-                        onChange({
-                            ...filters,
-                            gender: oppositeGender,
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to load user profile:", error);
-            }
-        };
-        loadUserGender();
-    }, []);
-    
     // Функции для перевода значений фильтров
     const translateGender = (value: string) => {
         const map: Record<string, string> = {

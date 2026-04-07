@@ -23,7 +23,6 @@ interface Neighbour {
   work_from_home?: string;
   with_children?: boolean;
   with_disability?: boolean;
-  pensioner?: boolean;
 
   verified: boolean;
   looking_for_housing: boolean;
@@ -69,7 +68,6 @@ function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[
 
   const potentialBadges: (string | null)[] = [
     getBadgeValue("verified", n.verified),
-    getBadgeValue("lookingForHousing", n.looking_for_housing),
     getBadgeValue(n.gender || "", n.gender),
     getBadgeValue("smoking", n.smoking),
     getBadgeValue("alcohol", n.alcohol),
@@ -79,7 +77,6 @@ function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[
     getBadgeValue("workFromHome", n.work_from_home),
     getBadgeValue("withChildren", n.with_children),
     getBadgeValue("withDisability", n.with_disability),
-    getBadgeValue("pensioner", n.pensioner),
   ];
 
   return potentialBadges.filter((b): b is string => b !== null).slice(0, 6);
@@ -122,6 +119,7 @@ export default function NeighboursPage() {
       return {
         ...defaultFilters,
         ...parsed,
+        gender: "",
         ratingMin: parsed?.ratingMin === "" || parsed?.ratingMin === undefined ? "0" : String(parsed.ratingMin),
       };
     } catch {
@@ -131,7 +129,9 @@ export default function NeighboursPage() {
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem("neighbourFilters", JSON.stringify(filters));
+    // Don't persist gender: should be empty by default on page open.
+    const { gender: _gender, ...persistable } = filters;
+    localStorage.setItem("neighbourFilters", JSON.stringify(persistable));
   }, [filters]);
 
   useEffect(() => {
@@ -197,10 +197,10 @@ export default function NeighboursPage() {
           />
 
           {loading ? (
-            <div className="mt-5 text-xl max-[770px]:mt-4 min-[771px]:mt-10">Loading...</div>
+            <div className="mt-5 text-xl max-[770px]:mt-4 min-[771px]:mt-10">{t("neighboursPage.loading")}</div>
           ) : neighbours.length === 0 ? (
             <div className="mt-5 text-xl opacity-60 max-[770px]:mt-4 min-[771px]:mt-10">
-              {t("No neighbours found")}
+              {t("neighboursPage.noResults")}
             </div>
           ) : (
             <>

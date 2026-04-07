@@ -23,7 +23,7 @@ export default function Header() {
         pathname === "/" || pathname === "/profile" || pathname.startsWith("/profile/");
     const isSearchPage = pathname !== "/";
     const { language, setLanguage, t } = useLanguage();
-    const { isAuthenticated, logout, user } = useAuth();
+    const { isAuthenticated, logout, user, refreshUser } = useAuth();
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
     const [menuAvatarFailed, setMenuAvatarFailed] = useState(false);
     const forceSolidHeader = pathname.startsWith("/messenger");
@@ -53,20 +53,7 @@ export default function Header() {
 
 
     const handleLogout = async () => {
-      console.log("LOGOUT CLICKED");
-
-      try {
-        const res = await fetch("/api/logout/", {
-          method: "POST",
-          credentials: "include",
-        });
-
-        console.log("LOGOUT RESPONSE:", res.status);
-      } catch (e) {
-        console.error("LOGOUT ERROR:", e);
-      }
-
-      logout();
+      await logout();
       navigate("/");
     };
     // Инициализация темы из localStorage
@@ -120,6 +107,12 @@ export default function Header() {
     useEffect(() => {
         setMenuAvatarFailed(false);
     }, [user?.avatar]);
+
+    useEffect(() => {
+        if (isMenuOpen && isAuthenticated) {
+            void refreshUser();
+        }
+    }, [isMenuOpen, isAuthenticated, refreshUser]);
 
     // Переключение темы
     const toggleTheme = () => {

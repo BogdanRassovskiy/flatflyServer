@@ -199,7 +199,13 @@ class ListingReport(models.Model):
         (STATUS_CONFIRMED_DELETE_STRIKE, "Подтверждена (удалено объявление + страйк)"),
     ]
 
-    listing = models.ForeignKey(Listing, related_name="reports", on_delete=models.CASCADE)
+    listing = models.ForeignKey(
+        Listing,
+        related_name="reports",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="listing_reports_created",

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 
 export type AuthUser = {
@@ -13,6 +13,7 @@ interface AuthContextType {
     user: AuthUser | null;
     login: (email: string, name: string, avatar?: string | null) => void;
     logout: () => void;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,40 +93,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("user", JSON.stringify(u));
     };
 
+    const refreshUser = useCallback(async () => {
+        const res = await fetch("/api/me/", {
+            credentials: "include",
+        });
+
+        if (res.status === 401) {
+            setIsAuthenticated(false);
+            setUser(null);
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("isAuthenticated");
+                localStorage.removeItem("user");
+            }
+            return;
+        }
+
+        if (!res.ok) {
+            return;
+        }
+
+        const data = (await res.json()) as Record<string, unknown>;
+        const next = userFromMePayload(data);
+        setIsAuthenticated(true);
+        setUser(next);
+        persistUser(next);
+    }, []);
+
     useEffect(() => {
-        const ac = new AbortController();
         let cancelled = false;
 
         (async () => {
             try {
-                const res = await fetch("/api/me/", {
-                    credentials: "include",
-                    signal: ac.signal,
-                });
-                if (cancelled) return;
-
-                if (res.status === 401) {
-                    setIsAuthenticated(false);
-                    setUser(null);
-                    if (typeof window !== "undefined") {
-                        localStorage.removeItem("isAuthenticated");
-                        localStorage.removeItem("user");
-                    }
-                    return;
-                }
-
-                if (!res.ok) {
-                    // Сессия могла остаться валидной при временной ошибке сервера — не сбрасываем кэш
-                    return;
-                }
-
-                const data = (await res.json()) as Record<string, unknown>;
-                if (cancelled) return;
-
-                const next = userFromMePayload(data);
-                setIsAuthenticated(true);
-                setUser(next);
-                persistUser(next);
+                await refreshUser();
             } catch (e) {
                 if (cancelled || (e instanceof Error && e.name === "AbortError")) return;
                 // Сеть: оставляем оптимистичное состояние из localStorage, если оно есть
@@ -134,15 +133,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => {
             cancelled = true;
-            ac.abort();
         };
-    }, []);
+    }, [refreshUser]);
+
+    useEffect(() => {
+        const onFocus = () => {
+            void refreshUser();
+        };
+        window.addEventListener("focus", onFocus);
+        return () => window.removeEventListener("focus", onFocus);
+    }, [refreshUser]);
 
     const login = (email: string, name: string, avatar?: string | null) => {
         const userData = normalizeLoginUser(email, name, avatar);
         setIsAuthenticated(true);
         setUser(userData);
         persistUser(userData);
+        void refreshUser();
     };
 
     const logout = async () => {
@@ -161,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

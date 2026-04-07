@@ -574,6 +574,24 @@ export default function ProfilePage() {
     const [galleryModalCaption, setGalleryModalCaption] = useState("");
     const [galleryUploadInProgress, setGalleryUploadInProgress] = useState(0);
     const [galleryModalBusy, setGalleryModalBusy] = useState(false);
+    const [avatarCropOpen, setAvatarCropOpen] = useState(false);
+    const [avatarCropSourceUrl, setAvatarCropSourceUrl] = useState("");
+    const [avatarCropNaturalSize, setAvatarCropNaturalSize] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
+    const [avatarCropViewport, setAvatarCropViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const [avatarCropOffset, setAvatarCropOffset] = useState({ x: 0, y: 0 });
+    const [avatarCropDragging, setAvatarCropDragging] = useState(false);
+    const [avatarCropBusy, setAvatarCropBusy] = useState(false);
+    const avatarCropViewportRef = useRef<HTMLDivElement>(null);
+    const avatarCropDragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+    const [coverCropOpen, setCoverCropOpen] = useState(false);
+    const [coverCropSourceUrl, setCoverCropSourceUrl] = useState("");
+    const [coverCropNaturalSize, setCoverCropNaturalSize] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
+    const [coverCropViewport, setCoverCropViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const [coverCropOffset, setCoverCropOffset] = useState({ x: 0, y: 0 });
+    const [coverCropDragging, setCoverCropDragging] = useState(false);
+    const [coverCropBusy, setCoverCropBusy] = useState(false);
+    const coverCropViewportRef = useRef<HTMLDivElement>(null);
+    const coverCropDragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
     const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
@@ -880,56 +898,221 @@ export default function ProfilePage() {
     const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
-      // превью как раньше
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileData(prev => ({ ...prev, photo: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-
-      // реальная отправка
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      try {
-                const response = await fetch("/api/profile/avatar/", {
-          method: "POST",
-          credentials: "include",
-                    headers: {
-                        "X-CSRFToken": getCsrfToken(),
-                    },
-                    body: formData,
+      const objectUrl = URL.createObjectURL(file);
+      const imageProbe = new Image();
+      imageProbe.onload = () => {
+        setAvatarCropNaturalSize({
+            width: Math.max(1, imageProbe.naturalWidth || imageProbe.width || 1),
+            height: Math.max(1, imageProbe.naturalHeight || imageProbe.height || 1),
         });
-
-        if (!response.ok) {
-          throw new Error("Upload failed");
-        }
-
-        const data = await response.json();
-        console.log("Avatar uploaded:", data.avatar);
-
-      } catch (err) {
-        console.error("Avatar upload error:", err);
+        setAvatarCropOffset({ x: 0, y: 0 });
+        setAvatarCropSourceUrl(objectUrl);
+        setAvatarCropOpen(true);
+      };
+      imageProbe.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
         alert(t("profile.errorUploadingAvatar"));
-      }
+      };
+      imageProbe.src = objectUrl;
+      e.target.value = "";
     };
 
     const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const previousCover = profileData.coverPhoto;
-
-        // Мгновенный предпросмотр, чтобы не ждать ответа сервера
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setProfileData((prev) => ({ ...prev, coverPhoto: String(reader.result || "") }));
+        const objectUrl = URL.createObjectURL(file);
+        const imageProbe = new Image();
+        imageProbe.onload = () => {
+            setCoverCropNaturalSize({
+                width: Math.max(1, imageProbe.naturalWidth || imageProbe.width || 1),
+                height: Math.max(1, imageProbe.naturalHeight || imageProbe.height || 1),
+            });
+            setCoverCropOffset({ x: 0, y: 0 });
+            setCoverCropSourceUrl(objectUrl);
+            setCoverCropOpen(true);
         };
-        reader.readAsDataURL(file);
+        imageProbe.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            alert(t("profile.errorUploadingAvatar"));
+        };
+        imageProbe.src = objectUrl;
+        e.target.value = "";
+    };
 
-        const formData = new FormData();
-        formData.append("cover", file);
+    const avatarCropBaseScale = useMemo(() => {
+        if (avatarCropViewport.width <= 0 || avatarCropViewport.height <= 0) return 1;
+        const sx = avatarCropViewport.width / avatarCropNaturalSize.width;
+        const sy = avatarCropViewport.height / avatarCropNaturalSize.height;
+        return Math.max(sx, sy);
+    }, [avatarCropViewport.width, avatarCropViewport.height, avatarCropNaturalSize.width, avatarCropNaturalSize.height]);
+
+    const avatarCropRenderedSize = useMemo(() => ({
+        width: avatarCropNaturalSize.width * avatarCropBaseScale,
+        height: avatarCropNaturalSize.height * avatarCropBaseScale,
+    }), [avatarCropNaturalSize.width, avatarCropNaturalSize.height, avatarCropBaseScale]);
+
+    const clampAvatarOffset = (nextX: number, nextY: number) => {
+        const maxX = Math.max(0, (avatarCropRenderedSize.width - avatarCropViewport.width) / 2);
+        const maxY = Math.max(0, (avatarCropRenderedSize.height - avatarCropViewport.height) / 2);
+        return {
+            x: Math.min(maxX, Math.max(-maxX, nextX)),
+            y: Math.min(maxY, Math.max(-maxY, nextY)),
+        };
+    };
+
+    const closeAvatarCropModal = () => {
+        if (avatarCropSourceUrl) {
+            URL.revokeObjectURL(avatarCropSourceUrl);
+        }
+        setAvatarCropOpen(false);
+        setAvatarCropSourceUrl("");
+        setAvatarCropOffset({ x: 0, y: 0 });
+        setAvatarCropDragging(false);
+        avatarCropDragStartRef.current = null;
+    };
+
+    const submitCroppedAvatar = async () => {
+        if (!avatarCropSourceUrl || avatarCropBusy) return;
+        setAvatarCropBusy(true);
         try {
+            const outputSize = 800;
+            const canvas = document.createElement("canvas");
+            canvas.width = outputSize;
+            canvas.height = outputSize;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("canvas");
+
+            const cropScaleX = outputSize / avatarCropViewport.width;
+            const cropScaleY = outputSize / avatarCropViewport.height;
+            const drawWidth = avatarCropRenderedSize.width * cropScaleX;
+            const drawHeight = avatarCropRenderedSize.height * cropScaleY;
+            const drawX = ((avatarCropViewport.width - avatarCropRenderedSize.width) / 2 + avatarCropOffset.x) * cropScaleX;
+            const drawY = ((avatarCropViewport.height - avatarCropRenderedSize.height) / 2 + avatarCropOffset.y) * cropScaleY;
+
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("image"));
+                img.src = avatarCropSourceUrl;
+            });
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+            if (!blob) throw new Error("blob");
+
+            const previewUrl = URL.createObjectURL(blob);
+            setProfileData((prev) => ({ ...prev, photo: previewUrl }));
+
+            const formData = new FormData();
+            formData.append("avatar", new File([blob], `avatar-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            const response = await fetch("/api/profile/avatar/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "fail");
+            if (data.avatar) {
+                URL.revokeObjectURL(previewUrl);
+                setProfileData((prev) => ({ ...prev, photo: String(data.avatar) }));
+            }
+            closeAvatarCropModal();
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setAvatarCropBusy(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!avatarCropOpen) return;
+        const viewport = avatarCropViewportRef.current;
+        if (!viewport) return;
+        const updateViewport = () => {
+            const rect = viewport.getBoundingClientRect();
+            setAvatarCropViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) });
+        };
+        updateViewport();
+        const observer = new ResizeObserver(updateViewport);
+        observer.observe(viewport);
+        window.addEventListener("resize", updateViewport);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updateViewport);
+        };
+    }, [avatarCropOpen]);
+
+    useEffect(() => {
+        if (!avatarCropOpen) return;
+        setAvatarCropOffset((prev) => clampAvatarOffset(prev.x, prev.y));
+    }, [avatarCropOpen, avatarCropRenderedSize.width, avatarCropRenderedSize.height, avatarCropViewport.width, avatarCropViewport.height]);
+
+    const COVER_CROP_ASPECT = 16 / 5;
+    const cropBaseScale = useMemo(() => {
+        if (coverCropViewport.width <= 0 || coverCropViewport.height <= 0) return 1;
+        const sx = coverCropViewport.width / coverCropNaturalSize.width;
+        const sy = coverCropViewport.height / coverCropNaturalSize.height;
+        return Math.max(sx, sy);
+    }, [coverCropViewport.width, coverCropViewport.height, coverCropNaturalSize.width, coverCropNaturalSize.height]);
+
+    const cropRenderedSize = useMemo(() => ({
+        width: coverCropNaturalSize.width * cropBaseScale,
+        height: coverCropNaturalSize.height * cropBaseScale,
+    }), [coverCropNaturalSize.width, coverCropNaturalSize.height, cropBaseScale]);
+
+    const clampCoverOffset = (nextX: number, nextY: number) => {
+        const maxX = Math.max(0, (cropRenderedSize.width - coverCropViewport.width) / 2);
+        const maxY = Math.max(0, (cropRenderedSize.height - coverCropViewport.height) / 2);
+        return {
+            x: Math.min(maxX, Math.max(-maxX, nextX)),
+            y: Math.min(maxY, Math.max(-maxY, nextY)),
+        };
+    };
+
+    const closeCoverCropModal = () => {
+        if (coverCropSourceUrl) {
+            URL.revokeObjectURL(coverCropSourceUrl);
+        }
+        setCoverCropOpen(false);
+        setCoverCropSourceUrl("");
+        setCoverCropOffset({ x: 0, y: 0 });
+        setCoverCropDragging(false);
+        coverCropDragStartRef.current = null;
+    };
+
+    const submitCroppedCover = async () => {
+        if (!coverCropSourceUrl || coverCropBusy) return;
+        setCoverCropBusy(true);
+        try {
+            const outputWidth = 1600;
+            const outputHeight = Math.round(outputWidth / COVER_CROP_ASPECT);
+            const canvas = document.createElement("canvas");
+            canvas.width = outputWidth;
+            canvas.height = outputHeight;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("canvas");
+            const cropScaleX = outputWidth / coverCropViewport.width;
+            const cropScaleY = outputHeight / coverCropViewport.height;
+            const drawWidth = cropRenderedSize.width * cropScaleX;
+            const drawHeight = cropRenderedSize.height * cropScaleY;
+            const drawX = ((coverCropViewport.width - cropRenderedSize.width) / 2 + coverCropOffset.x) * cropScaleX;
+            const drawY = ((coverCropViewport.height - cropRenderedSize.height) / 2 + coverCropOffset.y) * cropScaleY;
+
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("image"));
+                img.src = coverCropSourceUrl;
+            });
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+            if (!blob) throw new Error("blob");
+
+            const previewUrl = URL.createObjectURL(blob);
+            setProfileData((prev) => ({ ...prev, coverPhoto: previewUrl }));
+
+            const formData = new FormData();
+            formData.append("cover", new File([blob], `cover-${Date.now()}.jpg`, { type: "image/jpeg" }));
             const response = await fetch("/api/profile/cover/", {
                 method: "POST",
                 credentials: "include",
@@ -937,19 +1120,41 @@ export default function ProfilePage() {
                 body: formData,
             });
             const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(typeof data.detail === "string" ? data.detail : "fail");
-            }
+            if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "fail");
             if (data.coverPhoto) {
+                URL.revokeObjectURL(previewUrl);
                 setProfileData((prev) => ({ ...prev, coverPhoto: String(data.coverPhoto) }));
             }
+            closeCoverCropModal();
         } catch {
-            // Если загрузка не удалась — возвращаем предыдущее изображение
-            setProfileData((prev) => ({ ...prev, coverPhoto: previousCover }));
             alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setCoverCropBusy(false);
         }
-        e.target.value = "";
     };
+
+    useEffect(() => {
+        if (!coverCropOpen) return;
+        const viewport = coverCropViewportRef.current;
+        if (!viewport) return;
+        const updateViewport = () => {
+            const rect = viewport.getBoundingClientRect();
+            setCoverCropViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) });
+        };
+        updateViewport();
+        const observer = new ResizeObserver(updateViewport);
+        observer.observe(viewport);
+        window.addEventListener("resize", updateViewport);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updateViewport);
+        };
+    }, [coverCropOpen]);
+
+    useEffect(() => {
+        if (!coverCropOpen) return;
+        setCoverCropOffset((prev) => clampCoverOffset(prev.x, prev.y));
+    }, [coverCropOpen, cropRenderedSize.width, cropRenderedSize.height, coverCropViewport.width, coverCropViewport.height]);
 
     const handleGalleryAdd = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1441,14 +1646,27 @@ export default function ProfilePage() {
                     {activeSection === "basic" && (
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
                             {/* Обложка + аватар (стиль профиля) */}
-                            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-600 dark:bg-zinc-900/50">
-                                <div className="relative h-36 w-full min-[480px]:h-44 bg-gradient-to-br from-[#C505EB]/20 via-zinc-200 to-[#08E2BE]/15 dark:from-[#C505EB]/10 dark:via-zinc-800 dark:to-[#08E2BE]/10">
-                                    {profileData.coverPhoto ? (
+                            <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-600 dark:bg-zinc-900/50">
+                                {profileData.coverPhoto ? (
+                                    <>
                                         <img
                                             src={getImageUrl(profileData.coverPhoto)}
                                             alt=""
-                                            className="h-full w-full object-cover"
+                                            className="absolute inset-0 h-full w-full object-cover"
                                         />
+                                        <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
+                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
+                                    </>
+                                ) : null}
+                                <div
+                                    className={`relative h-36 w-full min-[480px]:h-44 ${
+                                        profileData.coverPhoto
+                                            ? ""
+                                            : "bg-gradient-to-br from-[#C505EB]/20 via-zinc-200 to-[#08E2BE]/15 dark:from-[#C505EB]/10 dark:via-zinc-800 dark:to-[#08E2BE]/10"
+                                    }`}
+                                >
+                                    {profileData.coverPhoto ? (
+                                        <div className="absolute inset-0" />
                                     ) : null}
                                     <button
                                         type="button"
@@ -2640,6 +2858,219 @@ export default function ProfilePage() {
                     )}
                 </div>
             </div>
+            {avatarCropOpen && (
+                <div className="fixed inset-0 z-[77] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/70"
+                        onClick={() => {
+                            if (!avatarCropBusy) closeAvatarCropModal();
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h3 className="text-lg font-bold text-[#333333] dark:text-white">
+                                {t("profile.photoHint")}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!avatarCropBusy) closeAvatarCropModal();
+                                }}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                aria-label={t("profile.closeQrModal")}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 flex justify-center rounded-2xl border border-gray-200 bg-zinc-100 p-4 dark:border-gray-700 dark:bg-zinc-800/60">
+                            <div
+                                ref={avatarCropViewportRef}
+                                className="relative h-[320px] w-[320px] max-w-full cursor-grab active:cursor-grabbing overflow-hidden rounded-full"
+                                onPointerDown={(e) => {
+                                    if (avatarCropBusy) return;
+                                    const target = e.currentTarget;
+                                    target.setPointerCapture(e.pointerId);
+                                    avatarCropDragStartRef.current = {
+                                        pointerX: e.clientX,
+                                        pointerY: e.clientY,
+                                        x: avatarCropOffset.x,
+                                        y: avatarCropOffset.y,
+                                    };
+                                    setAvatarCropDragging(true);
+                                }}
+                                onPointerMove={(e) => {
+                                    const start = avatarCropDragStartRef.current;
+                                    if (!start) return;
+                                    const next = clampAvatarOffset(
+                                        start.x + (e.clientX - start.pointerX),
+                                        start.y + (e.clientY - start.pointerY),
+                                    );
+                                    setAvatarCropOffset(next);
+                                }}
+                                onPointerUp={(e) => {
+                                    e.currentTarget.releasePointerCapture(e.pointerId);
+                                    avatarCropDragStartRef.current = null;
+                                    setAvatarCropDragging(false);
+                                }}
+                                onPointerCancel={() => {
+                                    avatarCropDragStartRef.current = null;
+                                    setAvatarCropDragging(false);
+                                }}
+                            >
+                                {avatarCropSourceUrl ? (
+                                    <img
+                                        src={avatarCropSourceUrl}
+                                        alt=""
+                                        draggable={false}
+                                        className={`pointer-events-none absolute select-none ${avatarCropDragging ? "" : "transition-transform duration-75"}`}
+                                        style={{
+                                            width: `${avatarCropRenderedSize.width}px`,
+                                            height: `${avatarCropRenderedSize.height}px`,
+                                            left: `${(avatarCropViewport.width - avatarCropRenderedSize.width) / 2 + avatarCropOffset.x}px`,
+                                            top: `${(avatarCropViewport.height - avatarCropRenderedSize.height) / 2 + avatarCropOffset.y}px`,
+                                            objectFit: "cover",
+                                        }}
+                                    />
+                                ) : null}
+                                <div className="pointer-events-none absolute inset-0 rounded-full border-2 border-white/80 ring-1 ring-black/20" />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={avatarCropBusy}
+                                onClick={closeAvatarCropModal}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={avatarCropBusy}
+                                onClick={() => void submitCroppedAvatar()}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {avatarCropBusy ? t("profile.saving") : t("profile.save")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {coverCropOpen && (
+                <div className="fixed inset-0 z-[76] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/70"
+                        onClick={() => {
+                            if (!coverCropBusy) closeCoverCropModal();
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h3 className="text-lg font-bold text-[#333333] dark:text-white">
+                                {t("profile.changeCover")}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!coverCropBusy) closeCoverCropModal();
+                                }}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                aria-label={t("profile.closeQrModal")}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-700 dark:bg-zinc-800/60">
+                            <div
+                                ref={coverCropViewportRef}
+                                className="relative mx-auto w-full max-w-[920px] aspect-[16/5] cursor-grab active:cursor-grabbing"
+                                onPointerDown={(e) => {
+                                    if (coverCropBusy) return;
+                                    const target = e.currentTarget;
+                                    target.setPointerCapture(e.pointerId);
+                                    coverCropDragStartRef.current = {
+                                        pointerX: e.clientX,
+                                        pointerY: e.clientY,
+                                        x: coverCropOffset.x,
+                                        y: coverCropOffset.y,
+                                    };
+                                    setCoverCropDragging(true);
+                                }}
+                                onPointerMove={(e) => {
+                                    const start = coverCropDragStartRef.current;
+                                    if (!start) return;
+                                    const next = clampCoverOffset(
+                                        start.x + (e.clientX - start.pointerX),
+                                        start.y + (e.clientY - start.pointerY),
+                                    );
+                                    setCoverCropOffset(next);
+                                }}
+                                onPointerUp={(e) => {
+                                    e.currentTarget.releasePointerCapture(e.pointerId);
+                                    coverCropDragStartRef.current = null;
+                                    setCoverCropDragging(false);
+                                }}
+                                onPointerCancel={() => {
+                                    coverCropDragStartRef.current = null;
+                                    setCoverCropDragging(false);
+                                }}
+                            >
+                                {coverCropSourceUrl ? (
+                                    <img
+                                        src={coverCropSourceUrl}
+                                        alt=""
+                                        draggable={false}
+                                        className={`pointer-events-none absolute select-none ${coverCropDragging ? "" : "transition-transform duration-75"}`}
+                                        style={{
+                                            width: `${cropRenderedSize.width}px`,
+                                            height: `${cropRenderedSize.height}px`,
+                                            left: `${(coverCropViewport.width - cropRenderedSize.width) / 2 + coverCropOffset.x}px`,
+                                            top: `${(coverCropViewport.height - cropRenderedSize.height) / 2 + coverCropOffset.y}px`,
+                                            objectFit: "cover",
+                                        }}
+                                    />
+                                ) : null}
+                                <div className="pointer-events-none absolute inset-0 border-2 border-white/70" />
+                            </div>
+                        </div>
+
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            {t("profile.coverHint")}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={coverCropBusy}
+                                onClick={closeCoverCropModal}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={coverCropBusy}
+                                onClick={() => void submitCroppedCover()}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {coverCropBusy ? t("profile.saving") : t("profile.save")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {galleryModalItem && (
                 <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
                     <button

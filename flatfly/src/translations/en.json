@@ -107,6 +107,10 @@
       "it": "IT"
     }
   },
+  "neighboursPage": {
+    "loading": "Loading...",
+    "noResults": "No roommates found"
+  },
   "filter": {
     "location": "Region",
     "locationValue": "All CR",
@@ -517,7 +521,11 @@
         "subtitle": "Maximum visibility and extra perks (placeholder).",
         "cta": "Choose and publish"
       }
-    }
+    },
+    "publishQueuedTitle": "Listing has been published",
+    "publishQueuedDescription": "Your listing is accepted and will appear on the site within a few minutes.",
+    "backHome": "Back to home",
+    "toProfile": "Go to profile"
   },
   "footer": {
     "home": "Home",
