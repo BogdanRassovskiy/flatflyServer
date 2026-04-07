@@ -17,6 +17,7 @@ interface Listing {
   region: string;
   area: string | number;
   image_url: string | null;
+  images?: string[];
   amenities: string[];
   is_favorite?: boolean;
 }
@@ -34,6 +35,14 @@ export default function FavoritesPage() {
   useEffect(() => {
     fetchFavorites();
   }, [pagination]);
+
+  const goToPage = (page: number) => {
+    if (page === pagination) return;
+    setPagination(page);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   const fetchFavorites = async () => {
     if (!user) return;
@@ -71,6 +80,7 @@ export default function FavoritesPage() {
       type: type as "APARTMENT" | "ROOM" | "NEIGHBOUR",
       price: listing.price,
       image: getImageUrl(listing.image_url),
+      images: listing.images,
       title: listing.title,
       region: listing.region,
       address: listing.city,
@@ -178,7 +188,7 @@ export default function FavoritesPage() {
               <div className="flex justify-center gap-2 mt-8">
                 <button
                   disabled={pagination === 1}
-                  onClick={() => setPagination(Math.max(1, pagination - 1))}
+                  onClick={() => goToPage(Math.max(1, pagination - 1))}
                   className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   {t("previous")}
@@ -188,7 +198,7 @@ export default function FavoritesPage() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
-                      onClick={() => setPagination(page)}
+                      onClick={() => goToPage(page)}
                       className={`px-3 py-2 rounded-lg ${
                         pagination === page
                           ? "bg-blue-600 text-white"
@@ -202,7 +212,7 @@ export default function FavoritesPage() {
 
                 <button
                   disabled={pagination === totalPages}
-                  onClick={() => setPagination(Math.min(totalPages, pagination + 1))}
+                  onClick={() => goToPage(Math.min(totalPages, pagination + 1))}
                   className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   {t("next")}

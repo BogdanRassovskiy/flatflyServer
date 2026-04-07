@@ -1,10 +1,11 @@
-import {useState, useEffect, useMemo} from "react";
-import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X} from "lucide-react";
+import {useState, useEffect, useMemo, useRef, type ReactNode} from "react";
+import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X, Layers, CheckCircle2} from "lucide-react";
 import {Icon} from "@iconify/react";
-import {useNavigate, useParams, useLocation} from "react-router-dom";
+import {useNavigate, useParams, useLocation, Link} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import {getCsrfToken} from "../../utils/csrf";
+import {getImageUrl} from "../../utils/defaultImage";
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -104,7 +105,160 @@ function MapRecenterController({ center, trigger }: { center: [number, number]; 
     return null;
 }
 
+function NeighbourFbRow({ label, value }: { label: string; value: ReactNode }) {
+    if (value === null || value === undefined || value === "") return null;
+    return (
+        <div className="border-b border-zinc-200 py-3 last:border-b-0 dark:border-gray-700">
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">{label}</div>
+            <div className="mt-0.5 text-[15px] font-semibold leading-snug text-zinc-900 dark:text-zinc-50">{value}</div>
+        </div>
+    );
+}
+
+function NeighbourFbCard({ title, children }: { title: string; children: ReactNode }) {
+    return (
+        <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            {title ? (
+                <h2 className="border-b border-zinc-200 px-4 py-3 text-[17px] font-bold tracking-tight text-zinc-900 dark:border-gray-700 dark:text-white">
+                    {title}
+                </h2>
+            ) : null}
+            <div className="px-4 py-3">{children}</div>
+        </section>
+    );
+}
+
 type ListingType = "ROOM" | "NEIGHBOUR" | "APARTMENT";
+type ListingReportReason = "fraud" | "spam" | "fake_listing" | "inappropriate_content" | "other";
+type ListingConfirmAction = "delete_listing" | "remove_from_home";
+type ListingToastKind = "success" | "error";
+
+const listingGalleryHeight =
+    "min-h-[200px] h-[220px] min-[480px]:h-[260px] min-[900px]:h-[300px]";
+
+/** Коллаж до 5 фото: крупное слева + сетка справа как на sreality; последняя плитка — «все фото» если их больше */
+function ListingImageCollage({
+    images,
+    totalCount,
+    altPrefix,
+    onCellClick,
+    viewAllLabel,
+}: {
+    images: string[];
+    totalCount: number;
+    altPrefix: string;
+    onCellClick: (index: number) => void;
+    viewAllLabel: string;
+}) {
+    const frame = "w-full rounded-2xl bg-zinc-200/90 p-1 dark:bg-zinc-800";
+    const tile = "relative min-h-0 min-w-0 overflow-hidden rounded-xl bg-zinc-300/80 dark:bg-zinc-700/80";
+
+    const renderImg = (src: string, idx: number) => (
+        <img
+            src={src}
+            alt={`${altPrefix} – ${idx + 1}`}
+            className="h-full w-full object-cover"
+            draggable={false}
+        />
+    );
+
+    const n = images.length;
+    if (n === 0) return null;
+
+    if (n === 1) {
+        return (
+            <div className={frame}>
+                <button
+                    type="button"
+                    onClick={() => onCellClick(0)}
+                    className={`relative block w-full overflow-hidden rounded-xl ${listingGalleryHeight}`}
+                >
+                    {renderImg(images[0], 0)}
+                </button>
+            </div>
+        );
+    }
+
+    if (n === 2) {
+        return (
+            <div className={frame}>
+                <div className={`grid h-full grid-cols-2 gap-1 ${listingGalleryHeight}`}>
+                    {[0, 1].map((i) => (
+                        <button key={i} type="button" onClick={() => onCellClick(i)} className={tile}>
+                            {renderImg(images[i], i)}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (n === 3) {
+        return (
+            <div className={frame}>
+                <div className={`grid grid-cols-2 grid-rows-2 gap-1 ${listingGalleryHeight}`}>
+                    <button
+                        type="button"
+                        onClick={() => onCellClick(0)}
+                        className={`${tile} col-start-1 row-span-2 row-start-1`}
+                    >
+                        {renderImg(images[0], 0)}
+                    </button>
+                    <button type="button" onClick={() => onCellClick(1)} className={tile}>
+                        {renderImg(images[1], 1)}
+                    </button>
+                    <button type="button" onClick={() => onCellClick(2)} className={tile}>
+                        {renderImg(images[2], 2)}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (n === 4) {
+        return (
+            <div className={frame}>
+                <div className={`grid grid-cols-2 grid-rows-2 gap-1 ${listingGalleryHeight}`}>
+                    {[0, 1, 2, 3].map((i) => (
+                        <button key={i} type="button" onClick={() => onCellClick(i)} className={tile}>
+                            {renderImg(images[i], i)}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    const moreOnLast = totalCount > 5;
+    return (
+        <div className={frame}>
+            <div className={`grid grid-cols-2 grid-rows-2 gap-1 ${listingGalleryHeight}`}>
+                <button
+                    type="button"
+                    onClick={() => onCellClick(0)}
+                    className={`${tile} col-start-1 row-span-2 row-start-1`}
+                >
+                    {renderImg(images[0], 0)}
+                </button>
+                <div className="col-start-2 row-span-2 row-start-1 grid min-h-0 grid-cols-2 grid-rows-2 gap-1">
+                    {[1, 2, 3, 4].map((i) => (
+                        <button key={i} type="button" onClick={() => onCellClick(i)} className={tile}>
+                            {renderImg(images[i], i)}
+                            {moreOnLast && i === 4 ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 px-1.5">
+                                    <Layers className="text-white drop-shadow-md" size={22} strokeWidth={2} aria-hidden />
+                                    <span className="text-center text-[10px] font-semibold leading-tight text-white drop-shadow-md min-[480px]:text-[11px]">
+                                        {viewAllLabel}
+                                    </span>
+                                </div>
+                            ) : null}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function ListingDetailPage() {
     const { t } = useLanguage();
@@ -154,6 +308,8 @@ export default function ListingDetailPage() {
         residentsCount?: number;
         contactPhone?: string;
         contactEmail?: string;
+        contactInstagram?: string;
+        contactFacebook?: string;
         profession?: string;
         noise_tolerance?: string;
         cleanliness?: number;
@@ -218,6 +374,9 @@ export default function ListingDetailPage() {
             updatedAt: string;
         }>;
         neighbourUserId?: number;
+        coverPhoto?: string | null;
+        profileGallery?: Array<{ id: number; url: string; caption: string }>;
+        coResidents?: Array<{ id: number; name: string; avatar?: string | null; age?: number | null }>;
         residents?: Array<{
             profileId: number;
             name: string;
@@ -341,9 +500,36 @@ export default function ListingDetailPage() {
                 if (data.gamer) neighbourBadges.push(`${t("profile.gamer")}: ${translateBadgeValue(data.gamer)}`);
                 if (data.work_from_home) neighbourBadges.push(`${t("profile.workFromHome")}: ${translateBadgeValue(data.work_from_home)}`);
 
+                const galRaw = Array.isArray(data.gallery) ? data.gallery : [];
+                const profileGallery = galRaw
+                    .map((g: { id?: number; url?: string; caption?: string }) => ({
+                        id: Number(g.id),
+                        url: String(g.url || ""),
+                        caption: String(g.caption || "").slice(0, 200),
+                    }))
+                    .filter((g: { url: string }) => Boolean(g.url));
+                const avatarUrl = data.avatar || null;
+                const albumUrls: string[] = [];
+                if (avatarUrl) albumUrls.push(avatarUrl);
+                for (const g of profileGallery) {
+                    if (g.url && !albumUrls.includes(g.url)) albumUrls.push(g.url);
+                }
+                const coResidentsRaw = Array.isArray(data.coResidents) ? data.coResidents : [];
+                const coResidents = coResidentsRaw.map(
+                    (r: { id?: number; name?: string; avatar?: string | null; age?: number | null }) => ({
+                        id: Number(r.id),
+                        name: String(r.name || "").trim() || "?",
+                        avatar: r.avatar || null,
+                        age: r.age ?? null,
+                    }),
+                );
+
                 setListingData({
-                    image: data.avatar || null,
-                    images: data.avatar ? [data.avatar] : [],
+                    image: avatarUrl,
+                    images: albumUrls.length > 0 ? albumUrls : avatarUrl ? [avatarUrl] : [],
+                    coverPhoto: data.coverPhoto || null,
+                    profileGallery,
+                    coResidents,
                     badges: neighbourBadges,
                     name: data.name,
                     age: data.age,
@@ -377,6 +563,8 @@ export default function ListingDetailPage() {
                     neighbourUserId: typeof data.userId === "number" ? data.userId : undefined,
                     contactPhone: data.phone,
                     contactEmail: data.email,
+                    contactInstagram: data.instagram,
+                    contactFacebook: data.facebook,
                 });
                 return;
             }
@@ -405,6 +593,8 @@ export default function ListingDetailPage() {
                 from: data.from,
                 contactPhone: data.contact_phone,
                 contactEmail: data.contact_email,
+                contactInstagram: data.contact_instagram,
+                contactFacebook: data.contact_facebook,
                 currency: data.currency,
                 deposit: data.deposit,
                 rental_period: data.rental_period,
@@ -484,10 +674,12 @@ export default function ListingDetailPage() {
             router("/auth");
             return;
         }
+
+        const wasLiked = isLike;
         
         try {
             const isNeighbour = type === "NEIGHBOUR";
-            const endpoint = isLike ? "/api/favorites/remove/" : "/api/favorites/add/";
+            const endpoint = wasLiked ? "/api/favorites/remove/" : "/api/favorites/add/";
             const body = isNeighbour ? { profile_id: id } : { listing_id: id };
             
             const res = await fetch(endpoint, {
@@ -499,9 +691,21 @@ export default function ListingDetailPage() {
                 credentials: "include",
                 body: JSON.stringify(body),
             });
+
+            const data = await res.json().catch(() => ({}));
             
             if (res.ok) {
-                setIsLike(!isLike);
+                if (typeof data.is_favorite === "boolean") {
+                    setIsLike(data.is_favorite);
+                } else {
+                    setIsLike(!wasLiked);
+                }
+                const added =
+                    !wasLiked &&
+                    (typeof data.is_favorite !== "boolean" || data.is_favorite === true);
+                if (added) {
+                    showToast(t("listing.favoriteAddedSuccess"), "success", true);
+                }
             } else {
                 console.error("Failed to toggle favorite");
             }
@@ -530,6 +734,10 @@ export default function ListingDetailPage() {
         beds,
         maxResidents,
         residentsCount,
+        contactPhone,
+        contactEmail,
+        contactInstagram,
+        contactFacebook,
         profession,
         noise_tolerance,
         cleanliness,
@@ -587,6 +795,9 @@ export default function ListingDetailPage() {
         reviews,
         neighbourUserId,
         residents,
+        coverPhoto,
+        profileGallery = [],
+        coResidents = [],
     } = listingData;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLike, setIsLike] = useState(false);
@@ -594,11 +805,14 @@ export default function ListingDetailPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [messageStartLoading, setMessageStartLoading] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [isInviteQrModalOpen, setIsInviteQrModalOpen] = useState(false);
+    const [inviteQrLink, setInviteQrLink] = useState("");
     const [removingFromHome, setRemovingFromHome] = useState(false);
     const [reviewRating, setReviewRating] = useState<number>(0);
     const [reviewComment, setReviewComment] = useState("");
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewError, setReviewError] = useState<string | null>(null);
+    const [neighbourLeftTab, setNeighbourLeftTab] = useState<"info" | "reviews">("info");
     const [universityPoint, setUniversityPoint] = useState<[number, number] | null>(null);
     const [workPoint, setWorkPoint] = useState<[number, number] | null>(null);
     const [universityRoutePoints, setUniversityRoutePoints] = useState<Array<[number, number]>>([]);
@@ -616,6 +830,17 @@ export default function ListingDetailPage() {
     const [nearestHospital, setNearestHospital] = useState<{ dist: number; time: number } | null>(null);
     const [routeMode, setRouteMode] = useState<RouteMode>("walking");
     const [mapRecenterTrigger, setMapRecenterTrigger] = useState(0);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportReason, setReportReason] = useState<ListingReportReason>("fraud");
+    const [reportDetails, setReportDetails] = useState("");
+    const [reportSubmitting, setReportSubmitting] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<ListingConfirmAction | null>(null);
+    const [toast, setToast] = useState<{
+        kind: ListingToastKind;
+        message: string;
+        rich?: boolean;
+    } | null>(null);
+    const toastTimeoutRef = useRef<number | null>(null);
     const hasSubmittedReview = typeof myRating === "number" && myRating >= 1;
     const safeImages = (images || []).filter((img): img is string => Boolean(img));
     const fallbackImage = image || undefined;
@@ -624,6 +849,7 @@ export default function ListingDetailPage() {
         : fallbackImage
             ? [fallbackImage]
             : ["/placeholder-image.jpg"];
+    const hasSingleListingImage = type !== "NEIGHBOUR" && allImages.length === 1;
 
     // Если id отсутствует, перенаправляем на список
     useEffect(() => {
@@ -633,10 +859,33 @@ export default function ListingDetailPage() {
         }
     }, [id, type, router]);
 
+    useEffect(() => {
+        setNeighbourLeftTab("info");
+    }, [id]);
+
     const handleContactClick = () => {
         if (!isAuthenticated) {
             router("/auth");
         }
+    };
+
+    const handleOpenListingReport = () => {
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+        setIsReportModalOpen(true);
+    };
+
+    const showToast = (message: string, kind: ListingToastKind = "success", rich = false) => {
+        if (toastTimeoutRef.current !== null) {
+            window.clearTimeout(toastTimeoutRef.current);
+        }
+        setToast({ kind, message, rich: Boolean(rich) });
+        toastTimeoutRef.current = window.setTimeout(() => {
+            setToast(null);
+            toastTimeoutRef.current = null;
+        }, rich ? 3000 : 2600);
     };
 
     const handleWriteMessage = async () => {
@@ -680,6 +929,37 @@ export default function ListingDetailPage() {
         }
     };
 
+    const handleSubmitListingReport = async () => {
+        if (!id || !isAuthenticated || reportSubmitting) return;
+        try {
+            setReportSubmitting(true);
+            const response = await fetch(`/api/listings/${id}/report/`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                body: JSON.stringify({
+                    reason: reportReason,
+                    details: reportDetails,
+                }),
+            });
+            if (!response.ok) {
+                throw new Error("Failed to send listing report");
+            }
+            setIsReportModalOpen(false);
+            setReportDetails("");
+            setReportReason("fraud");
+            showToast(t("listing.reportSuccess"), "success");
+        } catch (error) {
+            console.error(error);
+            showToast(t("listing.reportFailed"), "error");
+        } finally {
+            setReportSubmitting(false);
+        }
+    };
+
     useEffect(() => {
         if (type !== "NEIGHBOUR") {
             return;
@@ -687,6 +967,14 @@ export default function ListingDetailPage() {
         setReviewRating(typeof myRating === "number" ? myRating : 0);
         setReviewComment(myComment || "");
     }, [type, myRating, myComment]);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimeoutRef.current !== null) {
+                window.clearTimeout(toastTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSubmitReview = async () => {
         if (!id || type !== "NEIGHBOUR") return;
@@ -773,7 +1061,6 @@ export default function ListingDetailPage() {
 
     const handleDeleteListing = async () => {
         if (!id || type === "NEIGHBOUR") return;
-        if (!window.confirm(t("listing.confirmDelete"))) return;
 
         try {
             const res = await fetch(`/api/listings/${id}/`, {
@@ -791,7 +1078,7 @@ export default function ListingDetailPage() {
 
             router(type === "ROOM" ? "/rooms" : "/apartments");
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         }
     };
 
@@ -820,36 +1107,54 @@ export default function ListingDetailPage() {
                 isActive: nextActive,
             }));
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         }
     };
 
-    const handleCreateInvite = async () => {
-        if (!id || type === "NEIGHBOUR") return;
+    const createInviteLink = async (): Promise<string> => {
+        if (!id || type === "NEIGHBOUR") {
+            throw new Error(t("profile.inviteFailed"));
+        }
 
+        const res = await fetch(`/api/listings/${id}/invite/`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": getCsrfToken(),
+            },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || t("profile.inviteFailed"));
+        }
+
+        const token = data.token;
+        return data.inviteUrl
+            ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+            : `${window.location.origin}/api/listings/invite/${token}/join/`;
+    };
+
+    const handleCreateInvite = async () => {
         try {
             setCreatingInvite(true);
-            const res = await fetch(`/api/listings/${id}/invite/`, {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "X-CSRFToken": getCsrfToken(),
-                },
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.detail || t("profile.inviteFailed"));
-            }
-
-            const token = data.token;
-            const link = data.inviteUrl
-                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
-                : `${window.location.origin}/api/listings/invite/${token}/join/`;
-
+            const link = await createInviteLink();
             await navigator.clipboard.writeText(link);
-            alert(t("profile.copied"));
+            showToast(t("profile.copied"), "success");
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+            showToast(e instanceof Error ? e.message : t("profile.inviteFailed"), "error");
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const handleInviteByQr = async () => {
+        try {
+            setCreatingInvite(true);
+            const link = await createInviteLink();
+            setInviteQrLink(link);
+            setIsInviteQrModalOpen(true);
+        } catch (e) {
+            showToast(e instanceof Error ? e.message : t("profile.inviteFailed"), "error");
         } finally {
             setCreatingInvite(false);
         }
@@ -862,9 +1167,6 @@ export default function ListingDetailPage() {
 
     const handleRemoveFromHome = async () => {
         if (!id || type !== "NEIGHBOUR") return;
-        if (!window.confirm(t("listing.removeFromHomeConfirm"))) {
-            return;
-        }
 
         try {
             setRemovingFromHome(true);
@@ -881,15 +1183,27 @@ export default function ListingDetailPage() {
                 throw new Error(data.detail || t("listing.actionFailed"));
             }
 
-            alert(t("listing.removedFromHomeSuccess"));
+            showToast(t("listing.removedFromHomeSuccess"), "success");
             setListingData((prev) => ({
                 ...prev,
                 canRemoveFromHome: false,
             }));
         } catch (error) {
-            alert(error instanceof Error ? error.message : t("listing.actionFailed"));
+            showToast(error instanceof Error ? error.message : t("listing.actionFailed"), "error");
         } finally {
             setRemovingFromHome(false);
+        }
+    };
+
+    const handleConfirmProceed = async () => {
+        const action = confirmAction;
+        setConfirmAction(null);
+        if (action === "delete_listing") {
+            await handleDeleteListing();
+            return;
+        }
+        if (action === "remove_from_home") {
+            await handleRemoveFromHome();
         }
     };
 
@@ -1290,90 +1604,178 @@ out center;`;
     }, [hasCoordinates, numericGeoLat, numericGeoLng]);
 
     return(
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[100px]`}>
+        <div
+            className={`interFont flex min-h-screen w-full flex-col items-center bg-transparent text-black dark:text-white ${
+                type === "NEIGHBOUR"
+                    ? "pt-[124px] sm:pt-[132px] min-[770px]:pt-[140px]"
+                    : "pt-[100px]"
+            }`}
+        >
             
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
 
-                {/* Галерея изображений */}
-                <div className={`w-full flex flex-col items-center gap-4 mb-8`}>
-                    <div className={`w-full relative group`}>
-                        {/* Главное изображение */}
-                        <div className={`w-full h-[600px] max-[770px]:h-[300px] rounded-2xl overflow-hidden relative`}>
-                            <div className={`relative w-full h-full overflow-hidden`}>
-                                <div 
-                                    className={`flex transition-transform duration-700 ease-in-out h-full will-change-transform`}
-                                    style={{
-                                        transform: `translateX(-${(currentImageIndex * 100) / allImages.length}%)`,
-                                        width: `${allImages.length * 100}%`
-                                    }}
-                                >
-                                    {allImages.map((img, index) => (
-                                        <div 
-                                            key={index}
-                                            className={`flex-shrink-0 h-full cursor-pointer`}
-                                            style={{ 
-                                                width: `${100 / allImages.length}%`,
-                                                minWidth: `${100 / allImages.length}%`
-                                            }}
-                                            onClick={() => setIsModalOpen(true)}
+                {/* Галерея / шапка профиля соседа в стиле «обложка + аватар» */}
+                <div className="mb-8 flex w-full flex-col items-center gap-4">
+                    <div
+                        className={`relative w-full ${type === "NEIGHBOUR" ? "" : "group"} ${
+                            hasSingleListingImage
+                                ? "min-[770px]:w-[calc(100%-432px)] min-[770px]:self-start"
+                                : ""
+                        }`}
+                    >
+                        {type === "NEIGHBOUR" ? (
+                            <>
+                                <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-200 shadow-md ring-1 ring-zinc-200/90 dark:bg-gray-900 dark:ring-gray-700">
+                                    {coverPhoto ? (
+                                        <>
+                                            <img
+                                                src={getImageUrl(coverPhoto)}
+                                                alt=""
+                                                className="absolute inset-0 h-full w-full object-cover"
+                                            />
+                                            <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
+                                        </>
+                                    ) : null}
+                                    <div className={`relative h-[140px] w-full min-[480px]:h-[180px] min-[900px]:h-[220px] ${
+                                        coverPhoto
+                                            ? ""
+                                            : "bg-gradient-to-br from-[#C505EB]/25 via-zinc-200 to-[#08E2BE]/20 dark:from-[#C505EB]/15 dark:via-zinc-800 dark:to-[#08E2BE]/12"
+                                    }`}>
+                                        <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-4 sm:top-4">
+                                            <button
+                                                type="button"
+                                                onClick={handleToggleFavorite}
+                                                className="rounded-full bg-white/90 p-2 shadow-md backdrop-blur-sm transition-colors hover:bg-white dark:bg-zinc-800/90 dark:hover:bg-zinc-800"
+                                                aria-label={t("listing.addToFavorites")}
+                                            >
+                                                <Heart
+                                                    size={22}
+                                                    color={isLike ? "#C505EB" : "#666666"}
+                                                    fill={isLike ? "#C505EB" : "none"}
+                                                />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="rounded-full bg-white/90 p-2 shadow-md backdrop-blur-sm transition-colors hover:bg-white dark:bg-zinc-800/90 dark:hover:bg-zinc-800"
+                                                aria-label={t("listing.share")}
+                                            >
+                                                <Share2 size={22} color="#C505EB" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="relative px-4 pb-5 pt-0 max-[770px]:px-3">
+                                        <div className="relative -mt-12 flex flex-col gap-3 sm:-mt-14 sm:flex-row sm:items-end sm:gap-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setCurrentImageIndex(0);
+                                                    setIsModalOpen(true);
+                                                }}
+                                                className="relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-full bg-white shadow-lg ring-4 ring-white dark:bg-zinc-800 dark:ring-zinc-900 sm:h-[128px] sm:w-[128px]"
                                         >
                                             <img 
-                                                src={img} 
-                                                alt={`${title || address || name} - ${index + 1}`}
-                                                className={`w-full h-full object-cover select-none pointer-events-none`}
+                                                    src={getImageUrl(image)}
+                                                    alt={String(name || "Profile")}
+                                                    className="h-full w-full object-cover"
                                                 draggable={false}
                                             />
+                                            </button>
+                                            <div className="min-w-0 flex-1 pb-0.5">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h1 className="text-2xl font-extrabold tracking-tight text-[#333333] dark:text-white sm:text-3xl md:text-[34px]">
+                                                        {name}
+                                                        {age != null ? `, ${age}` : ""}
+                                                    </h1>
+                                                    {verified ? (
+                                                        <CheckCircle2
+                                                            className="h-6 w-6 shrink-0 text-[#2E97A0]"
+                                                            aria-label={t("badges.verified")}
+                                                        />
+                                                    ) : null}
                                         </div>
+                                                {from ? (
+                                                    <p className="mt-1 text-base text-zinc-600 dark:text-zinc-400">
+                                                        {from}
+                                                    </p>
+                                                ) : null}
+                                                {coResidents.length > 0 ? (
+                                                    <div className="mt-3">
+                                                        <p className="mb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                                                            {t("profile.coResidents")}
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {coResidents.map((r) => (
+                                                                <Link
+                                                                    key={r.id}
+                                                                    to={`/neighbours/${r.id}`}
+                                                                    className="flex items-center gap-2 rounded-full border border-zinc-200/90 bg-zinc-50 py-1 pl-1 pr-3 transition hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800/80 dark:hover:bg-zinc-800"
+                                                                >
+                                                                    <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-200 text-xs font-bold dark:bg-zinc-700">
+                                                                        {r.avatar ? (
+                                                                            <img
+                                                                                src={r.avatar}
+                                                                                alt=""
+                                                                                className="h-full w-full object-cover"
+                                                                            />
+                                                                        ) : (
+                                                                            (r.name || "?").charAt(0).toUpperCase()
+                                                                        )}
+                                                                    </span>
+                                                                    <span className="max-w-[11rem] truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                                                                        {r.name}
+                                                                        {r.age != null ? `, ${r.age}` : ""}
+                                                                    </span>
+                                                                </Link>
                                     ))}
                                 </div>
                             </div>
-                            
-                            {/* Кнопки навигации */}
-                            {allImages.length > 1 && (
-                                <>
+                                                ) : null}
+                                                <div className="mt-4 flex flex-wrap items-center gap-2">
+                                                    {isAuthenticated ? (
                                     <button
                                         type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            prevImage();
-                                        }}
-                                        disabled={isTransitioning || allImages.length <= 1}
-                                        className={`absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg dark:shadow-gray-900/50 opacity-0 group-hover:opacity-100 duration-300 max-[770px]:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed z-10`}
-                                        aria-label={t("listing.previousImage")}
-                                    >
-                                        <ChevronLeft size={24} color="#C505EB" />
+                                                            onClick={handleWriteMessage}
+                                                            disabled={messageStartLoading}
+                                                            className="rounded-lg bg-[#C505EB] px-5 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#BA00F8] disabled:opacity-60 dark:shadow-none"
+                                                        >
+                                                            {messageStartLoading ? t("loading") : t("listing.writeMessage")}
                                     </button>
+                                                    ) : (
                                     <button
                                         type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            nextImage();
-                                        }}
-                                        disabled={isTransitioning || allImages.length <= 1}
-                                        className={`absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg dark:shadow-gray-900/50 opacity-0 group-hover:opacity-100 duration-300 max-[770px]:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed z-10`}
-                                        aria-label={t("listing.nextImage")}
-                                    >
-                                        <ChevronRight size={24} color="#C505EB" />
+                                                            onClick={handleContactClick}
+                                                            className="rounded-lg bg-[#C505EB] px-5 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#BA00F8] dark:shadow-none"
+                                                        >
+                                                            {t("listing.writeMessage")}
                                     </button>
-                                </>
-                            )}
-
-                            {/* Индикатор текущего изображения */}
-                            {allImages.length > 1 && (
-                                <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 rounded-full px-4 py-2`}>
-                                    <span className={`text-white text-sm font-semibold`}>
-                                        {currentImageIndex + 1} / {allImages.length}
-                                    </span>
+                                                    )}
                                 </div>
-                            )}
-
-                            {/* Кнопки действий */}
-                            <div className={`absolute top-4 right-4 flex items-center gap-2`}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <ListingImageCollage
+                                    images={allImages.slice(0, 5)}
+                                    totalCount={allImages.length}
+                                    altPrefix={String(title || address || name || "Listing")}
+                                    onCellClick={(i) => {
+                                        setCurrentImageIndex(i);
+                                        setIsModalOpen(true);
+                                    }}
+                                    viewAllLabel={t("listing.viewAllPhotos").replace(
+                                        "{count}",
+                                        String(allImages.length),
+                                    )}
+                                />
+                                <div className="absolute right-3 top-3 z-10 flex items-center gap-2 min-[900px]:right-4 min-[900px]:top-4">
                                 <button
+                                        type="button"
                                     onClick={handleToggleFavorite}
-                                    className={`bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg dark:shadow-gray-900/50 duration-300`}
+                                        className="rounded-full bg-white/85 p-2 shadow-lg transition-colors duration-300 hover:bg-white dark:bg-gray-800/85 dark:hover:bg-gray-800 dark:shadow-gray-900/50"
                                     aria-label={t("listing.addToFavorites")}
                                 >
                                     <Heart 
@@ -1383,51 +1785,339 @@ out center;`;
                                     />
                                 </button>
                                 <button
-                                    className={`bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg dark:shadow-gray-900/50 duration-300`}
+                                        type="button"
+                                        className="rounded-full bg-white/85 p-2 shadow-lg transition-colors duration-300 hover:bg-white dark:bg-gray-800/85 dark:hover:bg-gray-800 dark:shadow-gray-900/50"
                                     aria-label={t("listing.share")}
                                 >
                                     <Share2 size={24} color="#C505EB" />
                                 </button>
+                                </div>
+                            </>
+                        )}
                             </div>
                         </div>
 
-                        {/* Миниатюры (Превью) */}
-                        {allImages.length > 1 && (
-                            <div className={`w-full flex items-center justify-center gap-3 py-3 overflow-x-auto scroll-smooth px-2`}>
-                                {allImages.map((img, index) => (
-                                    <button
-                                        key={index}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (!isTransitioning && index !== currentImageIndex) {
-                                                goToImage(index);
-                                            }
-                                        }}
-                                        disabled={isTransitioning || index === currentImageIndex}
-                                        className={`flex-shrink-0 w-[100px] h-[70px] max-[770px]:w-[80px] max-[770px]:h-[56px] rounded-lg overflow-hidden border-2 transition-all duration-300 ease-in-out ${
-                                            currentImageIndex === index 
-                                                ? 'border-[#C505EB] scale-105 shadow-md ring-2 ring-[#C505EB] ring-opacity-50' 
-                                                : 'border-[#E5E5E5] dark:border-gray-600 hover:border-[#C505EB] hover:scale-102'
-                                        } ${isTransitioning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                    >
-                                        <img 
-                                            src={img} 
-                                            alt={`Obrázek ${index + 1}`}
-                                            className={`w-full h-full object-cover transition-opacity duration-300 select-none pointer-events-none`}
-                                            draggable={false}
-                                        />
-                                    </button>
-                                ))}
+                {/* Основной контент */}
+                <div
+                    className={
+                        type === "NEIGHBOUR"
+                            ? "mb-12 flex w-full flex-col gap-4 min-[900px]:flex-row min-[900px]:items-start"
+                            : "mb-12 flex w-full max-[770px]:flex-col gap-8"
+                    }
+                >
+                    {type === "NEIGHBOUR" ? (
+                        <>
+                            <aside className="flex w-full shrink-0 flex-col gap-2 min-[900px]:w-[380px]">
+                                <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                                    <div className="flex border-b border-zinc-200 dark:border-gray-700" role="tablist" aria-label={t("profile.neighbourSidebarTabs")}>
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={neighbourLeftTab === "info"}
+                                            onClick={() => setNeighbourLeftTab("info")}
+                                            className={`min-h-[48px] flex-1 px-3 py-3 text-center text-[15px] font-semibold transition-colors ${
+                                                neighbourLeftTab === "info"
+                                                    ? "border-b-[3px] border-[#C505EB] text-[#C505EB] dark:border-[#D946EF] dark:text-[#D946EF]"
+                                                    : "border-b-[3px] border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
+                                            }`}
+                                        >
+                                            {t("profile.information")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={neighbourLeftTab === "reviews"}
+                                            onClick={() => setNeighbourLeftTab("reviews")}
+                                            className={`min-h-[48px] flex-1 px-3 py-3 text-center text-[15px] font-semibold transition-colors ${
+                                                neighbourLeftTab === "reviews"
+                                                    ? "border-b-[3px] border-[#C505EB] text-[#C505EB] dark:border-[#D946EF] dark:text-[#D946EF]"
+                                                    : "border-b-[3px] border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
+                                            }`}
+                                        >
+                                            {t("listing.ratingAndReviews")}
+                                        </button>
+                                    </div>
+                                </section>
+                                <section className={`overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900 ${neighbourLeftTab === "info" ? "" : "hidden"}`}>
+                                    <div className="px-4 py-3">
+                                        {description ? (
+                                            <p className="whitespace-pre-line text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+                                                {description}
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                                {t("profile.aboutPlaceholder")}
+                                            </p>
+                                        )}
+                                        {badges.length > 0 ? (
+                                            <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                                                {badges.map((badge, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                                                    >
+                                                        {badge}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                        {(contactPhone || contactEmail || contactInstagram || contactFacebook) && (
+                                            <div className="mt-4 space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                                                <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+                                                    <MessageCircle size={18} className="text-zinc-500" />
+                                                    {t("listing.contact")}
+                                                </div>
+                                                {contactPhone ? (
+                                                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("messenger.contactsMessagePhone")}:
+                                                        </span>{" "}
+                                                        {contactPhone}
+                                                    </div>
+                                                ) : null}
+                                                {contactEmail ? (
+                                                    <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("messenger.contactsMessageEmail")}:
+                                                        </span>{" "}
+                                                        {contactEmail}
+                                                    </div>
+                                                ) : null}
+                                                {contactInstagram ? (
+                                                    <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("profile.instagram")}:
+                                                        </span>{" "}
+                                                        {contactInstagram}
+                                                    </div>
+                                                ) : null}
+                                                {contactFacebook ? (
+                                                    <div className="break-all text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {t("profile.facebook")}:
+                                                        </span>{" "}
+                                                        {contactFacebook}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        )}
+                                        <div className="mt-4 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                                            <NeighbourFbRow label={t("listing.origin")} value={from || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.languages.title")}
+                                                value={languages && languages.length > 0 ? languages.join(", ") : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.profession")} value={profession || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.smoking")}
+                                                value={smoking ? getLifestyleValueLabel(smoking) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.alcohol")}
+                                                value={alcohol ? getLifestyleValueLabel(alcohol) : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.pets")} value={pets || null} />
+                                            <NeighbourFbRow
+                                                label={t("profile.sleepSchedule")}
+                                                value={sleep_schedule ? getLifestyleValueLabel(sleep_schedule) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.gamer")}
+                                                value={gamer ? getLifestyleValueLabel(gamer) : null}
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.workFromHome")}
+                                                value={work_from_home ? getLifestyleValueLabel(work_from_home) : null}
+                                            />
+                                            <NeighbourFbRow label={t("profile.noiseTolerance")} value={noise_tolerance || null} />
+                                            <NeighbourFbRow
+                                                label={t("listing.scores")}
+                                                value={
+                                                    cleanliness !== undefined || introvert_extrovert !== undefined
+                                                        ? [
+                                                              cleanliness !== undefined
+                                                                  ? `${t("profile.cleanliness")}: ${cleanliness}/10`
+                                                                  : null,
+                                                              introvert_extrovert !== undefined
+                                                                  ? `${t("profile.introvertExtrovert")}: ${introvert_extrovert}/10`
+                                                                  : null,
+                                                          ]
+                                                              .filter(Boolean)
+                                                              .join(" · ")
+                                                        : null
+                                                }
+                                            />
+                                            <NeighbourFbRow label={t("profile.guestsParties")} value={guests_parties || null} />
+                                            <NeighbourFbRow
+                                                label={t("listing.preferences")}
+                                                value={
+                                                    preferred_gender || preferred_age_range
+                                                        ? [
+                                                              preferred_gender
+                                                                  ? `${t("profile.preferredGender")}: ${preferred_gender}`
+                                                                  : null,
+                                                              preferred_age_range
+                                                                  ? `${t("profile.preferredAgeRange")}: ${preferred_age_range}`
+                                                                  : null,
+                                                          ]
+                                                              .filter(Boolean)
+                                                              .join(" · ")
+                                                        : null
+                                                }
+                                            />
+                                            <NeighbourFbRow
+                                                label={t("profile.sections.status")}
+                                                value={
+                                                    [verified ? t("badges.verified") : null, looking_for_housing ? t("badges.lookingForHousing") : null]
+                                                        .filter(Boolean)
+                                                        .join(" · ") || null
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+                                <div className={neighbourLeftTab === "reviews" ? "" : "hidden"}>
+                                <NeighbourFbCard title="">
+                                    <div className="flex items-center gap-2">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Icon
+                                                key={`avg-${star}`}
+                                                icon={getStarIcon(Number(ratingAverage || 0), star)}
+                                                className="h-[18px] w-[18px]"
+                                                style={{ color: star <= Math.ceil(Number(ratingAverage || 0)) ? "#F59E0B" : "#9CA3AF" }}
+                                            />
+                                        ))}
+                                        <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+                                            {(Number(ratingAverage || 0)).toFixed(1)} ({ratingCount || 0})
+                                        </span>
+                                    </div>
+                                    {isAuthenticated && canReview && (
+                                        <div className="mt-4 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/80">
+                                            <span className="text-sm font-semibold text-zinc-900 dark:text-white">{t("listing.yourRating")}</span>
+                                            <div className="mt-2 mb-2 flex items-center gap-1">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <button
+                                                        key={`set-${star}`}
+                                                        type="button"
+                                                        onClick={() => setReviewRating(star)}
+                                                        className="p-0.5"
+                                                    >
+                                                        <Icon
+                                                            icon={star <= reviewRating ? "mdi:star" : "mdi:star-outline"}
+                                                            className="h-[22px] w-[22px]"
+                                                            style={{ color: star <= reviewRating ? "#F59E0B" : "#9CA3AF" }}
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea
+                                                value={reviewComment}
+                                                onChange={(e) => setReviewComment(e.target.value)}
+                                                rows={3}
+                                                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-0 duration-300 focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                                                placeholder={t("listing.commentPlaceholder")}
+                                            />
+                                            {reviewError ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{reviewError}</p> : null}
+                                            <button
+                                                type="button"
+                                                onClick={handleSubmitReview}
+                                                disabled={reviewSubmitting}
+                                                className="mt-3 w-full rounded-lg bg-[#C505EB] py-2 font-semibold text-white duration-300 hover:bg-[#BA00F8] disabled:opacity-60"
+                                            >
+                                                {reviewSubmitting ? t("loading") : hasSubmittedReview ? t("listing.updateReview") : t("listing.submitReview")}
+                                            </button>
                             </div>
                         )}
+                                    {isAuthenticated && !canReview ? (
+                                        <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{t("listing.onlyCoResidentsCanReview")}</p>
+                                    ) : null}
+                                    <div className="mt-4 flex max-h-[320px] flex-col gap-3 overflow-y-auto pr-1">
+                                        {(reviews || []).length > 0 ? (
+                                            (reviews || []).map((review) => (
+                                                <div key={review.id} className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/80">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-sm font-semibold text-zinc-900 dark:text-white">{review.reviewerName}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                <Icon
+                                                                    key={`${review.id}-${star}`}
+                                                                    icon={getStarIcon(Number(review.rating || 0), star)}
+                                                                    className="h-[14px] w-[14px]"
+                                                                    style={{ color: star <= Math.ceil(Number(review.rating || 0)) ? "#F59E0B" : "#9CA3AF" }}
+                                                                />
+                                                            ))}
                     </div>
                 </div>
-
-                {/* Основной контент */}
-                <div className={`w-full flex max-[770px]:flex-col gap-8 mb-12`}>
-                    
+                                                    {review.comment ? (
+                                                        <p className="mt-1 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">{review.comment}</p>
+                                                    ) : null}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("listing.noReviewsYet")}</p>
+                                        )}
+                                    </div>
+                                </NeighbourFbCard>
+                                </div>
+                            </aside>
+                            <div className="flex min-w-0 flex-1 flex-col gap-4">
+                                <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                                    <div className="border-b border-zinc-200 px-4 py-3 text-[15px] font-semibold text-[#C505EB] dark:border-gray-700 dark:text-[#D946EF]">
+                                        {t("profile.gallery.title")}
+                                        {profileGallery.length > 0 ? (
+                                            <span className="ml-1.5 tabular-nums text-xs font-bold opacity-80">
+                                                ({profileGallery.length})
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <div className="px-4 py-3">
+                                        {profileGallery.length > 0 ? (
+                                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                                                {profileGallery.map((item) => {
+                                                    const gi = allImages.findIndex((u) => u === item.url);
+                                                    const openIdx = gi >= 0 ? gi : 0;
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setCurrentImageIndex(openIdx);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="relative aspect-square overflow-hidden rounded-md bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C505EB] dark:bg-zinc-800"
+                                                        >
+                                                            <img
+                                                                src={getImageUrl(item.url)}
+                                                                alt=""
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                                {`${String(name || "Этот пользователь")} пока что не сделал ни одной публикации`}
+                                            </p>
+                                        )}
+                                    </div>
+                                </section>
+                                {canRemoveFromHome ? (
+                                    <div className="rounded-lg border border-red-200 bg-white p-4 dark:border-red-900/40 dark:bg-gray-900">
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmAction("remove_from_home")}
+                                            disabled={removingFromHome}
+                                            className="w-full rounded-lg bg-red-600 py-3 font-semibold text-white duration-300 hover:bg-red-700 disabled:opacity-60"
+                                        >
+                                            {removingFromHome ? t("loading") : t("listing.removeFromHome")}
+                                        </button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </>
+                    ) : (
+                        <>
                     {/* Левая колонка - Информация */}
                     <div className={`flex-1 flex flex-col gap-6`}>
                         
@@ -1435,8 +2125,9 @@ out center;`;
                         <div className={`flex flex-col gap-4`}>
                             <div className={`flex items-start justify-between max-[770px]:flex-col max-[770px]:gap-3`}>
                                 <div className={`flex-1`}>
+                                    <>
                                     <h1 className={`text-[40px] max-[770px]:text-[28px] font-extrabold text-[#333333] dark:text-white mb-2`}>
-                                        {title || (type === "NEIGHBOUR" ? `${name}, ${age}` : `${rooms || "Byt"} ${size ? `${size} m²` : ""}`)}
+                                            {title || `${rooms || "Byt"} ${size ? `${size} m²` : ""}`}
                                     </h1>
                                     {address && (
                                         <div className={`flex items-center gap-2 text-[#666666] dark:text-gray-400`}>
@@ -1444,6 +2135,7 @@ out center;`;
                                             <span className={`text-lg max-[770px]:text-base`}>{address}</span>
                                         </div>
                                     )}
+                                    </>
                                 </div>
                                 {price && (
                                     <div className={`flex flex-col items-end max-[770px]:items-start`}>
@@ -1470,7 +2162,7 @@ out center;`;
                         </div>
 
                         {/* Детали */}
-                        {type !== "NEIGHBOUR" && Array.isArray(residents) && residents.length > 0 && (
+                        {Array.isArray(residents) && residents.length > 0 && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
                                 <h2 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white mb-4`}>
                                     {t("profile.residents")}
@@ -1502,9 +2194,15 @@ out center;`;
                             </div>
                         )}
 
-                        <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
-                            <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.details")}</h2>
-                            <div className={`grid grid-cols-2 max-[770px]:grid-cols-1 gap-4`}>
+                        <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-3`}>
+                            <h2 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white mb-2.5`}>{t("listing.details")}</h2>
+                            <div
+                                className={`grid grid-cols-2 min-[1200px]:grid-cols-3 min-[1500px]:grid-cols-4 max-[770px]:grid-cols-1 gap-2.5
+                                    [&>div]:px-2.5 [&>div]:py-2 [&>div]:gap-2 [&>div]:rounded-lg
+                                    [&>div>svg]:w-4 [&>div>svg]:h-4
+                                    [&>div>div>span:first-child]:text-xs
+                                    [&>div>div>span:last-child]:text-sm`}
+                            >
                                 {size && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
@@ -1532,7 +2230,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && maxResidents && (
+                                {maxResidents && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Bed size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1543,7 +2241,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && (city || region) && (
+                                {(city || region) && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <MapPin size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1556,7 +2254,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && condition_state && (
+                                {condition_state && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1565,7 +2263,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && (
+                                {(
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1574,7 +2272,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && rental_period && (
+                                {rental_period && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1583,7 +2281,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && (
+                                {(
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1592,7 +2290,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && move_in_date && (
+                                {move_in_date && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1601,7 +2299,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && Number(utilitiesFee || 0) > 0 && (
+                                {Number(utilitiesFee || 0) > 0 && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1612,7 +2310,7 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type !== "NEIGHBOUR" && Number(deposit || 0) > 0 && (
+                                {Number(deposit || 0) > 0 && (
                                     <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
                                         <Square size={24} color="#C505EB" />
                                         <div className={`flex flex-col`}>
@@ -1623,148 +2321,11 @@ out center;`;
                                         </div>
                                     </div>
                                 )}
-                                {type === "NEIGHBOUR" && from && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <MapPin size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.origin")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{from}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && languages && languages.length > 0 && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <MapPin size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.languages.title") || "Languages"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{languages.join(", ")}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && profession && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <MapPin size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.profession") || "Profession"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{profession}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && smoking && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.smoking")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(smoking)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && alcohol && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.alcohol")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(alcohol)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && pets && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.pets")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{pets}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && sleep_schedule && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.sleepSchedule")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(sleep_schedule)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && gamer && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.gamer")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(gamer)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && work_from_home && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.workFromHome")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{getLifestyleValueLabel(work_from_home)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && noise_tolerance && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.noiseTolerance") || "Noise tolerance"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{noise_tolerance}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && (cleanliness !== undefined || introvert_extrovert !== undefined) && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.scores")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>
-                                                {cleanliness !== undefined ? `${t("profile.cleanliness")}: ${cleanliness}/10` : ""}
-                                                {cleanliness !== undefined && introvert_extrovert !== undefined ? " · " : ""}
-                                                {introvert_extrovert !== undefined ? `${t("profile.introvertExtrovert")}: ${introvert_extrovert}/10` : ""}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && guests_parties && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.guestsParties") || "Guests/Parties"}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{guests_parties}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && (preferred_gender || preferred_age_range) && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("listing.preferences")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>
-                                                {preferred_gender ? `${t("profile.preferredGender") || "Gender"}: ${preferred_gender}` : ""}
-                                                {preferred_gender && preferred_age_range ? " · " : ""}
-                                                {preferred_age_range ? `${t("profile.preferredAgeRange") || "Age"}: ${preferred_age_range}` : ""}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                                {type === "NEIGHBOUR" && (verified !== undefined || looking_for_housing !== undefined) && (
-                                    <div className={`flex items-center gap-3 p-4 rounded-xl bg-[#F9F9F9] dark:bg-gray-800`}>
-                                        <Bed size={24} color="#C505EB" />
-                                        <div className={`flex flex-col`}>
-                                            <span className={`text-sm text-[#666666] dark:text-gray-400`}>{t("profile.sections.status")}</span>
-                                            <span className={`text-lg font-bold text-black dark:text-white`}>{[
-                                                verified ? t("badges.verified") : null,
-                                                looking_for_housing ? t("badges.lookingForHousing") : null
-                                            ].filter(Boolean).join(" · ")}</span>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
                         {/* Инфраструктура */}
-                        {type !== "NEIGHBOUR" && (
+                        {(
                             has_bus_stop || has_train_station || has_metro || has_post_office || 
                             has_atm || has_general_practitioner || has_vet || has_primary_school || 
                             has_kindergarten || has_supermarket || has_small_shop || has_restaurant || 
@@ -1842,7 +2403,7 @@ out center;`;
                             </div>
                         )}
 
-                        {type !== "NEIGHBOUR" && (
+                        {(
                             shouldShowInternet || utilities_included || pets_allowed || smoking_allowed || has_roommates || has_video || has_3d_tour || has_floorplan
                         ) && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
@@ -1860,7 +2421,7 @@ out center;`;
                             </div>
                         )}
 
-                        {type !== "NEIGHBOUR" && visibleAmenities.length > 0 && (
+                        {visibleAmenities.length > 0 && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
                                 <h2 className={`text-[28px] max-[770px]:text-[22px] font-bold text-[#333333] dark:text-white mb-4`}>{t("listing.amenities")}</h2>
                                 <div className={`flex flex-wrap gap-3`}>
@@ -1883,7 +2444,7 @@ out center;`;
                             </div>
                         )}
 
-                        {type !== "NEIGHBOUR" && canManage && (
+                        {canManage && (
                             <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
                                 <h2 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white mb-4`}>
                                     {t("listing.manageActions")}
@@ -1896,6 +2457,14 @@ out center;`;
                                         className={`px-6 py-3 rounded-lg bg-[#C505EB] text-white hover:bg-[#BA00F8] disabled:opacity-60 duration-300 font-semibold`}
                                     >
                                         {creatingInvite ? t("profile.creatingInvite") : t("profile.invite")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleInviteByQr}
+                                        disabled={creatingInvite}
+                                        className={`px-6 py-3 rounded-lg border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB]/10 disabled:opacity-60 duration-300 font-semibold`}
+                                    >
+                                        {t("profile.inviteByQr")}
                                     </button>
                                     <button
                                         type="button"
@@ -1913,7 +2482,7 @@ out center;`;
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={handleDeleteListing}
+                                        onClick={() => setConfirmAction("delete_listing")}
                                         className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 duration-300 font-semibold`}
                                     >
                                         {t("listing.delete")}
@@ -1921,39 +2490,18 @@ out center;`;
                                 </div>
                             </div>
                         )}
-
-                        {type === "NEIGHBOUR" && canRemoveFromHome && (
-                            <div className={`w-full border-t border-[#E5E5E5] dark:border-gray-700 pt-6`}>
-                                <button
-                                    type="button"
-                                    onClick={handleRemoveFromHome}
-                                    disabled={removingFromHome}
-                                    className={`px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 duration-300 font-semibold`}
-                                >
-                                    {removingFromHome ? t("loading") : t("listing.removeFromHome")}
-                                </button>
-                            </div>
-                        )}
                     </div>
 
                     {/* Правая колонка - Контакты */}
-                    <div className={`w-full max-[770px]:w-full min-[770px]:w-[400px] flex-shrink-0`}>
+                    <div
+                        className={`w-full max-[770px]:w-full min-[770px]:w-[400px] flex-shrink-0 ${
+                            hasSingleListingImage ? "min-[770px]:-mt-20" : ""
+                        }`}
+                    >
                         <div className={`sticky top-[120px] flex flex-col gap-4 p-6 rounded-2xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50`}>
                             <h3 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white`}>{t("listing.contact")}</h3>
                             
-                            {isAuthenticated ? (
-                                <>
-                                    {type === "NEIGHBOUR" && (
-                                        <button
-                                            onClick={handleWriteMessage}
-                                            disabled={messageStartLoading}
-                                            className={`w-full py-4 rounded-full bg-gradient-to-r from-[#C505EB] to-[#08D3E2] text-white text-xl font-bold hover:shadow-lg duration-300`}
-                                        >
-                                            {messageStartLoading ? t("loading") : t("listing.writeMessage")}
-                                        </button>
-                                    )}
-                                </>
-                            ) : (
+                            {!isAuthenticated ? (
                                 <>
                                     <div className={`flex flex-col items-center justify-center gap-4 p-6 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
                                         <div className={`flex items-center justify-center w-16 h-16 rounded-full bg-[#C505EB]/10`}>
@@ -1970,9 +2518,34 @@ out center;`;
                                         {t("listing.writeMessage")}
                                     </button>
                                 </>
+                            ) : null}
+
+                            {(contactPhone || contactEmail || contactInstagram || contactFacebook) && (
+                                <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700 space-y-2`}>
+                                    {contactPhone && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200`}>
+                                            <span className={`font-semibold`}>{t("messenger.contactsMessagePhone")}:</span> {contactPhone}
+                                        </div>
+                                    )}
+                                    {contactEmail && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200`}>
+                                            <span className={`font-semibold`}>{t("messenger.contactsMessageEmail")}:</span> {contactEmail}
+                                        </div>
+                                    )}
+                                    {contactInstagram && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200 break-all`}>
+                                            <span className={`font-semibold`}>{t("profile.instagram")}:</span> {contactInstagram}
+                                        </div>
+                                    )}
+                                    {contactFacebook && (
+                                        <div className={`text-sm text-[#333333] dark:text-gray-200 break-all`}>
+                                            <span className={`font-semibold`}>{t("profile.facebook")}:</span> {contactFacebook}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
-                            {type !== "NEIGHBOUR" && mapData && (
+                            {mapData && (
                                 <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
                                     <div className={`flex items-center justify-between mb-3 gap-3`}>
                                         <h4 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white`}>
@@ -2078,22 +2651,54 @@ out center;`;
                                         </div>
                                     </div>
                                     {(universityPoint || workPoint) && (
-                                        <div className={`mt-2 text-sm text-[#666666] dark:text-gray-400`}> 
-                                            <p className={`font-semibold`}>{t("listing.distanceTitle")} {getRouteModeLabel(routeMode).toLowerCase()}</p>
-                                            {universityPoint && (
-                                                <p className={`mt-1`}>
-                                                    {universityRouteLoading
-                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
-                                                        : `${t("listing.distanceToUniversity")}: ${Number(universityDistanceKm || 0).toFixed(1)} km (${Number(universityDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
-                                            {workPoint && (
-                                                <p className={`mt-1`}>
-                                                    {workRouteLoading
-                                                        ? `${t("listing.routeLoading")} ${getRouteModeLabel(routeMode).toLowerCase()}...`
-                                                        : `${t("listing.distanceToWork")}: ${Number(workDistanceKm || 0).toFixed(1)} km (${Number(workDurationMin || 0)} min)`}
-                                                </p>
-                                            )}
+                                        <div className={`mt-3`}>
+                                            <p className={`text-sm font-semibold text-[#333333] dark:text-white mb-2`}>
+                                                {t("listing.distanceTitle")} {getRouteModeLabel(routeMode).toLowerCase()}
+                                            </p>
+                                            <div className={`flex flex-col gap-2`}>
+                                                {universityPoint && (
+                                                    <div className={`rounded-xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5`}>
+                                                        <p className={`text-sm font-medium text-[#666666] dark:text-gray-300`}>
+                                                            {t("listing.distanceToUniversity")}
+                                                        </p>
+                                                        {universityRouteLoading ? (
+                                                            <p className={`text-sm text-[#666666] dark:text-gray-400 mt-1`}>
+                                                                {t("listing.routeLoading")} {getRouteModeLabel(routeMode).toLowerCase()}...
+                                                            </p>
+                                                        ) : (
+                                                            <div className={`mt-2 flex items-center gap-2`}>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#C505EB]/10 text-[#C505EB] text-xs font-bold`}>
+                                                                    {Number(universityDistanceKm || 0).toFixed(1)} km
+                                                                </span>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#08D3E2]/10 text-[#08A7B8] text-xs font-bold`}>
+                                                                    {Number(universityDurationMin || 0)} min
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {workPoint && (
+                                                    <div className={`rounded-xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5`}>
+                                                        <p className={`text-sm font-medium text-[#666666] dark:text-gray-300`}>
+                                                            {t("listing.distanceToWork")}
+                                                        </p>
+                                                        {workRouteLoading ? (
+                                                            <p className={`text-sm text-[#666666] dark:text-gray-400 mt-1`}>
+                                                                {t("listing.routeLoading")} {getRouteModeLabel(routeMode).toLowerCase()}...
+                                                            </p>
+                                                        ) : (
+                                                            <div className={`mt-2 flex items-center gap-2`}>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#C505EB]/10 text-[#C505EB] text-xs font-bold`}>
+                                                                    {Number(workDistanceKm || 0).toFixed(1)} km
+                                                                </span>
+                                                                <span className={`px-2.5 py-1 rounded-full bg-[#08D3E2]/10 text-[#08A7B8] text-xs font-bold`}>
+                                                                    {Number(workDurationMin || 0)} min
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     {(nearestStop || nearestShop || nearestHospital) && (
@@ -2114,115 +2719,159 @@ out center;`;
                                     )}
                                 </div>
                             )}
-
-                            {type === "NEIGHBOUR" && (
-                                <div className={`mt-2 pt-4 border-t border-[#E5E5E5] dark:border-gray-700`}>
-                                    <h4 className={`text-[22px] max-[770px]:text-[18px] font-bold text-[#333333] dark:text-white mb-2`}>
-                                        {t("listing.ratingAndReviews")}
-                                    </h4>
-
-                                    <div className={`flex items-center gap-2 mb-3`}>
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <Icon
-                                                key={`avg-${star}`}
-                                                icon={getStarIcon(Number(ratingAverage || 0), star)}
-                                                className={`w-[18px] h-[18px]`}
-                                                style={{ color: star <= Math.ceil(Number(ratingAverage || 0)) ? "#F59E0B" : "#9CA3AF" }}
-                                            />
-                                        ))}
-                                        <span className={`text-sm font-semibold text-[#666666] dark:text-gray-300`}>
-                                            {(Number(ratingAverage || 0)).toFixed(1)} ({ratingCount || 0})
-                                        </span>
                                     </div>
-
-                                    {isAuthenticated && canReview && (
-                                        <div className={`mb-4 p-3 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
-                                            <span className={`text-sm font-semibold text-[#333333] dark:text-white`}>
-                                                {t("listing.yourRating")}
-                                            </span>
-                                            <div className={`flex items-center gap-1 mt-2 mb-2`}>
-                                                {[1, 2, 3, 4, 5].map((star) => (
-                                                    <button
-                                                        key={`set-${star}`}
-                                                        type="button"
-                                                        onClick={() => setReviewRating(star)}
-                                                        className={`p-0.5`}
-                                                    >
-                                                        <Icon
-                                                            icon={star <= reviewRating ? "mdi:star" : "mdi:star-outline"}
-                                                            className={`w-[22px] h-[22px]`}
-                                                            style={{ color: star <= reviewRating ? "#F59E0B" : "#9CA3AF" }}
-                                                        />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <textarea
-                                                value={reviewComment}
-                                                onChange={(e) => setReviewComment(e.target.value)}
-                                                rows={3}
-                                                className={`w-full border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-2 text-sm outline-0 focus:border-[#C505EB] duration-300`}
-                                                placeholder={t("listing.commentPlaceholder")}
-                                            />
-                                            {reviewError && (
-                                                <p className={`mt-2 text-sm text-red-600 dark:text-red-400`}>{reviewError}</p>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={handleSubmitReview}
-                                                disabled={reviewSubmitting}
-                                                className={`mt-3 w-full py-2 rounded-lg bg-[#C505EB] text-white font-semibold hover:bg-[#BA00F8] disabled:opacity-60 duration-300`}
-                                            >
-                                                {reviewSubmitting ? t("loading") : hasSubmittedReview ? t("listing.updateReview") : t("listing.submitReview")}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {isAuthenticated && !canReview && (
-                                        <p className={`mb-3 text-sm text-[#666666] dark:text-gray-400`}>
-                                            {t("listing.onlyCoResidentsCanReview")}
-                                        </p>
-                                    )}
-
-                                    <div className={`flex flex-col gap-3 max-h-[280px] overflow-y-auto pr-1`}>
-                                        {(reviews || []).length > 0 ? (
-                                            (reviews || []).map((review) => (
-                                                <div key={review.id} className={`p-3 rounded-xl bg-[#F9F9F9] dark:bg-gray-700`}>
-                                                    <div className={`flex items-center justify-between gap-2`}>
-                                                        <span className={`text-sm font-semibold text-[#333333] dark:text-white`}>
-                                                            {review.reviewerName}
-                                                        </span>
-                                                        <div className={`flex items-center gap-1`}>
-                                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                                <Icon
-                                                                    key={`${review.id}-${star}`}
-                                                                    icon={getStarIcon(Number(review.rating || 0), star)}
-                                                                    className={`w-[14px] h-[14px]`}
-                                                                    style={{ color: star <= Math.ceil(Number(review.rating || 0)) ? "#F59E0B" : "#9CA3AF" }}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    {review.comment && (
-                                                        <p className={`mt-1 text-sm text-[#666666] dark:text-gray-300 whitespace-pre-line`}>
-                                                            {review.comment}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className={`text-sm text-[#666666] dark:text-gray-400`}>
-                                                {t("listing.noReviewsYet")}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        {!canManage && (
+                            <button
+                                onClick={handleOpenListingReport}
+                                className={`mt-4 w-full py-3 rounded-full border border-red-400 text-red-600 text-base font-bold hover:bg-red-50 duration-300 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20`}
+                            >
+                                {t("listing.reportListing")}
+                            </button>
+                        )}
                     </div>
+                    </>
+                    )}
 
                 </div>
 
             </div>
+
+            {confirmAction && (
+                <div className="fixed inset-0 z-[1290] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setConfirmAction(null)}>
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>
+                        <h3 className="mb-3 text-xl font-bold text-[#333333] dark:text-white">
+                            {confirmAction === "delete_listing" ? t("listing.delete") : t("listing.removeFromHome")}
+                        </h3>
+                        <p className="mb-5 text-sm text-[#666666] dark:text-gray-300">
+                            {confirmAction === "delete_listing" ? t("listing.confirmDelete") : t("listing.removeFromHomeConfirm")}
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                onClick={() => setConfirmAction(null)}
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                                onClick={() => {
+                                    void handleConfirmProceed();
+                                }}
+                            >
+                                {confirmAction === "delete_listing" ? t("listing.delete") : t("listing.removeFromHome")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isReportModalOpen && (
+                <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setIsReportModalOpen(false)}>
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>
+                        <h3 className="mb-3 text-xl font-bold text-[#333333] dark:text-white">{t("listing.reportListing")}</h3>
+                        <select
+                            value={reportReason}
+                            onChange={(event) => setReportReason(event.target.value as ListingReportReason)}
+                            className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                        >
+                            <option value="fraud">{t("listing.reportReasonFraud")}</option>
+                            <option value="spam">{t("listing.reportReasonSpam")}</option>
+                            <option value="fake_listing">{t("listing.reportReasonFake")}</option>
+                            <option value="inappropriate_content">{t("listing.reportReasonInappropriate")}</option>
+                            <option value="other">{t("listing.reportReasonOther")}</option>
+                        </select>
+                        <textarea
+                            value={reportDetails}
+                            onChange={(event) => setReportDetails(event.target.value)}
+                            rows={4}
+                            className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                            placeholder={t("listing.reportDetailsPlaceholder")}
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                onClick={() => setIsReportModalOpen(false)}
+                                disabled={reportSubmitting}
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                                onClick={() => {
+                                    void handleSubmitListingReport();
+                                }}
+                                disabled={reportSubmitting}
+                            >
+                                {reportSubmitting ? t("loading") : t("listing.sendReport")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isInviteQrModalOpen && (
+                <div className="fixed inset-0 z-[1310] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/60"
+                        onClick={() => setIsInviteQrModalOpen(false)}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                        <button
+                            type="button"
+                            onClick={() => setIsInviteQrModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="mb-2 text-lg font-semibold text-[#333333] dark:text-white">
+                            {t("profile.inviteByQr")}
+                        </h3>
+                        <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                            {t("profile.scanQrHint")}
+                        </p>
+                        <div className="mx-auto h-64 w-64 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(inviteQrLink)}`}
+                                alt={t("profile.inviteByQr")}
+                                className="h-full w-full object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+            {toast && (
+                <div className="pointer-events-none fixed bottom-6 right-6 z-[1310] max-[520px]:left-4 max-[520px]:right-4">
+                    {toast.rich && toast.kind === "success" ? (
+                        <div
+                            className="flex max-w-[min(100vw-2rem,320px)] items-center gap-3 rounded-2xl border border-emerald-400/45 bg-white/95 px-4 py-3 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.35)] backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 zoom-in-95 duration-300 dark:border-emerald-500/35 dark:bg-gray-950/95"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            <span
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 via-teal-500 to-[#06B396] text-white shadow-md ring-2 ring-white/50 dark:ring-white/20"
+                                aria-hidden
+                            >
+                                <Icon icon="mdi:check-bold" className="h-[18px] w-[18px]" />
+                            </span>
+                            <p className="text-left text-sm font-semibold leading-snug text-gray-900 dark:text-gray-50">
+                        {toast.message}
+                            </p>
+                    </div>
+                    ) : (
+                        <div
+                            className={`rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl ${toast.kind === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+                        >
+                            {toast.message}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Модальное окно для полноэкранного просмотра */}
             {isModalOpen && (

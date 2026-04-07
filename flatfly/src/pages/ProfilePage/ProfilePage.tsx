@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { ChangeEvent } from "react";
-import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { User, Camera, Save, CheckCircle, ChevronLeft, ChevronRight, Heart, X, Crown, ImagePlus, Trash2 } from "lucide-react";
 import { Icon } from "@iconify/react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
@@ -10,9 +10,17 @@ import SaleCard from "../../components/SaleCard/SaleCard";
 import { getImageUrl } from "../../utils/defaultImage";
 import MapPicker from "../../components/MapPicker/MapPicker";
 
+interface ProfileGalleryItem {
+    id: number;
+    url: string;
+    caption: string;
+}
+
 interface ProfileData {
     // Основная информация
     photo: string;
+    coverPhoto: string;
+    gallery: ProfileGalleryItem[];
     name: string;
     phone: string;
     age: string;
@@ -29,6 +37,8 @@ interface ProfileData {
     universityName: string;
     facultyName: string;
     profession: string;
+    instagram: string;
+    facebook: string;
     about: string;
     
     // Социальные параметры
@@ -62,6 +72,35 @@ interface ProfileCompletionData {
     totalFields: number;
 }
 
+/** Ключи заполненности профиля (как в API) → вкладка профиля */
+const PROFILE_COMPLETION_KEY_TO_SECTION: Record<string, "basic" | "social" | "status"> = {
+    name: "basic",
+    phone: "basic",
+    age: "basic",
+    gender: "basic",
+    city: "basic",
+    location_city: "basic",
+    location_address: "basic",
+    university: "basic",
+    faculty: "basic",
+    profession: "basic",
+    languages: "basic",
+    about: "basic",
+    smoking: "social",
+    alcohol: "social",
+    sleep_schedule: "social",
+    noise_tolerance: "social",
+    gamer: "social",
+    work_from_home: "social",
+    pets: "social",
+    cleanliness: "social",
+    introvert_extrovert: "social",
+    guests_parties: "social",
+    preferred_gender: "social",
+    preferred_age_range: "social",
+    verified: "status",
+};
+
 const normalizeNoiseTolerance = (value: unknown): string => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
@@ -77,11 +116,14 @@ export default function ProfilePage() {
     const navigate = useNavigate();
     const location = useLocation();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
     
     const [activeSection, setActiveSection] = useState<"basic" | "social" | "status" | "favorites" | "myListings" | "myHome">("basic");
     const [isSaving, setIsSaving] = useState(false);
     const [isTogglingVerified, setIsTogglingVerified] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [saveErrorMessage, setSaveErrorMessage] = useState("");
     const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [addressInput, setAddressInput] = useState("");
     const [addressSuggestions, setAddressSuggestions] = useState<Array<{
@@ -101,6 +143,7 @@ export default function ProfilePage() {
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
     const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
     const [universitiesLoading, setUniversitiesLoading] = useState(false);
+    const [showUniversityFields, setShowUniversityFields] = useState(false);
     const universityAutocompleteRef = useRef<HTMLDivElement>(null);
     const [facultyInput, setFacultyInput] = useState("");
     const [facultySuggestions, setFacultySuggestions] = useState<Array<{ id: number; name: string }>>([]);
@@ -119,6 +162,8 @@ export default function ProfilePage() {
     
     const [profileData, setProfileData] = useState<ProfileData>({
         photo: "",
+        coverPhoto: "",
+        gallery: [],
         name: user?.name || "",
         phone: "",
         age: "",
@@ -135,6 +180,8 @@ export default function ProfilePage() {
         universityName: "",
         facultyName: "",
         profession: "",
+        instagram: "",
+        facebook: "",
         about: "",
         smoking: "",
         alcohol: "",
@@ -181,6 +228,14 @@ export default function ProfilePage() {
           setProfileData(prev => ({
             ...prev,
             ...data,
+            coverPhoto: String(data.coverPhoto || ""),
+            gallery: Array.isArray(data.gallery)
+                ? data.gallery.map((g: { id?: number; url?: string; caption?: string }) => ({
+                      id: Number(g.id),
+                      url: String(g.url || ""),
+                      caption: String(g.caption || "").slice(0, 200),
+                  }))
+                : [],
                         noiseTolerance: normalizeNoiseTolerance(data.noiseTolerance),
             locationRegion: String(data.locationRegion || ""),
             locationCity: String(data.locationCity || ""),
@@ -201,6 +256,14 @@ export default function ProfilePage() {
                     const loadedFacultyName = String(data.facultyName || "").trim();
                     setUniversityInput(loadedUniversityName);
                     setFacultyInput(loadedFacultyName);
+                    if (
+                        loadedUniversityName ||
+                        loadedFacultyName ||
+                        data.universityId ||
+                        data.facultyId
+                    ) {
+                        setShowUniversityFields(true);
+                    }
 
                     if (data.profileCompletion) {
                         setProfileCompletion({
@@ -426,6 +489,23 @@ export default function ProfilePage() {
         { key: "myHome", label: t("profile.sections.myHome") },
     ];
 
+    const sectionMissingCounts = useMemo(() => {
+        const keys = profileCompletion.missingFieldKeys ?? [];
+        const tally: Record<(typeof sections)[number]["key"], number> = {
+            basic: 0,
+            social: 0,
+            status: 0,
+            favorites: 0,
+            myListings: 0,
+            myHome: 0,
+        };
+        for (const k of keys) {
+            const sec = PROFILE_COMPLETION_KEY_TO_SECTION[k] ?? "basic";
+            tally[sec] += 1;
+        }
+        return tally;
+    }, [profileCompletion.missingFieldKeys]);
+
     const currentSectionIndex = sections.findIndex(s => s.key === activeSection);
     const canGoPrevious = currentSectionIndex > 0;
     const canGoNext = currentSectionIndex < sections.length - 1;
@@ -462,6 +542,7 @@ export default function ProfilePage() {
         looking_for_housing?: boolean;
         // Общее
         image_url?: string | null;
+        images?: string[];
         is_favorite?: boolean;
         is_active?: boolean;
     };
@@ -482,7 +563,35 @@ export default function ProfilePage() {
     const [myHomeLoading, setMyHomeLoading] = useState(false);
     const [myHomeError, setMyHomeError] = useState<string | null>(null);
     const [leavingHome, setLeavingHome] = useState(false);
+    const [isLeaveHomeModalOpen, setIsLeaveHomeModalOpen] = useState(false);
+    const [leaveHomeErrorMessage, setLeaveHomeErrorMessage] = useState<string | null>(null);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+    const [inviteError, setInviteError] = useState<string | null>(null);
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [inviteQrLink, setInviteQrLink] = useState("");
+    const [galleryModalItem, setGalleryModalItem] = useState<ProfileGalleryItem | null>(null);
+    const [galleryModalCaption, setGalleryModalCaption] = useState("");
+    const [galleryUploadInProgress, setGalleryUploadInProgress] = useState(0);
+    const [galleryModalBusy, setGalleryModalBusy] = useState(false);
+    const [avatarCropOpen, setAvatarCropOpen] = useState(false);
+    const [avatarCropSourceUrl, setAvatarCropSourceUrl] = useState("");
+    const [avatarCropNaturalSize, setAvatarCropNaturalSize] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
+    const [avatarCropViewport, setAvatarCropViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const [avatarCropOffset, setAvatarCropOffset] = useState({ x: 0, y: 0 });
+    const [avatarCropDragging, setAvatarCropDragging] = useState(false);
+    const [avatarCropBusy, setAvatarCropBusy] = useState(false);
+    const avatarCropViewportRef = useRef<HTMLDivElement>(null);
+    const avatarCropDragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+    const [coverCropOpen, setCoverCropOpen] = useState(false);
+    const [coverCropSourceUrl, setCoverCropSourceUrl] = useState("");
+    const [coverCropNaturalSize, setCoverCropNaturalSize] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
+    const [coverCropViewport, setCoverCropViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const [coverCropOffset, setCoverCropOffset] = useState({ x: 0, y: 0 });
+    const [coverCropDragging, setCoverCropDragging] = useState(false);
+    const [coverCropBusy, setCoverCropBusy] = useState(false);
+    const coverCropViewportRef = useRef<HTMLDivElement>(null);
+    const coverCropDragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
     const [showJoinedHomeNotice, setShowJoinedHomeNotice] = useState(false);
 
     // Активируем нужную вкладку, если пришли с хэшем или параметром ?tab
@@ -585,6 +694,7 @@ export default function ProfilePage() {
                     area: listing.usable_area,
                     amenities: listing.amenities || [],
                     image_url: listing.image || null,
+                    images: Array.isArray(listing.images) ? listing.images : undefined,
                     is_favorite: listing.is_favorite || false,
                     is_active: listing.isActive !== false,
                 };
@@ -618,12 +728,9 @@ export default function ProfilePage() {
     };
 
     const handleLeaveHome = async () => {
-        if (!window.confirm(t("profile.leaveHomeConfirm"))) {
-            return;
-        }
-
         try {
             setLeavingHome(true);
+            setLeaveHomeErrorMessage(null);
             const res = await fetch(`/api/listings/leave-home/`, {
                 method: "POST",
                 credentials: "include",
@@ -638,38 +745,59 @@ export default function ProfilePage() {
             }
 
             await fetchMyHome();
+            await fetchMyListings(1);
+            setIsLeaveHomeModalOpen(false);
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.leaveHomeFailed"));
+            setLeaveHomeErrorMessage(e instanceof Error ? e.message : t("profile.leaveHomeFailed"));
         } finally {
             setLeavingHome(false);
         }
     };
 
+    const createInviteLink = async (): Promise<string> => {
+        if (!myHomeData?.listing?.id) {
+            throw new Error(t("profile.inviteFailed"));
+        }
+        const res = await fetch(`/api/listings/${myHomeData.listing.id}/invite/`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": getCsrfToken(),
+            },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || t("profile.inviteFailed"));
+        }
+        const token = data.token;
+        return data.inviteUrl
+            ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
+            : `${window.location.origin}/api/listings/invite/${token}/join/`;
+    };
+
     const handleCreateInvite = async () => {
-        if (!myHomeData?.listing?.id) return;
         try {
             setCreatingInvite(true);
-            const res = await fetch(`/api/listings/${myHomeData.listing.id}/invite/`, {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "X-CSRFToken": getCsrfToken(),
-                },
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.detail || t("profile.inviteFailed"));
-            }
-
-            const token = data.token;
-            const link = data.inviteUrl
-                ? (data.inviteUrl.startsWith("http") ? data.inviteUrl : `${window.location.origin}${data.inviteUrl}`)
-                : `${window.location.origin}/api/listings/invite/${token}/join/`;
-
+            setInviteError(null);
+            const link = await createInviteLink();
             await navigator.clipboard.writeText(link);
-            alert(t("profile.copied"));
+            setInviteFeedback(t("profile.copied"));
         } catch (e) {
-            alert(e instanceof Error ? e.message : t("profile.inviteFailed"));
+            setInviteError(e instanceof Error ? e.message : t("profile.inviteFailed"));
+        } finally {
+            setCreatingInvite(false);
+        }
+    };
+
+    const handleInviteByQr = async () => {
+        try {
+            setCreatingInvite(true);
+            setInviteError(null);
+            const link = await createInviteLink();
+            setInviteQrLink(link);
+            setIsQrModalOpen(true);
+        } catch (e) {
+            setInviteError(e instanceof Error ? e.message : t("profile.inviteFailed"));
         } finally {
             setCreatingInvite(false);
         }
@@ -734,6 +862,7 @@ export default function ProfilePage() {
             type: (favorite.room_type === "APARTMENT" ? "APARTMENT" : "ROOM") as "APARTMENT" | "ROOM" | "NEIGHBOUR",
             price: favorite.price,
             image: getImageUrl(favorite.image_url),
+            images: favorite.images,
             title: favorite.title,
             region: favorite.region,
             address: favorite.city,
@@ -769,39 +898,354 @@ export default function ProfilePage() {
     const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
-      // превью как раньше
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileData(prev => ({ ...prev, photo: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-
-      // реальная отправка
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      try {
-                const response = await fetch("/api/profile/avatar/", {
-          method: "POST",
-          credentials: "include",
-                    headers: {
-                        "X-CSRFToken": getCsrfToken(),
-                    },
-                    body: formData,
+      const objectUrl = URL.createObjectURL(file);
+      const imageProbe = new Image();
+      imageProbe.onload = () => {
+        setAvatarCropNaturalSize({
+            width: Math.max(1, imageProbe.naturalWidth || imageProbe.width || 1),
+            height: Math.max(1, imageProbe.naturalHeight || imageProbe.height || 1),
         });
-
-        if (!response.ok) {
-          throw new Error("Upload failed");
-        }
-
-        const data = await response.json();
-        console.log("Avatar uploaded:", data.avatar);
-
-      } catch (err) {
-        console.error("Avatar upload error:", err);
+        setAvatarCropOffset({ x: 0, y: 0 });
+        setAvatarCropSourceUrl(objectUrl);
+        setAvatarCropOpen(true);
+      };
+      imageProbe.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
         alert(t("profile.errorUploadingAvatar"));
-      }
+      };
+      imageProbe.src = objectUrl;
+      e.target.value = "";
+    };
+
+    const handleCoverUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const objectUrl = URL.createObjectURL(file);
+        const imageProbe = new Image();
+        imageProbe.onload = () => {
+            setCoverCropNaturalSize({
+                width: Math.max(1, imageProbe.naturalWidth || imageProbe.width || 1),
+                height: Math.max(1, imageProbe.naturalHeight || imageProbe.height || 1),
+            });
+            setCoverCropOffset({ x: 0, y: 0 });
+            setCoverCropSourceUrl(objectUrl);
+            setCoverCropOpen(true);
+        };
+        imageProbe.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            alert(t("profile.errorUploadingAvatar"));
+        };
+        imageProbe.src = objectUrl;
+        e.target.value = "";
+    };
+
+    const avatarCropBaseScale = useMemo(() => {
+        if (avatarCropViewport.width <= 0 || avatarCropViewport.height <= 0) return 1;
+        const sx = avatarCropViewport.width / avatarCropNaturalSize.width;
+        const sy = avatarCropViewport.height / avatarCropNaturalSize.height;
+        return Math.max(sx, sy);
+    }, [avatarCropViewport.width, avatarCropViewport.height, avatarCropNaturalSize.width, avatarCropNaturalSize.height]);
+
+    const avatarCropRenderedSize = useMemo(() => ({
+        width: avatarCropNaturalSize.width * avatarCropBaseScale,
+        height: avatarCropNaturalSize.height * avatarCropBaseScale,
+    }), [avatarCropNaturalSize.width, avatarCropNaturalSize.height, avatarCropBaseScale]);
+
+    const clampAvatarOffset = (nextX: number, nextY: number) => {
+        const maxX = Math.max(0, (avatarCropRenderedSize.width - avatarCropViewport.width) / 2);
+        const maxY = Math.max(0, (avatarCropRenderedSize.height - avatarCropViewport.height) / 2);
+        return {
+            x: Math.min(maxX, Math.max(-maxX, nextX)),
+            y: Math.min(maxY, Math.max(-maxY, nextY)),
+        };
+    };
+
+    const closeAvatarCropModal = () => {
+        if (avatarCropSourceUrl) {
+            URL.revokeObjectURL(avatarCropSourceUrl);
+        }
+        setAvatarCropOpen(false);
+        setAvatarCropSourceUrl("");
+        setAvatarCropOffset({ x: 0, y: 0 });
+        setAvatarCropDragging(false);
+        avatarCropDragStartRef.current = null;
+    };
+
+    const submitCroppedAvatar = async () => {
+        if (!avatarCropSourceUrl || avatarCropBusy) return;
+        setAvatarCropBusy(true);
+        try {
+            const outputSize = 800;
+            const canvas = document.createElement("canvas");
+            canvas.width = outputSize;
+            canvas.height = outputSize;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("canvas");
+
+            const cropScaleX = outputSize / avatarCropViewport.width;
+            const cropScaleY = outputSize / avatarCropViewport.height;
+            const drawWidth = avatarCropRenderedSize.width * cropScaleX;
+            const drawHeight = avatarCropRenderedSize.height * cropScaleY;
+            const drawX = ((avatarCropViewport.width - avatarCropRenderedSize.width) / 2 + avatarCropOffset.x) * cropScaleX;
+            const drawY = ((avatarCropViewport.height - avatarCropRenderedSize.height) / 2 + avatarCropOffset.y) * cropScaleY;
+
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("image"));
+                img.src = avatarCropSourceUrl;
+            });
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+            if (!blob) throw new Error("blob");
+
+            const previewUrl = URL.createObjectURL(blob);
+            setProfileData((prev) => ({ ...prev, photo: previewUrl }));
+
+            const formData = new FormData();
+            formData.append("avatar", new File([blob], `avatar-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            const response = await fetch("/api/profile/avatar/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "fail");
+            if (data.avatar) {
+                URL.revokeObjectURL(previewUrl);
+                setProfileData((prev) => ({ ...prev, photo: String(data.avatar) }));
+            }
+            closeAvatarCropModal();
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setAvatarCropBusy(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!avatarCropOpen) return;
+        const viewport = avatarCropViewportRef.current;
+        if (!viewport) return;
+        const updateViewport = () => {
+            const rect = viewport.getBoundingClientRect();
+            setAvatarCropViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) });
+        };
+        updateViewport();
+        const observer = new ResizeObserver(updateViewport);
+        observer.observe(viewport);
+        window.addEventListener("resize", updateViewport);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updateViewport);
+        };
+    }, [avatarCropOpen]);
+
+    useEffect(() => {
+        if (!avatarCropOpen) return;
+        setAvatarCropOffset((prev) => clampAvatarOffset(prev.x, prev.y));
+    }, [avatarCropOpen, avatarCropRenderedSize.width, avatarCropRenderedSize.height, avatarCropViewport.width, avatarCropViewport.height]);
+
+    const COVER_CROP_ASPECT = 16 / 5;
+    const cropBaseScale = useMemo(() => {
+        if (coverCropViewport.width <= 0 || coverCropViewport.height <= 0) return 1;
+        const sx = coverCropViewport.width / coverCropNaturalSize.width;
+        const sy = coverCropViewport.height / coverCropNaturalSize.height;
+        return Math.max(sx, sy);
+    }, [coverCropViewport.width, coverCropViewport.height, coverCropNaturalSize.width, coverCropNaturalSize.height]);
+
+    const cropRenderedSize = useMemo(() => ({
+        width: coverCropNaturalSize.width * cropBaseScale,
+        height: coverCropNaturalSize.height * cropBaseScale,
+    }), [coverCropNaturalSize.width, coverCropNaturalSize.height, cropBaseScale]);
+
+    const clampCoverOffset = (nextX: number, nextY: number) => {
+        const maxX = Math.max(0, (cropRenderedSize.width - coverCropViewport.width) / 2);
+        const maxY = Math.max(0, (cropRenderedSize.height - coverCropViewport.height) / 2);
+        return {
+            x: Math.min(maxX, Math.max(-maxX, nextX)),
+            y: Math.min(maxY, Math.max(-maxY, nextY)),
+        };
+    };
+
+    const closeCoverCropModal = () => {
+        if (coverCropSourceUrl) {
+            URL.revokeObjectURL(coverCropSourceUrl);
+        }
+        setCoverCropOpen(false);
+        setCoverCropSourceUrl("");
+        setCoverCropOffset({ x: 0, y: 0 });
+        setCoverCropDragging(false);
+        coverCropDragStartRef.current = null;
+    };
+
+    const submitCroppedCover = async () => {
+        if (!coverCropSourceUrl || coverCropBusy) return;
+        setCoverCropBusy(true);
+        try {
+            const outputWidth = 1600;
+            const outputHeight = Math.round(outputWidth / COVER_CROP_ASPECT);
+            const canvas = document.createElement("canvas");
+            canvas.width = outputWidth;
+            canvas.height = outputHeight;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("canvas");
+            const cropScaleX = outputWidth / coverCropViewport.width;
+            const cropScaleY = outputHeight / coverCropViewport.height;
+            const drawWidth = cropRenderedSize.width * cropScaleX;
+            const drawHeight = cropRenderedSize.height * cropScaleY;
+            const drawX = ((coverCropViewport.width - cropRenderedSize.width) / 2 + coverCropOffset.x) * cropScaleX;
+            const drawY = ((coverCropViewport.height - cropRenderedSize.height) / 2 + coverCropOffset.y) * cropScaleY;
+
+            const img = new Image();
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("image"));
+                img.src = coverCropSourceUrl;
+            });
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+            if (!blob) throw new Error("blob");
+
+            const previewUrl = URL.createObjectURL(blob);
+            setProfileData((prev) => ({ ...prev, coverPhoto: previewUrl }));
+
+            const formData = new FormData();
+            formData.append("cover", new File([blob], `cover-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            const response = await fetch("/api/profile/cover/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "fail");
+            if (data.coverPhoto) {
+                URL.revokeObjectURL(previewUrl);
+                setProfileData((prev) => ({ ...prev, coverPhoto: String(data.coverPhoto) }));
+            }
+            closeCoverCropModal();
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setCoverCropBusy(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!coverCropOpen) return;
+        const viewport = coverCropViewportRef.current;
+        if (!viewport) return;
+        const updateViewport = () => {
+            const rect = viewport.getBoundingClientRect();
+            setCoverCropViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) });
+        };
+        updateViewport();
+        const observer = new ResizeObserver(updateViewport);
+        observer.observe(viewport);
+        window.addEventListener("resize", updateViewport);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updateViewport);
+        };
+    }, [coverCropOpen]);
+
+    useEffect(() => {
+        if (!coverCropOpen) return;
+        setCoverCropOffset((prev) => clampCoverOffset(prev.x, prev.y));
+    }, [coverCropOpen, cropRenderedSize.width, cropRenderedSize.height, coverCropViewport.width, coverCropViewport.height]);
+
+    const handleGalleryAdd = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (profileData.gallery.length >= 24) {
+            alert(t("profile.galleryLimit"));
+            e.target.value = "";
+            return;
+        }
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("caption", "");
+        setGalleryUploadInProgress((prev) => prev + 1);
+        try {
+            const response = await fetch("/api/profile/gallery/", {
+                method: "POST",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                alert(typeof data.detail === "string" ? data.detail : t("profile.errorUploadingAvatar"));
+                e.target.value = "";
+                return;
+            }
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: [
+                    ...prev.gallery,
+                    {
+                        id: Number(data.id),
+                        url: String(data.url || ""),
+                        caption: String(data.caption || ""),
+                    },
+                ],
+            }));
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+        } finally {
+            setGalleryUploadInProgress((prev) => Math.max(0, prev - 1));
+            e.target.value = "";
+        }
+    };
+
+    const deleteGalleryPhoto = async (photoId: number): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/profile/gallery/${photoId}/`, {
+                method: "DELETE",
+                credentials: "include",
+                headers: { "X-CSRFToken": getCsrfToken() },
+            });
+            if (!response.ok) throw new Error();
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: prev.gallery.filter((g) => g.id !== photoId),
+            }));
+            return true;
+        } catch {
+            alert(t("profile.errorUploadingAvatar"));
+            return false;
+        }
+    };
+
+    const saveGalleryCaption = async (photoId: number, caption: string): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/profile/gallery/${photoId}/`, {
+                method: "PATCH",
+                credentials: "include",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ caption: caption.slice(0, 200) }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                alert(typeof data.detail === "string" ? data.detail : t("profile.linkNotAllowedInCaption"));
+                return false;
+            }
+            setProfileData((prev) => ({
+                ...prev,
+                gallery: prev.gallery.map((g) =>
+                    g.id === photoId ? { ...g, caption: String(data.caption ?? caption) } : g,
+                ),
+            }));
+            return true;
+        } catch {
+            alert(t("profile.errorSavingProfile"));
+            return false;
+        }
     };
 
     const toggleLanguage = (langCode: string) => {
@@ -910,6 +1354,7 @@ export default function ProfilePage() {
 
       try {
         setIsSaving(true);
+        setSaveErrorMessage("");
 
                 const response = await fetch("/api/profile/", {
           method: "POST",
@@ -925,7 +1370,34 @@ export default function ProfilePage() {
         });
 
         if (!response.ok) {
-          throw new Error("Profile save failed");
+          let detail = "";
+          try {
+            const payload = await response.json();
+            detail = String(payload?.detail || payload?.error || "").trim();
+          } catch {
+            detail = "";
+          }
+
+          if (response.status === 401) {
+            throw new Error(t("profile.errorNotAuthenticated"));
+          }
+
+          if (detail === "Invalid JSON") {
+            throw new Error(t("profile.errorInvalidFormData"));
+          }
+          if (detail === "Invalid university") {
+            throw new Error(t("profile.errorInvalidUniversity"));
+          }
+          if (detail === "University must be selected before faculty") {
+            throw new Error(t("profile.errorUniversityRequiredForFaculty"));
+          }
+          if (detail === "Invalid faculty for selected university") {
+            throw new Error(t("profile.errorInvalidFaculty"));
+          }
+          if (detail) {
+            throw new Error(detail);
+          }
+          throw new Error(t("profile.errorSavingProfile"));
         }
 
                 const responseData = await response.json();
@@ -943,10 +1415,12 @@ export default function ProfilePage() {
 
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+        setSaveErrorMessage("");
 
       } catch (err) {
         console.error("Save error:", err);
-        alert(t("profile.errorSavingProfile"));
+        const message = err instanceof Error ? err.message : t("profile.errorSavingProfile");
+        setSaveErrorMessage(message);
       } finally {
         setIsSaving(false);
       }
@@ -1060,9 +1534,11 @@ export default function ProfilePage() {
                                     className="transition-all duration-700 ease-out"
                                 />
                             </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
                                 <span className="text-[34px] max-[770px]:text-[30px] font-extrabold leading-none text-[#C505EB]">{completionPercent}%</span>
-                                <span className="text-[11px] uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t("profile.completion")}</span>
+                                <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
+                                    {t("profile.completion")}
+                                </span>
                             </div>
                         </div>
 
@@ -1076,49 +1552,48 @@ export default function ProfilePage() {
                                     .replace("{{missing}}", String(profileCompletion.missingCount || 0))
                                     .replace("{{total}}", String(profileCompletion.totalFields || 0))}
                             </p>
-                            {profileCompletion.missingFields.length > 0 ? (
-                                <div className="mt-3">
-                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2">
-                                        {t("profile.completionMissingListTitle")}
-                                    </p>
-                                    <ul className="grid grid-cols-1 min-[1025px]:grid-cols-2 gap-1.5 text-sm max-[770px]:text-xs text-gray-700 dark:text-gray-200">
-                                        {profileCompletion.missingFields.map((item, index) => {
-                                            const key = profileCompletion.missingFieldKeys[index] || "";
-                                            const localized = key ? t(`profile.completionFields.${key}`) : "";
-                                            const displayValue = localized && localized !== `profile.completionFields.${key}` ? localized : item;
-                                            return (
-                                            <li key={`missing-field-${index}`} className="flex items-start gap-2">
-                                                <span className="mt-1 inline-block w-1.5 h-1.5 rounded-full bg-[#C505EB]" />
-                                                <span>{displayValue}</span>
-                                            </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <p className="text-sm font-semibold text-green-600 dark:text-green-400 mt-3">
+                            {profileCompletion.missingCount === 0 ? (
+                                <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
                                     {t("profile.completionNoMissing")}
                                 </p>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </div>
 
-                {/* Section Tabs - Desktop */}
-                <div className={`hidden min-[771px]:flex flex-wrap items-center gap-2 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
-                    {sections.map((section) => (
-                        <button
-                            key={section.key}
-                            onClick={() => setActiveSection(section.key)}
-                            className={`px-6 py-3 rounded-lg font-semibold text-lg whitespace-nowrap transition-all duration-300 ${
-                                activeSection === section.key
-                                    ? "bg-[#C505EB] text-white shadow-md"
-                                    : "text-gray-600 dark:text-gray-400 hover:text-[#C505EB]"
-                            }`}
-                        >
-                            {section.label}
-                        </button>
-                    ))}
+                {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
+                <div className="mb-6 hidden min-[771px]:block">
+                    <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                        {sections.map((section) => {
+                            const miss = sectionMissingCounts[section.key];
+                            const active = activeSection === section.key;
+                            return (
+                                <button
+                                    key={section.key}
+                                    type="button"
+                                    onClick={() => setActiveSection(section.key)}
+                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-semibold whitespace-nowrap transition-all duration-300 ${
+                                        active
+                                            ? "bg-[#C505EB] text-white shadow-md"
+                                            : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
+                                    }`}
+                                >
+                                    <span>{section.label}</span>
+                                    {miss > 0 ? (
+                                        <span
+                                            className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+                                                active
+                                                    ? "bg-white/25 text-white"
+                                                    : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
+                                            }`}
+                                        >
+                                            {miss > 99 ? "99+" : miss}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Section Tabs - Mobile (Carousel) */}
@@ -1135,11 +1610,18 @@ export default function ProfilePage() {
                         <ChevronLeft size={20} />
                     </button>
                     
-                    <div className={`flex-1 flex items-center justify-center px-4`}>
-                        <span className={`text-base font-semibold text-[#C505EB]`}>
+                    <div className="flex flex-1 items-center justify-center gap-2 px-2">
+                        <span className="text-base font-semibold text-[#C505EB]">
                             {sections[currentSectionIndex].label}
                         </span>
-                        <span className={`ml-2 text-xs text-gray-500`}>
+                        {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
+                            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
+                                {sectionMissingCounts[sections[currentSectionIndex].key] > 99
+                                    ? "99+"
+                                    : sectionMissingCounts[sections[currentSectionIndex].key]}
+                            </span>
+                        ) : null}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                             ({currentSectionIndex + 1}/{sections.length})
                         </span>
                     </div>
@@ -1163,31 +1645,138 @@ export default function ProfilePage() {
                     {/* Основная информация */}
                     {activeSection === "basic" && (
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
-                            {/* Photo Upload */}
-                            <div className={`flex flex-col items-center gap-4 max-[770px]:gap-3`}>
-                                <div className={`relative`}>
-                                    <div className={`w-40 h-40 max-[770px]:w-32 max-[770px]:h-32 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-4 border-[#C505EB]`}>
-                                        {profileData.photo ? (
-                                            <img src={profileData.photo} alt="Profile" className={`w-full h-full object-cover`} />
-                                        ) : (
-                                            <User size={80} className={`max-[770px]:w-16 max-[770px]:h-16 text-gray-400`} />
-                                        )}
-                                    </div>
+                            {/* Обложка + аватар (стиль профиля) */}
+                            <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-600 dark:bg-zinc-900/50">
+                                {profileData.coverPhoto ? (
+                                    <>
+                                        <img
+                                            src={getImageUrl(profileData.coverPhoto)}
+                                            alt=""
+                                            className="absolute inset-0 h-full w-full object-cover"
+                                        />
+                                        <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
+                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
+                                    </>
+                                ) : null}
+                                <div
+                                    className={`relative h-36 w-full min-[480px]:h-44 ${
+                                        profileData.coverPhoto
+                                            ? ""
+                                            : "bg-gradient-to-br from-[#C505EB]/20 via-zinc-200 to-[#08E2BE]/15 dark:from-[#C505EB]/10 dark:via-zinc-800 dark:to-[#08E2BE]/10"
+                                    }`}
+                                >
+                                    {profileData.coverPhoto ? (
+                                        <div className="absolute inset-0" />
+                                    ) : null}
                                     <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`absolute bottom-0 right-0 w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full bg-[#C505EB] flex items-center justify-center hover:bg-[#BA00F8] transition-colors shadow-lg`}
+                                        type="button"
+                                        onClick={() => coverInputRef.current?.click()}
+                                        className="absolute bottom-2 right-2 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
                                     >
-                                        <Camera size={24} className={`max-[770px]:w-5 max-[770px]:h-5 text-white`} />
+                                        <ImagePlus size={18} />
+                                        {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
                                     </button>
                                     <input
-                                        ref={fileInputRef}
+                                        ref={coverInputRef}
                                         type="file"
                                         accept="image/*"
-                                        onChange={handlePhotoUpload}
-                                        className={`hidden`}
+                                        className="hidden"
+                                        onChange={handleCoverUpload}
                                     />
                                 </div>
-                                <span className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400 text-center px-4`}>{t("profile.photoHint")}</span>
+                                <div className="relative flex flex-col items-center px-4 pb-5 pt-0">
+                                    <div className="-mt-14 flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-lg dark:border-gray-800 dark:bg-gray-700 min-[480px]:h-32 min-[480px]:w-32">
+                                                {profileData.photo ? (
+                                                    <img
+                                                        src={profileData.photo}
+                                                        alt="Profile"
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <User size={56} className="text-gray-400" />
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-[#C505EB] shadow-lg transition-colors hover:bg-[#BA00F8]"
+                                            >
+                                                <Camera size={20} className="text-white" />
+                                            </button>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handlePhotoUpload}
+                                                className="hidden"
+                                            />
+                                        </div>
+                                        <p className="mt-2 max-w-md text-center text-xs text-gray-600 dark:text-gray-400">
+                                            {t("profile.photoHint")}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-center text-sm text-gray-500 dark:text-gray-400">{t("profile.coverHint")}</p>
+
+                            {/* Галерея */}
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-lg font-bold">{t("profile.gallery.title")}</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => galleryInputRef.current?.click()}
+                                        disabled={profileData.gallery.length >= 24}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-[#C505EB] px-3 py-2 text-sm font-semibold text-[#C505EB] transition hover:bg-[#C505EB]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <ImagePlus size={18} />
+                                        {t("profile.addGalleryPhoto")}
+                                    </button>
+                                    <input
+                                        ref={galleryInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleGalleryAdd}
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{t("profile.captionOptional")}</p>
+                                <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-5">
+                                    {profileData.gallery.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setGalleryModalItem(item);
+                                                setGalleryModalCaption(item.caption);
+                                            }}
+                                            className="group relative aspect-square overflow-hidden rounded-md bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[#C505EB] focus:ring-offset-2 dark:bg-gray-700 dark:focus:ring-offset-gray-900"
+                                        >
+                                            <img
+                                                src={getImageUrl(item.url)}
+                                                alt=""
+                                                className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                                            />
+                                            {item.caption ? (
+                                                <span className="pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-6 text-left text-[10px] font-medium leading-tight text-white opacity-0 transition group-hover:opacity-100 sm:text-[11px]">
+                                                    {item.caption}
+                                                </span>
+                                            ) : null}
+                                        </button>
+                                    ))}
+                                    {galleryUploadInProgress > 0 ? (
+                                        <div className="relative aspect-square overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
+                                                <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/70 border-t-[#C505EB]" />
+                                                <span className="px-1 text-center text-[10px] font-semibold text-white sm:text-[11px]">
+                                                    {t("loading")}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
 
                             {/* Name */}
@@ -1268,6 +1857,67 @@ export default function ProfilePage() {
                               </select>
                             </div>
 
+                            {/* Location City and Address */}
+                            <div className={`flex max-[770px]:flex-col gap-4`}>
+                                <div className={`flex-1 flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.locationCity")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.locationCity}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, locationCity: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.locationCityPlaceholder")}
+                                    />
+                                </div>
+
+                                <div className={`flex-1 flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.locationAddress")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.locationAddress}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, locationAddress: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.locationAddressPlaceholder")}
+                                    />
+                                </div>
+                            </div>
+
+                            {!showUniversityFields ? (
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUniversityFields(true)}
+                                        className={`h-[56px] max-[770px]:h-[48px] px-5 max-[770px]:px-4 rounded-xl border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB] hover:text-white duration-300 font-semibold`}
+                                    >
+                                        {t("profile.selectUniversityButton")}
+                                    </button>
+                                </div>
+                            ) : (
+                            <>
+                            <div className={`flex`}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowUniversityFields(false);
+                                        setUniversityInput("");
+                                        setFacultyInput("");
+                                        setUniversityDropdownOpen(false);
+                                        setFacultyDropdownOpen(false);
+                                        setUniversitySuggestions([]);
+                                        setFacultySuggestions([]);
+                                        setProfileData(prev => ({
+                                            ...prev,
+                                            universityId: null,
+                                            universityName: "",
+                                            facultyId: null,
+                                            facultyName: "",
+                                        }));
+                                    }}
+                                    className={`h-[56px] max-[770px]:h-[48px] px-5 max-[770px]:px-4 rounded-xl border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB] hover:text-white duration-300 font-semibold`}
+                                >
+                                    {t("profile.hideUniversityButton")}
+                                </button>
+                            </div>
                             <div className={`flex max-[770px]:flex-col gap-4`}>
                                 <div ref={universityAutocompleteRef} className={`flex-1 w-full flex flex-col gap-2 relative`}>
                                     <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.university")}</label>
@@ -1365,6 +2015,8 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                             </div>
+                            </>
+                            )}
 
                             <div className={`flex max-[770px]:flex-col gap-4 items-end`}>
                                 <div className={`flex-1 w-full flex flex-col gap-2`}>
@@ -1384,6 +2036,29 @@ export default function ProfilePage() {
                                 >
                                     {showAddressPicker ? t("profile.hideAddressPicker") : t("profile.setAddress")}
                                 </button>
+                            </div>
+
+                            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4`}>
+                                <div className={`flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.instagram")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.instagram}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, instagram: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.instagramPlaceholder")}
+                                    />
+                                </div>
+                                <div className={`flex flex-col gap-2`}>
+                                    <label className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.facebook")}</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.facebook}
+                                        onChange={(e) => setProfileData(prev => ({ ...prev, facebook: e.target.value }))}
+                                        className={`w-full h-[56px] max-[770px]:h-[48px] border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-[#C505EB] duration-300 outline-0 rounded-xl px-5 max-[770px]:px-4 text-base max-[770px]:text-sm`}
+                                        placeholder={t("profile.facebookPlaceholder")}
+                                    />
+                                </div>
                             </div>
 
                             {showAddressPicker && (
@@ -1822,6 +2497,25 @@ export default function ProfilePage() {
                                 </button>
                             </div>
 
+                            <div className="flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+                                <div className="w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-500">
+                                    <Crown size={24} className="max-[770px]:w-5 max-[770px]:h-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg max-[770px]:text-base font-bold">{t("profile.monetizationTitle")}</h3>
+                                    <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300">
+                                        {t("profile.monetizationSubtitle")}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/profile/plans")}
+                                    className="px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 bg-amber-500 text-white hover:bg-amber-600"
+                                >
+                                    {t("profile.openPlans")}
+                                </button>
+                            </div>
+
                         </div>
                     )}
 
@@ -1854,11 +2548,12 @@ export default function ProfilePage() {
                             )}
                             {!favLoading && favListings.length > 0 && (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {favListings.map((listing) => (
                                             <SaleCard
                                                 key={listing.id}
                                                 {...convertToSaleCardType(listing)}
+                                                compactGrid
                                                 onRemoveFavorite={() => handleRemoveFavorite(listing.id, listing.type)}
                                             />
                                         ))}
@@ -1867,7 +2562,12 @@ export default function ProfilePage() {
                                         <div className="flex justify-center gap-2 mt-4">
                                             <button
                                                 disabled={favPage === 1}
-                                                onClick={() => setFavPage(Math.max(1, favPage - 1))}
+                                                onClick={() => {
+                                                    const p = Math.max(1, favPage - 1);
+                                                    if (p === favPage) return;
+                                                    setFavPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                             >
                                                 {t("previous")}
@@ -1876,7 +2576,11 @@ export default function ProfilePage() {
                                                 {Array.from({ length: favTotalPages }, (_, i) => i + 1).map((page) => (
                                                     <button
                                                         key={page}
-                                                        onClick={() => setFavPage(page)}
+                                                        onClick={() => {
+                                                            if (page === favPage) return;
+                                                            setFavPage(page);
+                                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                                        }}
                                                         className={`px-3 py-2 rounded-lg ${
                                                             favPage === page ? "bg-blue-600 text-white" : "bg-white border hover:bg-gray-50"
                                                         }`}
@@ -1887,7 +2591,12 @@ export default function ProfilePage() {
                                             </div>
                                             <button
                                                 disabled={favPage === favTotalPages}
-                                                onClick={() => setFavPage(Math.min(favTotalPages, favPage + 1))}
+                                                onClick={() => {
+                                                    const p = Math.min(favTotalPages, favPage + 1);
+                                                    if (p === favPage) return;
+                                                    setFavPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                             >
                                                 {t("next")}
@@ -1928,15 +2637,18 @@ export default function ProfilePage() {
                             )}
                             {!myListingsLoading && myListings.length > 0 && (
                                 <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 justify-items-center">
+                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {myListings.map((listing) => (
                                             <div
                                                 key={listing.id}
                                                 onClick={handleMyListingsCardClick}
-                                                className={listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""}
+                                                className={`w-[256px] min-[480px]:w-[272px] lg:w-[288px] xl:w-[300px] ${
+                                                    listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""
+                                                }`}
                                             >
                                                 <SaleCard
                                                     {...convertToSaleCardType(listing)}
+                                                    compactGrid
                                                     linkState={{ profileTab: "myListings" }}
                                                 />
                                             </div>
@@ -1946,7 +2658,12 @@ export default function ProfilePage() {
                                         <div className="flex justify-center gap-2 mt-4">
                                             <button
                                                 disabled={myListingsPage === 1}
-                                                onClick={() => setMyListingsPage(Math.max(1, myListingsPage - 1))}
+                                                onClick={() => {
+                                                    const p = Math.max(1, myListingsPage - 1);
+                                                    if (p === myListingsPage) return;
+                                                    setMyListingsPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                                             >
                                                 {t("previous")}
@@ -1955,7 +2672,11 @@ export default function ProfilePage() {
                                                 {Array.from({ length: myListingsTotalPages }, (_, i) => i + 1).map((page) => (
                                                     <button
                                                         key={page}
-                                                        onClick={() => setMyListingsPage(page)}
+                                                        onClick={() => {
+                                                            if (page === myListingsPage) return;
+                                                            setMyListingsPage(page);
+                                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                                        }}
                                                         className={`px-3 py-2 rounded-lg ${
                                                             myListingsPage === page ? "bg-[#C505EB] text-white" : "bg-white dark:bg-gray-700 border dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                                                         }`}
@@ -1966,7 +2687,12 @@ export default function ProfilePage() {
                                             </div>
                                             <button
                                                 disabled={myListingsPage === myListingsTotalPages}
-                                                onClick={() => setMyListingsPage(Math.min(myListingsTotalPages, myListingsPage + 1))}
+                                                onClick={() => {
+                                                    const p = Math.min(myListingsTotalPages, myListingsPage + 1);
+                                                    if (p === myListingsPage) return;
+                                                    setMyListingsPage(p);
+                                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                                }}
                                                 className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                                             >
                                                 {t("next")}
@@ -2068,10 +2794,30 @@ export default function ProfilePage() {
                                         >
                                             {creatingInvite ? t("profile.creatingInvite") : t("profile.invite")}
                                         </button>
+                                        <button
+                                            onClick={handleInviteByQr}
+                                            disabled={creatingInvite}
+                                            className="px-6 py-3 rounded-lg border border-[#C505EB] text-[#C505EB] hover:bg-[#C505EB]/10 disabled:opacity-60"
+                                        >
+                                            {t("profile.inviteByQr")}
+                                        </button>
                                     </div>
+                                    {inviteFeedback && (
+                                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                                            {inviteFeedback}
+                                        </div>
+                                    )}
+                                    {inviteError && (
+                                        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                            {inviteError}
+                                        </div>
+                                    )}
 
                                     <button
-                                        onClick={handleLeaveHome}
+                                        onClick={() => {
+                                            setLeaveHomeErrorMessage(null);
+                                            setIsLeaveHomeModalOpen(true);
+                                        }}
                                         disabled={leavingHome}
                                         className="px-6 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
                                     >
@@ -2084,7 +2830,12 @@ export default function ProfilePage() {
 
                     {/* Save Button */}
                     {activeSection !== "favorites" && activeSection !== "myListings" && activeSection !== "myHome" && (
-                        <div className={`mt-8 max-[770px]:mt-6 flex justify-end max-[770px]:justify-center`}>
+                        <div className={`mt-8 max-[770px]:mt-6 flex flex-col items-end max-[770px]:items-stretch gap-3`}>
+                            {saveErrorMessage && (
+                                <div className={`w-full min-[771px]:w-auto px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-medium`}>
+                                    {saveErrorMessage}
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleSave}
@@ -2107,6 +2858,389 @@ export default function ProfilePage() {
                     )}
                 </div>
             </div>
+            {avatarCropOpen && (
+                <div className="fixed inset-0 z-[77] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/70"
+                        onClick={() => {
+                            if (!avatarCropBusy) closeAvatarCropModal();
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h3 className="text-lg font-bold text-[#333333] dark:text-white">
+                                {t("profile.photoHint")}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!avatarCropBusy) closeAvatarCropModal();
+                                }}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                aria-label={t("profile.closeQrModal")}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 flex justify-center rounded-2xl border border-gray-200 bg-zinc-100 p-4 dark:border-gray-700 dark:bg-zinc-800/60">
+                            <div
+                                ref={avatarCropViewportRef}
+                                className="relative h-[320px] w-[320px] max-w-full cursor-grab active:cursor-grabbing overflow-hidden rounded-full"
+                                onPointerDown={(e) => {
+                                    if (avatarCropBusy) return;
+                                    const target = e.currentTarget;
+                                    target.setPointerCapture(e.pointerId);
+                                    avatarCropDragStartRef.current = {
+                                        pointerX: e.clientX,
+                                        pointerY: e.clientY,
+                                        x: avatarCropOffset.x,
+                                        y: avatarCropOffset.y,
+                                    };
+                                    setAvatarCropDragging(true);
+                                }}
+                                onPointerMove={(e) => {
+                                    const start = avatarCropDragStartRef.current;
+                                    if (!start) return;
+                                    const next = clampAvatarOffset(
+                                        start.x + (e.clientX - start.pointerX),
+                                        start.y + (e.clientY - start.pointerY),
+                                    );
+                                    setAvatarCropOffset(next);
+                                }}
+                                onPointerUp={(e) => {
+                                    e.currentTarget.releasePointerCapture(e.pointerId);
+                                    avatarCropDragStartRef.current = null;
+                                    setAvatarCropDragging(false);
+                                }}
+                                onPointerCancel={() => {
+                                    avatarCropDragStartRef.current = null;
+                                    setAvatarCropDragging(false);
+                                }}
+                            >
+                                {avatarCropSourceUrl ? (
+                                    <img
+                                        src={avatarCropSourceUrl}
+                                        alt=""
+                                        draggable={false}
+                                        className={`pointer-events-none absolute select-none ${avatarCropDragging ? "" : "transition-transform duration-75"}`}
+                                        style={{
+                                            width: `${avatarCropRenderedSize.width}px`,
+                                            height: `${avatarCropRenderedSize.height}px`,
+                                            left: `${(avatarCropViewport.width - avatarCropRenderedSize.width) / 2 + avatarCropOffset.x}px`,
+                                            top: `${(avatarCropViewport.height - avatarCropRenderedSize.height) / 2 + avatarCropOffset.y}px`,
+                                            objectFit: "cover",
+                                        }}
+                                    />
+                                ) : null}
+                                <div className="pointer-events-none absolute inset-0 rounded-full border-2 border-white/80 ring-1 ring-black/20" />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={avatarCropBusy}
+                                onClick={closeAvatarCropModal}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={avatarCropBusy}
+                                onClick={() => void submitCroppedAvatar()}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {avatarCropBusy ? t("profile.saving") : t("profile.save")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {coverCropOpen && (
+                <div className="fixed inset-0 z-[76] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/70"
+                        onClick={() => {
+                            if (!coverCropBusy) closeCoverCropModal();
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h3 className="text-lg font-bold text-[#333333] dark:text-white">
+                                {t("profile.changeCover")}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!coverCropBusy) closeCoverCropModal();
+                                }}
+                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                aria-label={t("profile.closeQrModal")}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-zinc-100 dark:border-gray-700 dark:bg-zinc-800/60">
+                            <div
+                                ref={coverCropViewportRef}
+                                className="relative mx-auto w-full max-w-[920px] aspect-[16/5] cursor-grab active:cursor-grabbing"
+                                onPointerDown={(e) => {
+                                    if (coverCropBusy) return;
+                                    const target = e.currentTarget;
+                                    target.setPointerCapture(e.pointerId);
+                                    coverCropDragStartRef.current = {
+                                        pointerX: e.clientX,
+                                        pointerY: e.clientY,
+                                        x: coverCropOffset.x,
+                                        y: coverCropOffset.y,
+                                    };
+                                    setCoverCropDragging(true);
+                                }}
+                                onPointerMove={(e) => {
+                                    const start = coverCropDragStartRef.current;
+                                    if (!start) return;
+                                    const next = clampCoverOffset(
+                                        start.x + (e.clientX - start.pointerX),
+                                        start.y + (e.clientY - start.pointerY),
+                                    );
+                                    setCoverCropOffset(next);
+                                }}
+                                onPointerUp={(e) => {
+                                    e.currentTarget.releasePointerCapture(e.pointerId);
+                                    coverCropDragStartRef.current = null;
+                                    setCoverCropDragging(false);
+                                }}
+                                onPointerCancel={() => {
+                                    coverCropDragStartRef.current = null;
+                                    setCoverCropDragging(false);
+                                }}
+                            >
+                                {coverCropSourceUrl ? (
+                                    <img
+                                        src={coverCropSourceUrl}
+                                        alt=""
+                                        draggable={false}
+                                        className={`pointer-events-none absolute select-none ${coverCropDragging ? "" : "transition-transform duration-75"}`}
+                                        style={{
+                                            width: `${cropRenderedSize.width}px`,
+                                            height: `${cropRenderedSize.height}px`,
+                                            left: `${(coverCropViewport.width - cropRenderedSize.width) / 2 + coverCropOffset.x}px`,
+                                            top: `${(coverCropViewport.height - cropRenderedSize.height) / 2 + coverCropOffset.y}px`,
+                                            objectFit: "cover",
+                                        }}
+                                    />
+                                ) : null}
+                                <div className="pointer-events-none absolute inset-0 border-2 border-white/70" />
+                            </div>
+                        </div>
+
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            {t("profile.coverHint")}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={coverCropBusy}
+                                onClick={closeCoverCropModal}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={coverCropBusy}
+                                onClick={() => void submitCroppedCover()}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {coverCropBusy ? t("profile.saving") : t("profile.save")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {galleryModalItem && (
+                <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/60"
+                        onClick={() => {
+                            if (!galleryModalBusy) {
+                                setGalleryModalItem(null);
+                                setGalleryModalCaption("");
+                            }
+                        }}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div
+                        className="relative w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!galleryModalBusy) {
+                                    setGalleryModalItem(null);
+                                    setGalleryModalCaption("");
+                                }
+                            }}
+                            className="absolute right-3 top-3 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <div className="mb-4 max-h-[min(50vh,320px)] overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
+                            <img
+                                src={getImageUrl(galleryModalItem.url)}
+                                alt=""
+                                className="mx-auto max-h-[min(50vh,320px)] w-full object-contain"
+                            />
+                        </div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            {t("profile.captionOptional")}
+                        </label>
+                        <textarea
+                            value={galleryModalCaption}
+                            onChange={(e) => setGalleryModalCaption(e.target.value)}
+                            rows={3}
+                            maxLength={200}
+                            className="mb-4 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                            placeholder={t("profile.captionOptional")}
+                        />
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={galleryModalBusy}
+                                onClick={async () => {
+                                    setGalleryModalBusy(true);
+                                    const ok = await deleteGalleryPhoto(galleryModalItem.id);
+                                    setGalleryModalBusy(false);
+                                    if (ok) {
+                                        setGalleryModalItem(null);
+                                        setGalleryModalCaption("");
+                                    }
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            >
+                                <Trash2 size={16} />
+                                {t("profile.removePhoto")}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={galleryModalBusy}
+                                onClick={async () => {
+                                    setGalleryModalBusy(true);
+                                    const ok = await saveGalleryCaption(
+                                        galleryModalItem.id,
+                                        galleryModalCaption.trim(),
+                                    );
+                                    setGalleryModalBusy(false);
+                                    if (ok) {
+                                        setGalleryModalItem(null);
+                                        setGalleryModalCaption("");
+                                    }
+                                }}
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                            >
+                                {galleryModalBusy ? t("profile.saving") : t("profile.saveCaption")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isQrModalOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => setIsQrModalOpen(false)}
+                        aria-label={t("profile.closeQrModal")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsQrModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.closeQrModal")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            {t("profile.inviteByQr")}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            {t("profile.scanQrHint")}
+                        </p>
+                        <div className="mx-auto w-64 h-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white p-3">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(inviteQrLink)}`}
+                                alt={t("profile.inviteByQr")}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isLeaveHomeModalOpen && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => setIsLeaveHomeModalOpen(false)}
+                        aria-label={t("profile.leaveHome")}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsLeaveHomeModalOpen(false)}
+                            className="absolute right-4 top-4 rounded-md p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            aria-label={t("profile.leaveHome")}
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            {t("profile.leaveHome")}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            {t("profile.leaveHomeConfirm")}
+                        </p>
+                        {leaveHomeErrorMessage && (
+                            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {leaveHomeErrorMessage}
+                            </div>
+                        )}
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsLeaveHomeModalOpen(false)}
+                                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleLeaveHome}
+                                disabled={leavingHome}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                            >
+                                {leavingHome ? t("profile.leavingHome") : t("profile.leaveHome")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

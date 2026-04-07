@@ -8,6 +8,7 @@
     "faq": "FAQ",
     "contact": "Contact",
     "addListing": "Add Listing",
+    "findNeighbor": "Find a neighbor",
     "about": "About",
     "searchPlaceholder": "Search city, school or roommate...",
     "login": "Login",
@@ -39,6 +40,32 @@
     "deleteConfirm": "Delete chat for both users? All messages will be removed.",
     "dontAskAgain": "Don't ask again",
     "shareContacts": "Share contacts",
+    "blacklist": "Blacklist",
+    "blacklistDescription": "Users you have blocked:",
+    "blacklistEmpty": "Blacklist is empty",
+    "blockUser": "Block",
+    "unblock": "Unblock",
+    "blockSuccess": "User has been blocked",
+    "blockFailed": "Failed to block user",
+    "unblockFailed": "Failed to unblock user",
+    "unblockSuccess": "User has been unblocked",
+    "blockedChatWarning": "This chat is blocked. Sending messages is unavailable.",
+    "reportUser": "Report",
+    "sendReport": "Send report",
+    "reportReasonInsult": "Insult",
+    "reportReasonThreat": "Threat",
+    "reportReasonSpam": "Spam",
+    "reportReasonFraud": "Fraud",
+    "reportReasonInappropriate": "Inappropriate content",
+    "reportReasonOther": "Other",
+    "reportDetailsPlaceholder": "Describe the situation (optional)",
+    "reportConsentTitle": "Confirm report submission",
+    "reportConsent": "By submitting a report, you consent that support staff may access this chat for review.",
+    "reportConfirm": "Confirm",
+    "reportSuccess": "Report sent",
+    "reportSuccessWithBlock": "Report sent, user blocked",
+    "reportFailed": "Failed to send report",
+    "reportAlsoBlockUser": "Also block this user",
     "contactsMessageIntro": "My contacts:",
     "contactsMessagePhone": "Phone",
     "contactsMessageEmail": "E-mail",
@@ -50,6 +77,12 @@
     "deleteError": "Failed to delete chat",
     "cancel": "Cancel"
   },
+  "neighbours": {
+    "openProfile": "Profile",
+    "saveShort": "Save",
+    "removeShort": "Remove",
+    "matchHint": "match"
+  },
   "home": {
     "title": "FlatFly, reliable co-living",
     "subtitle": "for your new life chapter.",
@@ -59,7 +92,7 @@
     },
     "heroCard2": {
       "title": "Looking for a roommate",
-      "subtitle": "Looking for a roommate"
+      "subtitle": "Find a roommate to search for housing together"
     },
     "heroCard3": {
       "title": "Offering apartment",
@@ -67,7 +100,16 @@
     },
     "aboutTitle": "Who we are",
     "aboutText1": "It all started with frustration from searching for housing on Facebook. Endless scrolling in groups, outdated listings and zero certainty about who you'll actually be living with. We told ourselves it had to be better. We wanted to create a place that wouldn't just be a bulletin board with listings, but a space that truly connects people who click.",
-    "aboutText2": "Our idea got real shape thanks to cooperation with the Innovation Center of Ústí Region (ICUK). Within the business incubator, we were able to turn our vision into a functional platform. We fine-tuned features, tested beta versions and focused on what's missing elsewhere – simplicity and trust.\n\nToday FlatFly is a ready project that helps not only students, but everyone looking for a new start. Whether you're moving for work, school, or starting a new life chapter, we want finding a home to be safe and stress-free for you."
+    "aboutText2": "Our idea got real shape thanks to cooperation with the Innovation Center of Ústí Region (ICUK). Within the business incubator, we were able to turn our vision into a functional platform. We fine-tuned features, tested beta versions and focused on what's missing elsewhere – simplicity and trust.\n\nToday FlatFly is a ready project that helps not only students, but everyone looking for a new start. Whether you're moving for work, school, or starting a new life chapter, we want finding a home to be safe and stress-free for you.",
+    "team": {
+      "founder": "Founder",
+      "designer": "Designer",
+      "it": "IT"
+    }
+  },
+  "neighboursPage": {
+    "loading": "Loading...",
+    "noResults": "No roommates found"
   },
   "filter": {
     "location": "Region",
@@ -83,7 +125,7 @@
     "propertyTypeRoom": "Room",
     "propertyTypeApartment": "Apartment",
     "propertyTypeHouse": "House",
-    "propertyTypeNeighbour": "Dormitory",
+    "propertyTypeNeighbour": "Room",
     "price": "Price",
     "priceValue": "Unlimited",
     "priceFrom": "From",
@@ -164,10 +206,11 @@
     "energyClass": "Energy Class",
     "selected": "selected",
     "moveInDatePlaceholder": "Select date",
-    "filters": "Filters",
+    "filters": "Customize filters",
     "foundListingsCount": "Found listings",
     "applyFilters": "Apply Filters",
     "resetFilters": "Reset",
+    "clearPinned": "Clear selection",
     "close": "Close",
     "writeMessage": "Write message",
     "listing.writeMessage": "Write message",
@@ -227,6 +270,11 @@
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
+    "favoriteAddedSuccess": "Saved to your favorites",
+    "morePhotosInDetail": "Open the listing to see all photos",
+    "photoGallery": "Listing photos",
+    "viewAllPhotos": "View all {count} photos",
     "share": "Share",
     "close": "Close",
     "condition": "Condition",
@@ -324,6 +372,16 @@
     ,"nearestBusStop": "Nearest Bus Stop"
     ,"nearestShop": "Nearest Shop"
     ,"nearestHospital": "Nearest Hospital"
+    ,"reportListing": "Report listing"
+    ,"sendReport": "Send report"
+    ,"reportReasonFraud": "Fraud"
+    ,"reportReasonSpam": "Spam"
+    ,"reportReasonFake": "Fake listing"
+    ,"reportReasonInappropriate": "Inappropriate content"
+    ,"reportReasonOther": "Other"
+    ,"reportDetailsPlaceholder": "Describe the issue (optional)"
+    ,"reportSuccess": "Report submitted"
+    ,"reportFailed": "Failed to submit report"
   },
   "pagination": {
     "next": "Next"
@@ -337,6 +395,7 @@
     "title": "Frequently Asked Questions",
     "loading": "Loading FAQ...",
     "empty": "No questions yet",
+    "askAnotherQuestion": "Ask another question",
     "chat": {
       "title": "FAQ Chat",
       "welcome": "Hi! Ask your question and I will pick the most relevant answer from FAQ.",
@@ -358,16 +417,22 @@
     "namePlaceholder": "e.g. John Doe",
     "email": "E-mail",
     "emailPlaceholder": "e.g. john@example.com",
+    "emailInvalid": "Please enter a valid email address",
     "message": "Message",
     "messagePlaceholder": "I need advice on...",
     "send": "Send",
-    "contacts": "Contacts"
+    "contacts": "Contacts",
+    "fillAllFields": "Please fill in all fields",
+    "sendSuccess": "Message sent successfully",
+    "sendFailed": "Failed to send",
+    "serverError": "Server error",
+    "sending": "Sending..."
   },
   "add": {
     "title": "New listing",
     "fullApartment": "House",
     "room": "Apartment",
-    "sharedRoom": "Dormitory",
+    "sharedRoom": "Room",
     "uploadPhotos": "Upload photos",
     "uploadFormat": "JPG, PNG, max 10 MB",
     "adTitle": "Listing title",
@@ -415,14 +480,52 @@
     "fillRequiredFields": "Fill required fields",
     "failedToCreateAd": "Failed to create ad",
     "failedToUploadImage": "Failed to upload image",
+    "imageRejectedByModeration": "Image did not pass moderation. The listing was not published.",
     "adSuccessfullyPublished": "Ad successfully published",
+    "alreadyBelongToHome": "You already belong to a home. Leave your current home in profile first.",
+    "leaveHomeAction": "Leave current home",
+    "leavingHomeAction": "Leaving home...",
+    "leftHomeSuccess": "You left your home successfully. You can publish now.",
+    "leaveHomeFailed": "Failed to leave home",
+    "cannotLeaveAsSoleResident": "You cannot leave home as the only resident.",
+    "notInAnyHome": "You are not in any home.",
     "publishFailed": "Publish failed",
     "areaPlaceholder": "m²",
     "close": "Close",
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "uploadedImage": "Uploaded image {index}",
-    "previewImage": "Preview image {index}"
+    "previewImage": "Preview image {index}",
+    "setMainPhoto": "Set as main",
+    "mainPhoto": "Main",
+    "promotion": {
+      "stepTitle": "Listing promotion",
+      "title": "Choose how to publish",
+      "subtitle": "Placeholder for monetization: auto-boost, premium, and more. Details and pricing will be added later.",
+      "backToForm": "Back to form",
+      "detailsSoon": "Details coming soon",
+      "footnote": "All options publish the same way for now; paid features will be enabled later.",
+      "publishedWithOption": "Listing published. The selected option will be available later — standard listing applies for now.",
+      "standard": {
+        "title": "Standard listing",
+        "subtitle": "Free: your listing appears in the regular feed.",
+        "cta": "Publish"
+      },
+      "autoBoost": {
+        "title": "With auto-boost",
+        "subtitle": "Listing is periodically bumped in search results (placeholder).",
+        "cta": "Choose and publish"
+      },
+      "premium": {
+        "title": "Premium",
+        "subtitle": "Maximum visibility and extra perks (placeholder).",
+        "cta": "Choose and publish"
+      }
+    },
+    "publishQueuedTitle": "Listing has been published",
+    "publishQueuedDescription": "Your listing is accepted and will appear on the site within a few minutes.",
+    "backHome": "Back to home",
+    "toProfile": "Go to profile"
   },
   "footer": {
     "home": "Home",
@@ -519,9 +622,28 @@
     "completionMissingListTitle": "Fields to complete",
     "completionNoMissing": "Great! Your profile is fully completed.",
     "completionFields": {
+      "name": "Name",
+      "phone": "Phone",
+      "age": "Age",
+      "gender": "Gender",
+      "city": "Region",
+      "profession": "Profession",
+      "languages": "Languages",
       "about": "About Me",
+      "smoking": "Smoking",
+      "alcohol": "Alcohol",
+      "sleep_schedule": "Sleep Schedule",
       "noise_tolerance": "Noise Tolerance",
+      "gamer": "Gamer",
+      "work_from_home": "Work from Home",
       "pets": "Pets / Attitude to Animals",
+      "cleanliness": "Cleanliness",
+      "introvert_extrovert": "Introvert / Extrovert",
+      "guests_parties": "Guests / Parties",
+      "faculty": "Faculty",
+      "university": "University",
+      "location_address": "Location Address",
+      "location_city": "Location City",
       "preferred_age_range": "Preferred Age Range",
       "preferred_gender": "Preferred Gender of Roommates",
       "verified": "Verified Profile"
@@ -534,6 +656,23 @@
       "myHome": "My Home"
     },
     "photoHint": "Click to upload profile photo",
+    "intro": "Intro",
+    "information": "Information",
+    "neighbourSidebarTabs": "Profile sections: information and photos",
+    "coResidents": "Housemates",
+    "coverHint": "Cover photo",
+    "uploadCover": "Upload cover",
+    "changeCover": "Change cover",
+    "addGalleryPhoto": "Add gallery photo",
+    "captionOptional": "Short caption (no links)",
+    "removePhoto": "Remove",
+    "saveCaption": "Save caption",
+    "galleryLimit": "Up to 24 gallery photos",
+    "linkNotAllowedInCaption": "Links are not allowed in captions",
+    "gallery": {
+      "title": "Photos",
+      "empty": "No photos yet"
+    },
     "name": "Full Name",
     "namePlaceholder": "Enter your full name",
     "phone": "Phone Number",
@@ -548,15 +687,23 @@
     "genderAny": "Any",
     "city": "Region",
     "cityPlaceholder": "Select your region",
+    "locationCity": "Location City",
+    "locationCityPlaceholder": "Enter city",
+    "locationAddress": "Location Address",
+    "locationAddressPlaceholder": "Enter address",
     "university": "University",
     "universityOptional": "Not selected (optional)",
     "universityPlaceholder": "Start typing university name",
     "universityNoResults": "University not found",
     "loadingUniversities": "Loading universities...",
+    "selectUniversityButton": "Select university",
+    "hideUniversityButton": "Remove university",
     "selectUniversityFromList": "Please select a university from suggestions",
     "faculty": "Faculty",
     "facultyOptional": "Not selected (optional)",
+    "facultyPlaceholder": "Start typing faculty name",
     "loadingFaculties": "Loading faculties...",
+    "facultyNoResults": "Faculty not found",
     "languages": {
       "title": "Languages",
       "cz": "Czech",
@@ -567,6 +714,10 @@
     },
     "profession": "Profession",
     "professionPlaceholder": "e.g. Software Developer",
+    "instagram": "Instagram",
+    "instagramPlaceholder": "@username or profile link",
+    "facebook": "Facebook",
+    "facebookPlaceholder": "profile link",
     "setAddress": "Set address",
     "hideAddressPicker": "Hide address",
     "address": "Address",
@@ -649,10 +800,37 @@
     "inviteLink": "Invite link",
     "copyLink": "Copy link",
     "copied": "Link copied",
+    "inviteByQr": "Invite by QR code",
+    "scanQrHint": "Show this QR code to the person you want to invite as a resident.",
+    "closeQrModal": "Close QR modal",
     "inviteFailed": "Failed to create invite",
     "joinedHomeSuccess": "You have successfully joined the home!",
     "errorUploadingAvatar": "Error uploading avatar",
-    "errorSavingProfile": "Error saving profile"
+    "errorSavingProfile": "Error saving profile",
+    "errorNotAuthenticated": "Session expired. Please sign in again.",
+    "errorInvalidFormData": "Could not save: invalid form data.",
+    "errorInvalidUniversity": "Please select a university from suggestions.",
+    "errorUniversityRequiredForFaculty": "Select a university before choosing faculty.",
+    "errorInvalidFaculty": "Please select a faculty from the selected university.",
+    "monetizationTitle": "Premium account",
+    "monetizationSubtitle": "Unlock more profile opportunities. Choose the plan that suits you.",
+    "openPlans": "View plans"
+  },
+  "profilePlans": {
+    "title": "Profile plans",
+    "subtitle": "Monetization placeholder: plan details and bonuses will be added later.",
+    "basic": {
+      "title": "Basic",
+      "subtitle": "Standard account for daily use."
+    },
+    "advanced": {
+      "title": "Advanced",
+      "subtitle": "Extended account with additional capabilities."
+    },
+    "premium": {
+      "title": "Premium",
+      "subtitle": "Top-tier plan with the full set of benefits."
+    }
   },
   "favorites": "Favorites",
   "view_all_favorites": "View and manage all your saved listings in one place.",

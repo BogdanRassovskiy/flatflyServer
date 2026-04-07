@@ -45,6 +45,13 @@ if not DEBUG:
 GOOGLE_CLIENT_ID="382119089928-1jj9i247ccga761fkcbr4pq7m42kqhdg.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
+TELEGRAM_BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN",
+    "8777443271:AAGkYChHYTs5DyDpqKcrhc0zOKWq68mH7_w",
+)
+TELEGRAM_CHANNEL_CHAT_ID = os.getenv("TELEGRAM_CHANNEL_CHAT_ID", "-1003759647230")
+LISTING_PUBLIC_BASE_URL = os.getenv("LISTING_PUBLIC_BASE_URL", "https://flatfly.eu")
+
 # Google OAuth redirect URI (по умолчанию на прод-домен)
 GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
@@ -101,7 +108,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'flatflyServer.middleware.SplitSessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -110,6 +118,14 @@ MIDDLEWARE = [
     #google auth
     'allauth.account.middleware.AccountMiddleware',
 ]
+
+# Separate cookie for Django admin session to avoid mixing auth state
+# with the regular app/API session in the same browser.
+ADMIN_SESSION_COOKIE_NAME = os.getenv("ADMIN_SESSION_COOKIE_NAME", "admin_sessionid")
+
+# We intentionally use custom session middleware that isolates admin and app
+# sessions into separate cookies. Silence admin's strict middleware-path check.
+SILENCED_SYSTEM_CHECKS = ["admin.E410"]
 
 ROOT_URLCONF = 'flatflyServer.urls'
 
@@ -165,7 +181,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'cs'
+
+LANGUAGES = [
+    ("cs", "Cestina"),
+    ("ru", "Russian"),
+]
 
 TIME_ZONE = 'UTC'
 
@@ -174,6 +195,10 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, "locale"),
+]
 
 
 # Static files (CSS, JavaScript, Images)

@@ -10,6 +10,7 @@ from . import views
 
 
 urlpatterns = [
+    path("i18n/", include("django.conf.urls.i18n")),
     path('admin', RedirectView.as_view(url='/admin/', permanent=True)),
     # админка (по желанию)
     path('admin/', admin.site.urls),
@@ -27,6 +28,9 @@ urlpatterns = [
     path("api/google_login/", views.google_login, name="google_login"),
     path("api/google_callback/", views.google_callback, name="google_callback"),
     path("api/profile/avatar/", views.upload_avatar, name="upload_avatar"),
+    path("api/profile/cover/", views.upload_profile_cover, name="upload_profile_cover"),
+    path("api/profile/gallery/<int:photo_id>/", views.profile_gallery_item, name="profile_gallery_item"),
+    path("api/profile/gallery/", views.profile_gallery_add, name="profile_gallery_add"),
     path("api/profile/", views.profile_view, name="profile"),
     path("api/universities/", views.universities_list, name="universities_list"),
     path("api/universities/faculties/", views.university_faculties_list, name="university_faculties_list"),
@@ -43,6 +47,7 @@ urlpatterns = [
     path("api/streets/search", views.streets_search, name="streets_search"),
     path("api/geocode/reverse", views.reverse_geocode, name="reverse_geocode"),
     path("api/listings/<int:listing_id>/", views.listing_detail, name="listing_detail"),
+    path("api/listings/<int:listing_id>/report/", views.report_listing, name="report_listing"),
     path("api/neighbours/list", views.neighbours_list, name="neighbours_list"),
     path("api/neighbours/<int:profile_id>/", views.neighbour_detail, name="neighbour_detail"),
     path("api/neighbours/<int:profile_id>/review/", views.submit_profile_review, name="submit_profile_review"),

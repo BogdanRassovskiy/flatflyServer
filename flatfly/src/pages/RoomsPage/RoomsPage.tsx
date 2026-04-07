@@ -34,6 +34,7 @@ interface Listing {
   moveInDate?: string | null;
 
   image?: string | null;
+  images?: string[];
   is_favorite?: boolean;
   matchPercentage?: number;
 }
@@ -80,6 +81,7 @@ export default function RoomsPage() {
         filters: {
           ...defaultFilters,
           ...(parsed?.filters || {}),
+          preferredGender: parsed?.filters?.preferredGender === "any" ? "" : (parsed?.filters?.preferredGender || ""),
           amenities: Array.isArray(parsed?.filters?.amenities) ? parsed.filters.amenities : [],
           infrastructure: Array.isArray(parsed?.filters?.infrastructure) ? parsed.filters.infrastructure : [],
         } as FilterState,
@@ -94,6 +96,7 @@ export default function RoomsPage() {
   const [pagination, setPagination] = useState(savedState?.pagination || 1);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [priceHistogram, setPriceHistogram] = useState<PriceHistogram | null>(null);
 
@@ -131,34 +134,6 @@ export default function RoomsPage() {
     loadListings();
   }, [pagination, filters]);
 
-  useEffect(() => {
-    if (filters.preferredGender) {
-      return;
-    }
-
-    let cancelled = false;
-    const loadPreferredGenderFromProfile = async () => {
-      try {
-        const response = await fetch("/api/profile/", { credentials: "include" });
-        if (!response.ok) {
-          return;
-        }
-        const data = await response.json();
-        const profileGender = String(data?.gender || "").toLowerCase();
-        if (!cancelled && (profileGender === "male" || profileGender === "female")) {
-          setFilters((prev) => (prev.preferredGender ? prev : { ...prev, preferredGender: profileGender }));
-        }
-      } catch {
-        // no-op: leave default when profile is unavailable
-      }
-    };
-
-    loadPreferredGenderFromProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.preferredGender]);
-
   const loadListings = async () => {
     try {
       setLoading(true);
@@ -194,6 +169,7 @@ export default function RoomsPage() {
 
       const data = await res.json();
       setListings(data.results || data);
+      setTotalPages(data.total_pages || 1);
       setTotalCount(Number(data.total_count || 0));
       setPriceHistogram(data.price_histogram || null);
 
@@ -206,7 +182,7 @@ export default function RoomsPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
-      <div className="w-full max-w-[1440px] px-5 flex flex-col items-center">
+      <div className="w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 xl:px-16 flex flex-col items-center">
         <div className="w-full flex flex-col items-start my-[150px]">
 
           <FilterPanel
@@ -227,10 +203,11 @@ export default function RoomsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="w-full grid grid-cols-3 max-[870px]:grid-cols-2 max-[580px]:grid-cols-1 gap-6 mt-[50px]">
+            <div className="mt-8 grid w-full justify-center justify-items-center gap-5 sm:mt-12 sm:gap-6 lg:gap-7 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)] md:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}
+                  compactGrid
                   id={String(listing.id)}
                   title={listing.title}
                   price={Number(listing.price)}
@@ -243,6 +220,7 @@ export default function RoomsPage() {
                   rooms={listing.rooms || ""}
                   badges={[]}
                   image={getImageUrl(listing.image)}
+                  images={listing.images}
                   type={listing.type as "APARTMENT" | "ROOM" | "NEIGHBOUR"}
                   is_favorite={listing.is_favorite}
                   matchPercentage={listing.matchPercentage}
@@ -254,7 +232,7 @@ export default function RoomsPage() {
           {/* Пагинация */}
           <div className="w-full flex flex-col items-center justify-center gap-1 mt-10">
             <div className="flex items-center justify-center gap-1 text-[#333333] dark:text-gray-300">
-              {Array.from({ length: 10 }).map((_, index) => (
+              {Array.from({ length: totalPages }).map((_, index) => (
                 <div
                   key={index}
                   onClick={() => handlePageChange(index + 1)}
@@ -268,13 +246,16 @@ export default function RoomsPage() {
                 </div>
               ))}
             </div>
-            <div
-              onClick={() => handlePageChange(pagination + 1)}
-              className="flex items-center gap-1 text-black dark:text-white cursor-pointer"
-            >
-              <span className="text-lg font-semibold">Další</span>
-              <ChevronRight strokeWidth={1.7} />
-            </div>
+
+            {pagination < totalPages && (
+              <div
+                onClick={() => handlePageChange(pagination + 1)}
+                className="flex cursor-pointer items-center gap-1 text-black dark:text-white"
+              >
+                <span className="text-lg font-semibold">Další</span>
+                <ChevronRight strokeWidth={1.7} />
+              </div>
+            )}
           </div>
 
         </div>

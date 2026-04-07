@@ -7,11 +7,12 @@ import PageBackground from "../components/PageBackground/PageBackground";
 export default function Layout() {
     const location = useLocation();
     const isMessengerPage = location.pathname.startsWith("/messenger");
+    const isAuthPage = location.pathname === "/auth";
     return (
         <PageBackground className="flex flex-col items-center">
             <Header />
             <Outlet />
-            {!isMessengerPage && <Footer />}
+            {!isMessengerPage && !isAuthPage && <Footer />}
             {!isMessengerPage && <FaqChatWidget />}
         </PageBackground>
     );

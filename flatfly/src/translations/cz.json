@@ -8,6 +8,7 @@
     "faq": "FAQ",
     "contact": "Kontakt",
     "addListing": "Vložit inzerát",
+    "findNeighbor": "Najít spolubydlícího",
     "about": "O nás",
     "searchPlaceholder": "Hledat město, školu nebo parťáka...",
     "login": "Přihlásit se",
@@ -39,6 +40,32 @@
     "deleteConfirm": "Smazat chat oběma uživatelům? Všechny zprávy budou odstraněny.",
     "dontAskAgain": "Příště se neptat",
     "shareContacts": "Sdílet kontakty",
+    "blacklist": "Černá listina",
+    "blacklistDescription": "Uživatelé, které jste zablokovali:",
+    "blacklistEmpty": "Černá listina je prázdná",
+    "blockUser": "Zablokovat",
+    "unblock": "Odblokovat",
+    "blockSuccess": "Uživatel byl zablokován",
+    "blockFailed": "Uživatele se nepodařilo zablokovat",
+    "unblockFailed": "Uživatele se nepodařilo odblokovat",
+    "unblockSuccess": "Uživatel byl odblokován",
+    "blockedChatWarning": "Tento chat je zablokovaný. Odesílání zpráv není dostupné.",
+    "reportUser": "Nahlásit",
+    "sendReport": "Odeslat hlášení",
+    "reportReasonInsult": "Urážka",
+    "reportReasonThreat": "Vyhrožování",
+    "reportReasonSpam": "Spam",
+    "reportReasonFraud": "Podvod",
+    "reportReasonInappropriate": "Nevhodný obsah",
+    "reportReasonOther": "Jiné",
+    "reportDetailsPlaceholder": "Popište situaci (volitelné)",
+    "reportConsentTitle": "Potvrzení odeslání hlášení",
+    "reportConsent": "Odesláním hlášení souhlasíte s tím, že podpora získá přístup k tomuto chatu pro kontrolu.",
+    "reportConfirm": "Potvrdit",
+    "reportSuccess": "Hlášení bylo odesláno",
+    "reportSuccessWithBlock": "Hlášení odesláno, uživatel zablokován",
+    "reportFailed": "Hlášení se nepodařilo odeslat",
+    "reportAlsoBlockUser": "Zároveň zablokovat uživatele",
     "contactsMessageIntro": "Moje kontakty:",
     "contactsMessagePhone": "Telefon",
     "contactsMessageEmail": "E-mail",
@@ -50,6 +77,12 @@
     "deleteError": "Chat se nepodařilo smazat",
     "cancel": "Zrušit"
   },
+  "neighbours": {
+    "openProfile": "Profil",
+    "saveShort": "Uložit",
+    "removeShort": "Odebrat",
+    "matchHint": "shoda"
+  },
   "home": {
     "title": "FlatFly, spolehlivé spolubydlení",
     "subtitle": "pro tvou novou životní kapitolu.",
@@ -59,7 +92,7 @@
     },
     "heroCard2": {
       "title": "Hledám spolubydlící",
-      "subtitle": "Hledám spolubydlící"
+      "subtitle": "Najdi spolubydlícího ke společnému hledání bydlení"
     },
     "heroCard3": {
       "title": "Nabízím byt",
@@ -67,7 +100,16 @@
     },
     "aboutTitle": "Kdo jsme",
     "aboutText1": "Všechno to začalo frustrací z hledání bydlení na Facebooku. Nekonečné scrollování ve skupinách, neaktuální inzeráty a nulová jistota, s kým vlastně budete bydlet. Řekli jsme si, že to musí jít lépe. Chtěli jsme vytvořit místo, které nebude jen nástěnkou s inzeráty, ale prostorem, který skutečně propojí lidi, kteří si sednou.",
-    "aboutText2": "Náš nápad dostal reálné obrysy díky spolupráci s Inovačním centrem Ústeckého kraje (ICUK). V rámci podnikatelského inkubátoru jsme mohli naši vizi přetavit ve funkční platformu. Ladili jsme funkce, testovali betaverze a zaměřili se na to, co jinde chybí – na jednoduchost a důvěru.\n\nDnes je FlatFly hotovým projektem, který pomáhá nejen studentům, ale každému, kdo hledá nový začátek. Ať už se stěhujete za prací, školou, nebo začínáte novou životní kapitolu, chceme, aby pro vás hledání domova bylo bezpečné a bez stresu."
+    "aboutText2": "Náš nápad dostal reálné obrysy díky spolupráci s Inovačním centrem Ústeckého kraje (ICUK). V rámci podnikatelského inkubátoru jsme mohli naši vizi přetavit ve funkční platformu. Ladili jsme funkce, testovali betaverze a zaměřili se na to, co jinde chybí – na jednoduchost a důvěru.\n\nDnes je FlatFly hotovým projektem, který pomáhá nejen studentům, ale každému, kdo hledá nový začátek. Ať už se stěhujete za prací, školou, nebo začínáte novou životní kapitolu, chceme, aby pro vás hledání domova bylo bezpečné a bez stresu.",
+    "team": {
+      "founder": "Zakladatel",
+      "designer": "Designér",
+      "it": "IT"
+    }
+  },
+  "neighboursPage": {
+    "loading": "Načítání...",
+    "noResults": "Nikdo nebyl nalezen"
   },
   "filter": {
     "location": "Kraj",
@@ -83,7 +125,7 @@
     "propertyTypeRoom": "Pokoj",
     "propertyTypeApartment": "Byt",
     "propertyTypeHouse": "Dům",
-    "propertyTypeNeighbour": "Kolej",
+    "propertyTypeNeighbour": "Pokoj",
     "price": "Cena",
     "priceValue": "Neomezeno",
     "priceFrom": "Od",
@@ -143,7 +185,7 @@
     "preferredGender": "Preferované pohlaví",
     "preferredGenderMale": "Muž",
     "preferredGenderFemale": "Žena",
-    "preferredGenderAny": "Nevadí",
+    "preferredGenderAny": "Libovolné",
     "secondarySort": "Řazení (2.-3. úroveň)",
     "sortPriceAsc": "Nejlevnější jako první",
     "sortPriceDesc": "Nejdražší jako první",
@@ -163,10 +205,11 @@
     "conditionProject": "Projekt",
     "energyClass": "Energetická třída",
     "selected": "vybráno",    "moveInDatePlaceholder": "Vyberte datum",
-    "filters": "Filtry",
+    "filters": "Upravit filtry",
     "foundListingsCount": "Nalezené inzeráty",
     "applyFilters": "Použít filtry",
     "resetFilters": "Resetovat",
+    "clearPinned": "Zrušit výběr",
     "close": "Zavřít",
     "writeMessage": "Napsat zprávu",
     "listing.writeMessage": "Napsat zprávu",
@@ -226,6 +269,11 @@
     "previousImage": "Předchozí obrázek",
     "nextImage": "Další obrázek",
     "addToFavorites": "Přidat do oblíbených",
+    "removeFromFavorites": "Odebrat z oblíbených",
+    "favoriteAddedSuccess": "Uloženo mezi oblíbené",
+    "morePhotosInDetail": "Všechny fotky uvidíte v detailu inzerátu",
+    "photoGallery": "Fotografie inzerátu",
+    "viewAllPhotos": "Zobrazit všech {count} fotek",
     "share": "Sdílet",
     "close": "Zavřít",
     "condition": "Stav",
@@ -323,6 +371,16 @@
     ,"nearestBusStop": "Nejbližší autobusová zastávka"
     ,"nearestShop": "Nejbližší obchod"
     ,"nearestHospital": "Nejbližší nemocnice"
+    ,"reportListing": "Nahlásit inzerát"
+    ,"sendReport": "Odeslat hlášení"
+    ,"reportReasonFraud": "Podvod"
+    ,"reportReasonSpam": "Spam"
+    ,"reportReasonFake": "Falešný inzerát"
+    ,"reportReasonInappropriate": "Nevhodný obsah"
+    ,"reportReasonOther": "Jiné"
+    ,"reportDetailsPlaceholder": "Popište problém (volitelné)"
+    ,"reportSuccess": "Hlášení odesláno"
+    ,"reportFailed": "Hlášení se nepodařilo odeslat"
   },
   "pagination": {
     "next": "Další"
@@ -336,6 +394,7 @@
     "title": "Často kladené otázky",
     "loading": "Načítání FAQ...",
     "empty": "Zatím nejsou žádné otázky",
+    "askAnotherQuestion": "Položit jinou otázku",
     "chat": {
       "title": "FAQ chat",
       "welcome": "Ahoj! Zeptej se a já vyberu nejvhodnější odpověď z FAQ.",
@@ -357,16 +416,22 @@
     "namePlaceholder": "např. Jan Novák",
     "email": "E-mail",
     "emailPlaceholder": "např. jan@example.cz",
+    "emailInvalid": "Zadejte platnou e-mailovou adresu",
     "message": "Zpráva",
     "messagePlaceholder": "Potřebuji poradit s...",
     "send": "Odeslat",
-    "contacts": "Kontakty"
+    "contacts": "Kontakty",
+    "fillAllFields": "Vyplňte všechna pole",
+    "sendSuccess": "Zpráva byla úspěšně odeslána",
+    "sendFailed": "Odeslání se nezdařilo",
+    "serverError": "Chyba serveru",
+    "sending": "Odesílání..."
   },
   "add": {
     "title": "Nový inzerát",
     "fullApartment": "Dům",
     "room": "Byt",
-    "sharedRoom": "Kolej",
+    "sharedRoom": "Pokoj",
     "uploadPhotos": "Nahrajte fotky",
     "uploadFormat": "JPG, PNG, max 10 MB",
     "adTitle": "Název inzerátu",
@@ -384,7 +449,7 @@
     "creatorRole": "Role tvůrce",
     "preferredGender": "Preferované pohlaví",
     "roleOwner": "Vlastník",
-    "roleNeighbour": "Soused",
+    "roleNeighbour": "Spolubydlící",
     "maxResidents": "Max. počet sousedů",
     "conditions": "Podmínky",
     "selectRegionRequired": "Vyberte kraj",
@@ -414,14 +479,52 @@
     "fillRequiredFields": "Vyplňte povinná pole",
     "failedToCreateAd": "Nepodařilo se vytvořit inzerát",
     "failedToUploadImage": "Nepodařilo se nahrát obrázek",
+    "imageRejectedByModeration": "Obrázek neprošel moderací. Inzerát nebyl zveřejněn.",
     "adSuccessfullyPublished": "Inzerát byl úspěšně zveřejněn",
+    "alreadyBelongToHome": "Už jste členem domácnosti. Nejdříve odejděte ze současného domova v profilu.",
+    "leaveHomeAction": "Opustit domov",
+    "leavingHomeAction": "Opouštím domov...",
+    "leftHomeSuccess": "Úspěšně jste opustili domov. Teď můžete inzerát zveřejnit.",
+    "leaveHomeFailed": "Nepodařilo se opustit domov",
+    "cannotLeaveAsSoleResident": "Jako jediný obyvatel nemůžete domov opustit.",
+    "notInAnyHome": "Nejste členem žádného domova.",
     "publishFailed": "Zveřejnění se nezdařilo",
     "areaPlaceholder": "m²",
     "close": "Zavřít",
     "previousImage": "Předchozí obrázek",
     "nextImage": "Další obrázek",
     "uploadedImage": "Nahraný obrázek {index}",
-    "previewImage": "Náhled obrázku {index}"
+    "previewImage": "Náhled obrázku {index}",
+    "setMainPhoto": "Nastavit jako hlavní",
+    "mainPhoto": "Hlavní",
+    "promotion": {
+      "stepTitle": "Propagace inzerátu",
+      "title": "Zvolte způsob zveřejnění",
+      "subtitle": "Příprava monetizace: auto-zvýraznění, premium a další. Detaily a ceny doplníme později.",
+      "backToForm": "Zpět do formuláře",
+      "detailsSoon": "Detaily brzy",
+      "footnote": "Zatím se všechny varianty zveřejní stejně; placené funkce zapneme později.",
+      "publishedWithOption": "Inzerát byl zveřejněn. Zvolená funkce bude dostupná později — zatím platí běžné zveřejnění.",
+      "standard": {
+        "title": "Standardní zveřejnění",
+        "subtitle": "Zdarma: inzerát v běžném výpisu.",
+        "cta": "Zveřejnit"
+      },
+      "autoBoost": {
+        "title": "S auto-zvýrazněním",
+        "subtitle": "Inzerát se bude pravidelně posouvat ve výsledcích (příprava).",
+        "cta": "Zvolit a zveřejnit"
+      },
+      "premium": {
+        "title": "Premium",
+        "subtitle": "Maximální viditelnost a extra výhody (příprava).",
+        "cta": "Zvolit a zveřejnit"
+      }
+    },
+    "publishQueuedTitle": "Inzerát byl zveřejněn",
+    "publishQueuedDescription": "Váš inzerát byl přijat a na webu se zobrazí během několika minut.",
+    "backHome": "Zpět na hlavní stránku",
+    "toProfile": "Do profilu"
   },
   "footer": {
     "home": "Domů",
@@ -516,9 +619,28 @@
     "completionMissingListTitle": "Co je potřeba doplnit",
     "completionNoMissing": "Skvělé! Profil je kompletně vyplněný.",
     "completionFields": {
+      "name": "Jméno",
+      "phone": "Telefon",
+      "age": "Věk",
+      "gender": "Pohlaví",
+      "city": "Kraj",
+      "profession": "Profese",
+      "languages": "Jazyky",
       "about": "O mně",
+      "smoking": "Kouření",
+      "alcohol": "Alkohol",
+      "sleep_schedule": "Režim spánku",
       "noise_tolerance": "Tolerance k hluku",
+      "gamer": "Hráč",
+      "work_from_home": "Práce z domova",
       "pets": "Domácí zvířata / Postoj ke zvířatům",
+      "cleanliness": "Úroveň čistoty",
+      "introvert_extrovert": "Introvert / Extrovert",
+      "guests_parties": "Hosté / Večírky",
+      "faculty": "Fakulta",
+      "university": "Univerzita",
+      "location_address": "Adresa",
+      "location_city": "Město",
       "preferred_age_range": "Preferovaný věkový rozsah",
       "preferred_gender": "Preferované pohlaví spolubydlících",
       "verified": "Ověřený uživatel"
@@ -531,6 +653,23 @@
       "myHome": "Můj domov"
     },
     "photoHint": "Klikněte pro nahrání fotografie",
+    "intro": "Úvod",
+    "information": "Informace",
+    "neighbourSidebarTabs": "Sekce profilu: informace a fotky",
+    "coResidents": "Spolubydlící v domě",
+    "coverHint": "Titulní fotka",
+    "uploadCover": "Nahrát titulní fotku",
+    "changeCover": "Změnit titulní fotku",
+    "addGalleryPhoto": "Přidat fotku do galerie",
+    "captionOptional": "Krátký popis (bez odkazů)",
+    "removePhoto": "Odstranit",
+    "saveCaption": "Uložit popis",
+    "galleryLimit": "Nejvýše 24 fotek v galerii",
+    "linkNotAllowedInCaption": "V popisu nejsou povoleny odkazy",
+    "gallery": {
+      "title": "Fotky",
+      "empty": "Zatím žádné fotky"
+    },
     "name": "Celé jméno",
     "namePlaceholder": "Zadejte své celé jméno",
     "phone": "Telefonní číslo",
@@ -545,15 +684,23 @@
     "genderAny": "Libovolné",
     "city": "Kraj",
     "cityPlaceholder": "Vyberte svůj kraj",
+    "locationCity": "Město",
+    "locationCityPlaceholder": "Zadejte město",
+    "locationAddress": "Adresa",
+    "locationAddressPlaceholder": "Zadejte adresu",
     "university": "Univerzita",
     "universityOptional": "Nevybráno (volitelné)",
     "universityPlaceholder": "Začněte psát název univerzity",
     "universityNoResults": "Univerzita nebyla nalezena",
     "loadingUniversities": "Načítám univerzity...",
+    "selectUniversityButton": "Vybrat univerzitu",
+    "hideUniversityButton": "Odebrat univerzitu",
     "selectUniversityFromList": "Vyberte univerzitu ze seznamu",
     "faculty": "Fakulta",
     "facultyOptional": "Nevybráno (volitelné)",
+    "facultyPlaceholder": "Začněte psát název fakulty",
     "loadingFaculties": "Načítám fakulty...",
+    "facultyNoResults": "Fakulta nebyla nalezena",
     "languages": {
       "title": "Jazyky",
       "cz": "Čeština",
@@ -564,6 +711,10 @@
     },
     "profession": "Profese",
     "professionPlaceholder": "např. Vývojář softwaru",
+    "instagram": "Instagram",
+    "instagramPlaceholder": "@uživatel nebo odkaz",
+    "facebook": "Facebook",
+    "facebookPlaceholder": "odkaz na profil",
     "setAddress": "Uvést adresu",
     "hideAddressPicker": "Skrýt adresu",
     "address": "Adresa",
@@ -646,10 +797,37 @@
     "inviteLink": "Pozvánkový odkaz",
     "copyLink": "Kopírovat odkaz",
     "copied": "Odkaz zkopírován",
+    "inviteByQr": "Pozvat přes QR kód",
+    "scanQrHint": "Ukažte tento QR kód osobě, kterou chcete pozvat jako obyvatele.",
+    "closeQrModal": "Zavřít QR okno",
     "inviteFailed": "Nepodařilo se vytvořit pozvánku",
     "joinedHomeSuccess": "Úspěšně jste se připojili k domovu!",
     "errorUploadingAvatar": "Chyba při nahrávání avatara",
-    "errorSavingProfile": "Chyba při ukládání profilu"
+    "errorSavingProfile": "Chyba při ukládání profilu",
+    "errorNotAuthenticated": "Relace vypršela. Přihlaste se znovu.",
+    "errorInvalidFormData": "Nelze uložit: neplatná data formuláře.",
+    "errorInvalidUniversity": "Vyberte univerzitu ze seznamu návrhů.",
+    "errorUniversityRequiredForFaculty": "Nejprve vyberte univerzitu, potom fakultu.",
+    "errorInvalidFaculty": "Vyberte fakultu ze zvolené univerzity.",
+    "monetizationTitle": "Premium účet",
+    "monetizationSubtitle": "Odemkněte více možností profilu. Vyberte si vhodný tarif.",
+    "openPlans": "Zobrazit tarify"
+  },
+  "profilePlans": {
+    "title": "Tarify profilu",
+    "subtitle": "Příprava monetizace: detaily a bonusy doplníme později.",
+    "basic": {
+      "title": "Základní",
+      "subtitle": "Běžný účet pro každodenní použití."
+    },
+    "advanced": {
+      "title": "Pokročilý",
+      "subtitle": "Rozšířený účet s dalšími možnostmi."
+    },
+    "premium": {
+      "title": "Premium",
+      "subtitle": "Nejvyšší tarif s plnou sadou výhod."
+    }
   },
   "favorites": "Oblíbené",
   "view_all_favorites": "Prohlížejte a spravujte všechny uložené inzeráty na jednom místě.",

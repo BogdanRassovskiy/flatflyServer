@@ -1,6 +1,7 @@
 import {Icon} from "@iconify/react";
 import {useState, useRef, useEffect} from "react";
-import {X} from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import {ChevronDown, X} from "lucide-react";
 import {useLanguage} from "../../contexts/LanguageContext";
 import "./FilterPanel.css";
 
@@ -40,6 +41,8 @@ export interface PriceHistogram {
   buckets: PriceHistogramBucket[];
 }
 
+type PinnedKey = "region" | "propertyType" | "price" | "preferredGender";
+
 interface FilterPanelProps {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
@@ -48,7 +51,9 @@ interface FilterPanelProps {
 export default function FilterPanel({ filters, onChange, priceHistogram }: FilterPanelProps) {
     const { t } = useLanguage();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pinnedOpen, setPinnedOpen] = useState<PinnedKey | null>(null);
     const modalRef = useRef<HTMLDivElement>(null);
+    const pinnedBarRef = useRef<HTMLDivElement>(null);
 
     const parsePriceNumber = (rawValue: string) => {
       if (!rawValue) {
@@ -170,7 +175,6 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       const map: Record<string, string> = {
         "male": t("filter.preferredGenderMale"),
         "female": t("filter.preferredGenderFemale"),
-        "any": t("filter.preferredGenderAny"),
       };
       return map[value] || value;
     };
@@ -264,40 +268,13 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       });
     };
 
+    /** Доп. фильтры (чипы); край, тип, цена и пол только в закреплённой панели */
     const RoomsCategories = [
-      filters.propertyType && {
-        id: `propertyType-${filters.propertyType}`,
-        title: t("filter.propertyType"),
-        subTitle: translatePropertyType(filters.propertyType),
-        onRemove: () => clearSingleFilter("propertyType"),
-      },
-
-      filters.region && {
-        id: `region-${filters.region}`,
-        title: t("filter.region"),
-        subTitle: translateRegion(filters.region),
-        onRemove: () => clearSingleFilter("region"),
-      },
-
-      (filters.priceFrom || filters.priceTo) && {
-        id: "price-range",
-        title: t("filter.price"),
-        subTitle: `${filters.priceFrom || "0"} – ${filters.priceTo || "∞"} ${filters.currency || "CZK"}`,
-        onRemove: () => clearSingleFilter("priceFrom"),
-      },
-
       filters.sortBy && filters.sortBy !== "price_asc" && {
         id: `sortBy-${filters.sortBy}`,
         title: t("filter.secondarySort"),
         subTitle: translateSortBy(filters.sortBy),
         onRemove: () => clearSingleFilter("sortBy"),
-      },
-
-      filters.preferredGender && {
-        id: `preferredGender-${filters.preferredGender}`,
-        title: t("filter.preferredGender"),
-        subTitle: translatePreferredGender(filters.preferredGender),
-        onRemove: () => clearSingleFilter("preferredGender"),
       },
 
       filters.rooms && {
@@ -456,7 +433,6 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       { value: "", label: "-" },
       { value: "male", label: t("filter.preferredGenderMale") },
       { value: "female", label: t("filter.preferredGenderFemale") },
-      { value: "any", label: t("filter.preferredGenderAny") },
     ];
 
     const infrastructureOptions = [
@@ -496,6 +472,23 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
             document.body.style.overflow = '';
         };
     }, [isModalOpen]);
+
+    useEffect(() => {
+        if (!pinnedOpen) {
+            return;
+        }
+        const close = (event: MouseEvent | TouchEvent) => {
+            if (pinnedBarRef.current && !pinnedBarRef.current.contains(event.target as Node)) {
+                setPinnedOpen(null);
+            }
+        };
+        document.addEventListener("mousedown", close);
+        document.addEventListener("touchstart", close);
+        return () => {
+            document.removeEventListener("mousedown", close);
+            document.removeEventListener("touchstart", close);
+        };
+    }, [pinnedOpen]);
 
     const handleFilterChange = (key: keyof FilterState, value: string | string[]) => {
       onChange({
@@ -555,101 +548,357 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       setIsModalOpen(false);
     };
 
+    const openConfigureModal = () => {
+      setPinnedOpen(null);
+      setIsModalOpen(true);
+    };
+
+    const pinnedOrder: PinnedKey[] = ["region", "propertyType", "price", "preferredGender"];
+
+    const pinnedTitle = (key: PinnedKey) => {
+      if (key === "region") return t("filter.region");
+      if (key === "propertyType") return t("filter.propertyType");
+      if (key === "price") return t("filter.price");
+      return t("filter.preferredGender");
+    };
+
+    const pinnedSummary = (key: PinnedKey) => {
+      if (key === "region") {
+        return filters.region ? translateRegion(filters.region) : "—";
+      }
+      if (key === "propertyType") {
+        return filters.propertyType ? translatePropertyType(filters.propertyType) : "—";
+      }
+      if (key === "price") {
+        if (!filters.priceFrom && !filters.priceTo) return "—";
+        return `${filters.priceFrom || "0"} – ${filters.priceTo || "∞"} ${filters.currency || "CZK"}`;
+      }
+      return filters.preferredGender ? translatePreferredGender(filters.preferredGender) : "—";
+    };
+
+    const pinnedHasValue = (key: PinnedKey) => {
+      if (key === "region") return Boolean(filters.region);
+      if (key === "propertyType") return Boolean(filters.propertyType);
+      if (key === "price") return Boolean(filters.priceFrom || filters.priceTo);
+      return Boolean(filters.preferredGender);
+    };
+
+    const clearPinned = (key: PinnedKey, e: ReactMouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (key === "price") {
+        clearSingleFilter("priceFrom");
+      } else {
+        clearSingleFilter(key);
+      }
+    };
+
+    const togglePinned = (key: PinnedKey) => {
+      setPinnedOpen((prev) => (prev === key ? null : key));
+    };
+
+    const selectClass =
+      "w-full rounded-xl border border-zinc-200/90 bg-white px-3 py-2.5 text-sm text-black outline-none transition-[border-color,box-shadow] duration-200 ease-out hover:border-[#C505EB]/35 focus:border-[#C505EB] focus:ring-2 focus:ring-[#C505EB]/15 dark:border-zinc-600 dark:bg-zinc-800/80 dark:text-white dark:hover:border-[#C505EB]/45 dark:focus:ring-[#C505EB]/25";
+
+    const renderPinnedDropdownBody = (key: PinnedKey, compactPrice: boolean) => {
+      if (key === "region") {
+        return (
+          <select
+            value={filters.region}
+            onChange={(e) => handleFilterChange("region", e.target.value)}
+            className={selectClass}
+          >
+            {regions.map((region) => (
+              <option key={region.value || "all"} value={region.value}>
+                {region.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      if (key === "propertyType") {
+        return (
+          <select
+            value={filters.propertyType}
+            onChange={(e) => handleFilterChange("propertyType", e.target.value)}
+            className={selectClass}
+          >
+            <option value="">{t("filter.propertyValue")}</option>
+            {propertyTypes.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      if (key === "preferredGender") {
+        return (
+          <select
+            value={filters.preferredGender || ""}
+            onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
+            className={selectClass}
+          >
+            {preferredGenderOptions.map((option) => (
+              <option key={option.value || "none"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      const histH = compactPrice ? "h-20" : "h-24";
+      return (
+        <div className="flex flex-col gap-3">
+          <div className={`w-full rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-[#F8FAFB] dark:bg-gray-900/60 px-3 py-3`}>
+            <div className={`${histH} flex w-full items-end gap-[3px]`}>
+              {histogramBars.length > 0 ? (
+                histogramBars.map((bucket, index) => {
+                  const heightPercent = Math.max(6, Math.round((bucket.count / histogramMaxCount) * 100));
+                  const isSelected = bucket.to >= normalizedFrom && bucket.from <= normalizedTo;
+                  return (
+                    <div
+                      key={`pin-bucket-${index}`}
+                      className={`flex-1 rounded-t-md transition-all duration-300 ${isSelected ? "bg-[#2E97A0]" : "bg-[#D4DAE0] dark:bg-gray-700"}`}
+                      style={{ height: `${heightPercent}%` }}
+                      title={`${Math.round(bucket.from)} - ${Math.round(bucket.to)}: ${bucket.count}`}
+                    />
+                  );
+                })
+              ) : (
+                <div className="h-full w-full rounded-xl border border-dashed border-[#D4DAE0] dark:border-gray-700" />
+              )}
+            </div>
+            <div className="relative mt-3 h-9">
+              <div className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[#D4DAE0] dark:bg-gray-700">
+                <div
+                  className="absolute h-full rounded-full bg-[#2E97A0]"
+                  style={{
+                    left: `${selectedFromPercent}%`,
+                    width: `${Math.max(2, selectedToPercent - selectedFromPercent)}%`,
+                  }}
+                />
+              </div>
+              <input
+                type="range"
+                min={sliderMin}
+                max={sliderMax}
+                value={normalizedFrom}
+                onChange={(e) => applyPriceRange(Number(e.target.value), normalizedTo)}
+                className="price-range-input z-20"
+              />
+              <input
+                type="range"
+                min={sliderMin}
+                max={sliderMax}
+                value={normalizedTo}
+                onChange={(e) => applyPriceRange(normalizedFrom, Number(e.target.value))}
+                className="price-range-input z-30"
+              />
+            </div>
+            <div className="mt-2 flex justify-end">
+              <div className="rounded-full border border-[#2E97A0]/25 bg-[#2E97A0]/10 px-2 py-1 dark:bg-[#2E97A0]/20">
+                <span className="text-[11px] font-semibold text-[#1F6A70] dark:text-[#84d6dd]">
+                  {t("filter.foundInRange")}: {listingsInSelectedRange}
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 rounded-xl border border-[#E0E0E0] bg-white px-2 py-2 dark:border-gray-600 dark:bg-gray-800">
+                <span className="text-xs font-semibold text-[#5F6A76] dark:text-gray-300">{t("filter.priceFrom")}</span>
+                <input
+                  type="number"
+                  value={filters.priceFrom}
+                  onChange={(e) => applyPriceRange(parsePriceNumber(e.target.value), currentTo)}
+                  placeholder={t("filter.pricePlaceholder")}
+                  className="w-full bg-transparent font-semibold text-black outline-0 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-[#E0E0E0] bg-white px-2 py-2 dark:border-gray-600 dark:bg-gray-800">
+                <span className="text-xs font-semibold text-[#5F6A76] dark:text-gray-300">{t("filter.priceTo")}</span>
+                <input
+                  type="number"
+                  value={filters.priceTo}
+                  onChange={(e) => applyPriceRange(currentFrom, parsePriceNumber(e.target.value))}
+                  placeholder={t("filter.pricePlaceholder")}
+                  className="w-full bg-transparent font-semibold text-black outline-0 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const renderPinnedCell = (key: PinnedKey, layout: "desktop" | "mobile", pinIndex: number) => {
+      const isOpen = pinnedOpen === key;
+      const isDesktop = layout === "desktop";
+      const isFirstPin = pinIndex === 0;
+
+      const mobileCorner =
+        pinIndex === 0
+          ? "rounded-tl-2xl"
+          : pinIndex === 1
+            ? "rounded-tr-2xl"
+            : pinIndex === 2
+              ? "rounded-bl-2xl"
+              : "rounded-br-2xl";
+
+      const segmentBg = "bg-white dark:bg-zinc-900";
+      const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
+
+      const triggerClass = [
+        "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+        segmentBg,
+        isOpen
+          ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
+          : "hover:bg-zinc-50/90 dark:hover:bg-zinc-800/55",
+        triggerRing,
+        pinnedHasValue(key) ? "pr-14" : "pr-10",
+        isDesktop && isFirstPin ? "rounded-l-full" : "",
+      ].join(" ");
+
+      const shellClass = isDesktop
+        ? `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`
+        : `relative min-h-[54px] min-w-0 ${segmentBg} ${mobileCorner}`;
+
+      return (
+        <div key={key} className={shellClass}>
+          <button type="button" onClick={() => togglePinned(key)} className={triggerClass}>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              {pinnedTitle(key)}
+            </span>
+            <span
+              className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                pinnedHasValue(key)
+                  ? "text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              {pinnedSummary(key)}
+            </span>
+            <ChevronDown
+              size={15}
+              strokeWidth={2.25}
+              className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-transform duration-200 ease-out dark:text-zinc-500 ${isOpen ? "rotate-180 text-[#C505EB]" : ""}`}
+            />
+          </button>
+          {pinnedHasValue(key) ? (
+            <button
+              type="button"
+              onClick={(e) => clearPinned(key, e)}
+              className="absolute right-8 top-1/2 z-[1] -translate-y-1/2 rounded-full p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-200/80 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+              aria-label={t("filter.clearPinned")}
+            >
+              <X size={12} strokeWidth={2.5} />
+            </button>
+          ) : null}
+          {isDesktop && isOpen ? (
+            <div
+              className={`filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06] ${
+                key === "price" ? "w-[min(calc(100vw-2rem),28rem)]" : "w-[min(calc(100vw-2rem),20rem)]"
+              }`}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {renderPinnedDropdownBody(key, key === "price")}
+            </div>
+          ) : null}
+        </div>
+      );
+    };
+
     return(
-        <div className={`w-full flex flex-col interFont`}>
+        <div ref={pinnedBarRef} className={`interFont flex w-full flex-col gap-2.5`}>
 
-            {/* Десктопная версия */}
-            <div className="hidden min-[771px]:flex w-full h-[64px] items-center justify-between
-                border border-[#DDDDDD] dark:border-gray-600 rounded-full
-                shadow-md dark:shadow-gray-900/50 bg-white dark:bg-gray-800 overflow-hidden">
-
-                  <div className="flex items-center h-full py-2 overflow-x-auto overflow-y-hidden scroll-smooth">
-                    {RoomsCategories.length === 0 ? (
-                      <div className="px-6 text-sm text-gray-400 italic">
-                        {t("")}
-                      </div>
-                    ) : (
-                      RoomsCategories.map((value, index) => (
-                        <button
-                          key={value.id}
-                          type="button"
-                          onClick={value.onRemove}
-                          className={`h-full flex-shrink-0 flex items-center justify-center gap-3 px-6 text-left cursor-pointer
-                            hover:bg-[#F7F7F7] dark:hover:bg-gray-700/70 duration-200
-                            ${index + 1 === RoomsCategories.length ? "" : "border-r border-[#E5E5E5] dark:border-gray-700"}`}
-                        >
-                          <div className="flex flex-col items-start">
-                            <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
-                              {value.title}
-                            </span>
-                            <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
-                              {value.subTitle}
-                            </span>
-                          </div>
-                          <X size={12} className="text-[#8C8C8C] dark:text-gray-400" />
-                        </button>
-                      ))
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="h-full flex items-center justify-center px-8 flex-shrink-0 gap-2
-                               border-l border-[#E5E5E5] dark:border-gray-700
-                               cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-300"
-                  >
-                    <Icon icon="mage:filter" className="w-8 h-8" style={{ color: "#08E2BE" }} />
-                    <span className="text-xl text-[#C505EB] font-bold">
-                      {t("filter.filters")}
-                    </span>
-                  </button>
+            {/* Десктоп: «пилюля» из сегментов (hairline через gap-px, без border на hover) */}
+            <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
+              <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
+                <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
+                  {pinnedOrder.map((k, i) => renderPinnedCell(k, "desktop", i))}
                 </div>
+                <button
+                  type="button"
+                  onClick={openConfigureModal}
+                  className="flex min-h-[58px] shrink-0 items-center justify-center gap-2 rounded-r-full bg-white px-5 pl-4 text-[#C505EB] transition-[background-color,box-shadow,color] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.08] hover:to-[#08E2BE]/[0.06] hover:shadow-[inset_0_0_0_1px_rgba(197,5,235,0.15)] dark:bg-zinc-900 dark:hover:from-[#C505EB]/15 dark:hover:to-[#08E2BE]/10"
+                >
+                  <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
+                  <span className="line-clamp-2 max-w-[min(220px,32vw)] text-left text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
+                    {t("filter.filters")}
+                  </span>
+                </button>
+              </div>
 
-            {/* Мобильная версия с разделительными линиями */}
-            <div className="flex max-[770px]:flex min-[771px]:hidden w-full flex-col
-                border border-[#DDDDDD] dark:border-gray-600 rounded-xl
-                shadow-md dark:shadow-gray-900/50 bg-white dark:bg-gray-800 overflow-hidden">
-
-              <div className="flex flex-col">
-                {RoomsCategories.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-400 italic">
-                    {t("")}
-                  </div>
-                ) : (
-                  RoomsCategories.map((value, index) => (
+              {RoomsCategories.length > 0 ? (
+                <div className="flex h-[50px] w-full items-stretch gap-px overflow-x-auto overflow-y-hidden scroll-smooth rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.03] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
+                  {RoomsCategories.map((value, index) => (
                     <button
                       key={value.id}
                       type="button"
                       onClick={value.onRemove}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-left
-                        hover:bg-[#F7F7F7] dark:hover:bg-gray-700/70 duration-200
-                        ${index + 1 === RoomsCategories.length ? "" : "border-b border-[#E5E5E5] dark:border-gray-700"}`}
+                      className={`filter-panel-chip flex h-full shrink-0 items-center justify-center gap-3 bg-white px-5 text-left dark:bg-zinc-900 ${
+                        index === 0 ? "rounded-l-full pl-5" : ""
+                      } ${index === RoomsCategories.length - 1 ? "rounded-r-full pr-5" : ""}`}
                     >
                       <div className="flex flex-col items-start">
-                        <span className="font-bold text-sm text-black dark:text-white">
-                          {value.title}
-                        </span>
-                        <span className="font-semibold text-xs text-[#666666] dark:text-gray-400">
-                          {value.subTitle}
-                        </span>
+                        <span className="whitespace-nowrap text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{value.title}</span>
+                        <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
                       </div>
-                      <X size={12} className="text-[#8C8C8C] dark:text-gray-400 flex-shrink-0" />
+                      <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
                     </button>
-                  ))
-                )}
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Мобильная */}
+            <div className="flex min-[771px]:hidden w-full flex-col gap-2.5">
+              <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06]">
+                <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
+                  {pinnedOrder.map((k, i) => renderPinnedCell(k, "mobile", i))}
+                </div>
+                {pinnedOpen ? (
+                  <div
+                    className="filter-panel-dropdown border-t border-zinc-200/90 bg-white p-4 dark:border-zinc-600 dark:bg-zinc-900"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {renderPinnedDropdownBody(pinnedOpen, true)}
+                  </div>
+                ) : null}
               </div>
 
               <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center justify-center px-4 py-3 gap-2
-                           border-t border-[#E5E5E5] dark:border-gray-700
-                           cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-300"
+                type="button"
+                onClick={openConfigureModal}
+                className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
               >
-                <Icon icon="mage:filter" className="w-6 h-6" style={{ color: "#08E2BE" }} />
-                <span className="text-lg text-[#C505EB] font-bold">
-                  {t("filter.filters")}
+                <span className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
+                  <Icon icon="mage:filter" className="h-6 w-6 shrink-0" style={{ color: "#08E2BE" }} />
+                  <span className="text-base font-bold tracking-tight">{t("filter.filters")}</span>
                 </span>
               </button>
+
+              {RoomsCategories.length > 0 ? (
+                <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
+                  <div className="flex flex-col gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
+                    {RoomsCategories.map((value, index) => (
+                      <button
+                        key={value.id}
+                        type="button"
+                        onClick={value.onRemove}
+                        className={`filter-panel-chip flex w-full items-center justify-between bg-white px-4 py-3.5 text-left dark:bg-zinc-900 ${
+                          index === 0 ? "rounded-t-2xl" : ""
+                        } ${index === RoomsCategories.length - 1 ? "rounded-b-2xl" : ""}`}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{value.title}</span>
+                          <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
+                        </div>
+                        <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {/* Модальное окно фильтров */}
