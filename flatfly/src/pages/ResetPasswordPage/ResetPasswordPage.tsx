@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
 
     if (isTokenValid === false) {
         return (
-            <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] pb-[90px]`}>
+            <div className={`flex min-h-screen w-full flex-col items-center bg-transparent pb-[90px] pt-[70px] interFont text-black dark:text-white min-[771px]:pt-[150px]`}>
                 <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4 flex flex-col items-center`}>
                     <div className={`w-full max-w-[500px] flex flex-col items-center gap-6 p-8 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800`}>
                         <h1 className={`text-2xl font-bold text-red-600 dark:text-red-400`}>
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
 
     if (isSuccess) {
         return (
-            <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] pb-[90px]`}>
+            <div className={`flex min-h-screen w-full flex-col items-center bg-transparent pb-[90px] pt-[70px] interFont text-black dark:text-white min-[771px]:pt-[150px]`}>
                 <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4 flex flex-col items-center`}>
                     <div className={`w-full max-w-[500px] flex flex-col items-center gap-6 p-8 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800`}>
                         <CheckCircle className={`w-16 h-16 text-green-600 dark:text-green-400`} />
@@ -138,7 +138,7 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] pb-[90px]`}>
+        <div className={`flex min-h-screen w-full flex-col items-center bg-transparent pb-[90px] pt-[70px] interFont text-black dark:text-white min-[771px]:pt-[150px]`}>
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4 flex flex-col items-center`}>
                 <div className={`w-full max-w-[500px] flex flex-col items-center`}>
                     

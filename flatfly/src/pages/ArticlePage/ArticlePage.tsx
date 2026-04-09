@@ -86,7 +86,7 @@ export default function ArticlePage() {
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
                 
                 {/* Back button */}
-                <div className={`w-full mt-[164px] max-[770px]:mt-[120px] mb-6`}>
+                <div className={`mb-6 mt-[164px] max-[770px]:mt-[70px]`}>
                     <button
                         onClick={() => navigate(-1)}
                         className={`flex items-center gap-2 text-[#C505EB] hover:text-[#BA00F8] duration-300 font-semibold`}

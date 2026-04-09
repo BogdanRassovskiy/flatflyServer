@@ -421,7 +421,9 @@
     "sendSuccess": "Zpráva byla úspěšně odeslána",
     "sendFailed": "Odeslání se nezdařilo",
     "serverError": "Chyba serveru",
-    "sending": "Odesílání..."
+    "sending": "Odesílání...",
+    "phone": "Telefon",
+    "website": "Web"
   },
   "add": {
     "title": "Nový inzerát",

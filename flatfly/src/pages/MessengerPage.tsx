@@ -1092,7 +1092,7 @@ export default function MessengerPage() {
   };
 
   return (
-    <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full bg-white dark:bg-gray-900">
+    <div className="mt-[50px] flex h-[calc(100vh-50px)] w-full bg-white dark:bg-gray-900 min-[771px]:mt-[100px] min-[771px]:h-[calc(100vh-100px)]">
       <div className={`${isMobileChatOpen ? "hidden md:block" : "block"} w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:min-w-[200px] md:max-w-[280px] md:w-[240px]`}>
         <div className="mb-4 flex items-center gap-2">
           <MessageCircle className="text-[#C505EB]" size={24} />

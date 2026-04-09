@@ -1283,7 +1283,7 @@ export default function ProfilePage() {
     const completionOffset = completionCircumference - (completionPercent / 100) * completionCircumference;
 
     return (
-        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[120px] pb-[90px] max-[770px]:pb-[60px]`}>
+        <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[70px] pb-[90px] max-[770px]:pb-[60px]`}>
             <div className={`w-full max-w-[1200px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
                 
                 {/* Header */}
@@ -2330,7 +2330,7 @@ export default function ProfilePage() {
                             )}
                             {!favLoading && favListings.length > 0 && (
                                 <>
-                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
+                                    <div className="mb-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {favListings.map((listing) => (
                                             <SaleCard
                                                 key={listing.id}
@@ -2419,12 +2419,12 @@ export default function ProfilePage() {
                             )}
                             {!myListingsLoading && myListings.length > 0 && (
                                 <>
-                                    <div className="mb-6 grid w-full justify-center justify-items-center gap-5 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)]">
+                                    <div className="mb-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)]">
                                         {myListings.map((listing) => (
                                             <div
                                                 key={listing.id}
                                                 onClick={handleMyListingsCardClick}
-                                                className={`w-[256px] min-[480px]:w-[272px] lg:w-[288px] xl:w-[300px] ${
+                                                className={`w-full max-[770px]:max-w-none min-[771px]:w-[256px] min-[480px]:min-[771px]:w-[272px] lg:min-[771px]:w-[288px] xl:min-[771px]:w-[300px] ${
                                                     listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""
                                                 }`}
                                             >

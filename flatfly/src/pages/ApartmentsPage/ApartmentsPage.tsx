@@ -208,8 +208,8 @@ export default function ApartmentsPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
-      <div className="w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 xl:px-16 flex flex-col items-center">
-        <div className="w-full flex flex-col items-start my-[150px]">
+      <div className="flex w-full max-w-[1440px] flex-col items-center px-3 min-[771px]:px-6 sm:px-8 lg:px-12 xl:px-16">
+        <div className="flex w-full flex-col items-start max-[770px]:my-[60px] min-[771px]:my-[150px]">
 
           <FilterPanel
             filters={filters}
@@ -229,7 +229,7 @@ export default function ApartmentsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="mt-8 grid w-full justify-center justify-items-center gap-5 sm:mt-12 sm:gap-6 lg:gap-7 [grid-template-columns:repeat(auto-fill,256px)] min-[480px]:[grid-template-columns:repeat(auto-fill,272px)] lg:[grid-template-columns:repeat(auto-fill,288px)] xl:[grid-template-columns:repeat(auto-fill,300px)] md:mt-[50px]">
+            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mt-8 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 sm:min-[771px]:mt-12 lg:min-[771px]:gap-7 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)] md:min-[771px]:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}

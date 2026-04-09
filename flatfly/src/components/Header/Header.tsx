@@ -241,7 +241,7 @@ export default function Header() {
 
     return(
         <div
-            className={`fixed left-0 top-0 z-50 flex h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
+            className={`fixed left-0 top-0 z-50 flex h-[50px] min-[771px]:h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
                 desktopSolidBar
                     ? "min-[771px]:bg-white min-[771px]:shadow-sm min-[771px]:dark:bg-gray-900"
                     : "min-[771px]:bg-transparent"
@@ -254,9 +254,9 @@ export default function Header() {
 
             
 
-            <div className="grid h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
+            <div className="grid h-[50px] min-[771px]:h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
                 <Link to="/" className="flex shrink-0 items-center justify-center">
-                    <span className="max-[770px]:text-[32px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
+                    <span className="max-[770px]:text-[22px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
                         FlatFly
                     </span>
                 </Link>
@@ -370,11 +370,11 @@ export default function Header() {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`flex cursor-pointer items-center gap-0.5 rounded-full border-2 border-[#DDDDDD] px-2.5 py-1 duration-300 hover:border-[#C505EB] dark:border-gray-600 min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
+                            className={`flex cursor-pointer items-center gap-0.5 rounded-full border-2 border-[#DDDDDD] px-1.5 py-0.5 duration-300 hover:border-[#C505EB] dark:border-gray-600 min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
                             aria-label={t("header.openMenu")}
                         >
-                            <Menu className="h-[18px] w-[18px] shrink-0 text-[#08E2BE] min-[771px]:h-6 min-[771px]:w-6" />
-                            <CircleUser className="h-[18px] w-[18px] shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
+                            <Menu className="h-4 w-4 shrink-0 text-[#08E2BE] min-[771px]:h-6 min-[771px]:w-6" />
+                            <CircleUser className="h-4 w-4 shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
                         </button>
                         
                         {/* Десктопное выпадающее меню — вертикальные блоки */}
@@ -491,7 +491,7 @@ export default function Header() {
                 <>
                     {/* Overlay для затемнения фона */}
                     <div 
-                        className={`hidden max-[770px]:block fixed inset-0 bg-black bg-opacity-50 z-[99] top-[100px]`}
+                        className={`hidden max-[770px]:block fixed inset-0 z-[99] top-[50px] bg-black bg-opacity-50`}
                         onClick={() => setIsMenuOpen(false)}
                         onTouchStart={(e) => {
                             if (e.target === e.currentTarget) {
@@ -506,7 +506,7 @@ export default function Header() {
                     {/* Мобильное меню — компактная колонка по центру */}
                     <div 
                         ref={mobileMenuRef}
-                        className={`hidden max-[770px]:flex fixed top-[100px] left-0 w-full h-[calc(100vh-100px)] flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm dark:bg-gray-900/95 z-[100] transition-all duration-300`}
+                        className={`hidden max-[770px]:flex fixed left-0 top-[50px] z-[100] h-[calc(100vh-50px)] w-full flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm transition-all duration-300 dark:bg-gray-900/95`}
                         onClick={(e) => {
                             e.stopPropagation();
                         }}

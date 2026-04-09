@@ -5,7 +5,9 @@ import { ChevronRight } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
 import { getImageUrl } from "../../utils/defaultImage";
-import NeighbourMobileListRow from "./NeighbourMobileListRow";
+import NeighbourMobileListRow, {
+  type NeighbourTraitCell,
+} from "./NeighbourMobileListRow";
 
 interface Neighbour {
   id: number;
@@ -51,38 +53,63 @@ interface NeighbourFilterState {
   neighbourFrom: string;
 }
 
+function getNeighbourBadgeLabel(
+  fieldName: string,
+  value: string | boolean | undefined,
+  t: (key: string) => string
+): string | null {
+  if (value === null || value === undefined || value === "") return null;
+
+  if (typeof value === "boolean") {
+    return value ? t(`badges.${fieldName}`) : null;
+  }
+
+  const normalizedValue = String(value).toLowerCase().replace(/\s+/g, "");
+  if (normalizedValue === "no") return null;
+  if (normalizedValue === "yes") {
+    return t(`badges.${fieldName}`);
+  }
+  return t(`badges.${normalizedValue}`) || String(value);
+}
+
 function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[] {
-  const getBadgeValue = (fieldName: string, value?: string | boolean): string | null => {
-    if (value === null || value === undefined || value === "") return null;
-
-    if (typeof value === "boolean") {
-      return value ? t(`badges.${fieldName}`) : null;
-    }
-
-    const normalizedValue = String(value).toLowerCase().replace(/\s+/g, "");
-    if (normalizedValue === "no") return null;
-    if (normalizedValue === "yes") {
-      return t(`badges.${fieldName}`);
-    }
-    return t(`badges.${normalizedValue}`) || String(value);
-  };
-
   const potentialBadges: (string | null)[] = [
-    getBadgeValue("verified", n.verified),
-    getBadgeValue("lookingForHousing", n.looking_for_housing),
-    getBadgeValue(n.gender || "", n.gender),
-    getBadgeValue("smoking", n.smoking),
-    getBadgeValue("alcohol", n.alcohol),
-    getBadgeValue("pets", n.pets),
-    getBadgeValue("sleepSchedule", n.sleep_schedule),
-    getBadgeValue("gamer", n.gamer),
-    getBadgeValue("workFromHome", n.work_from_home),
-    getBadgeValue("withChildren", n.with_children),
-    getBadgeValue("withDisability", n.with_disability),
-    getBadgeValue("pensioner", n.pensioner),
+    getNeighbourBadgeLabel("verified", n.verified, t),
+    getNeighbourBadgeLabel("lookingForHousing", n.looking_for_housing, t),
+    getNeighbourBadgeLabel(n.gender || "", n.gender, t),
+    getNeighbourBadgeLabel("smoking", n.smoking, t),
+    getNeighbourBadgeLabel("alcohol", n.alcohol, t),
+    getNeighbourBadgeLabel("pets", n.pets, t),
+    getNeighbourBadgeLabel("sleepSchedule", n.sleep_schedule, t),
+    getNeighbourBadgeLabel("gamer", n.gamer, t),
+    getNeighbourBadgeLabel("workFromHome", n.work_from_home, t),
+    getNeighbourBadgeLabel("withChildren", n.with_children, t),
+    getNeighbourBadgeLabel("withDisability", n.with_disability, t),
+    getNeighbourBadgeLabel("pensioner", n.pensioner, t),
   ];
 
   return potentialBadges.filter((b): b is string => b !== null).slice(0, 6);
+}
+
+/** Характеристики для мобильных карточек (иконка + подпись), тот же порядок/фильтр, что и бейджи на ПК */
+function buildNeighbourMobileTraits(n: Neighbour, t: (key: string) => string): NeighbourTraitCell[] {
+  const cells: { icon: string; label: string | null }[] = [
+    { icon: "mdi:check-decagram", label: getNeighbourBadgeLabel("verified", n.verified, t) },
+    { icon: "mdi:home-search-outline", label: getNeighbourBadgeLabel("lookingForHousing", n.looking_for_housing, t) },
+    { icon: "mdi:gender-male-female", label: getNeighbourBadgeLabel(n.gender || "", n.gender, t) },
+    { icon: "mdi:smoking", label: getNeighbourBadgeLabel("smoking", n.smoking, t) },
+    { icon: "mdi:glass-wine", label: getNeighbourBadgeLabel("alcohol", n.alcohol, t) },
+    { icon: "mdi:paw", label: getNeighbourBadgeLabel("pets", n.pets, t) },
+    { icon: "mdi:weather-night", label: getNeighbourBadgeLabel("sleepSchedule", n.sleep_schedule, t) },
+    { icon: "mdi:gamepad-variant", label: getNeighbourBadgeLabel("gamer", n.gamer, t) },
+    { icon: "mdi:laptop-macbook", label: getNeighbourBadgeLabel("workFromHome", n.work_from_home, t) },
+    { icon: "mdi:human-child", label: getNeighbourBadgeLabel("withChildren", n.with_children, t) },
+    { icon: "mdi:wheelchair-accessibility", label: getNeighbourBadgeLabel("withDisability", n.with_disability, t) },
+    { icon: "mdi:account-clock", label: getNeighbourBadgeLabel("pensioner", n.pensioner, t) },
+  ];
+  return cells
+    .filter((c): c is NeighbourTraitCell => Boolean(c.label))
+    .slice(0, 6);
 }
 
 export default function NeighboursPage() {
@@ -188,8 +215,8 @@ export default function NeighboursPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont">
-      <div className="w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 xl:px-16 flex flex-col items-center">
-        <div className="flex w-full max-[770px]:mt-[calc(100px+10px)] max-[770px]:mb-10 min-[771px]:my-[120px] flex-col items-start">
+      <div className="flex w-full max-w-[1440px] flex-col items-center px-3 min-[771px]:px-6 sm:px-8 lg:px-12 xl:px-16">
+        <div className="flex w-full max-[770px]:mb-10 max-[770px]:mt-[calc(50px+10px)] min-[771px]:my-[120px] flex-col items-start">
 
           <NeighboursFilterPanel
             filters={filters}
@@ -205,7 +232,7 @@ export default function NeighboursPage() {
           ) : (
             <>
               {/* Мобильный список: строки как в соцсетях — удобнее скроллить */}
-              <div className="mx-auto mt-3 flex w-full max-w-lg min-[771px]:hidden flex-col rounded-2xl border border-gray-100 bg-white px-3 py-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+              <div className="mx-auto mt-3 flex w-full max-w-lg min-[771px]:hidden flex-col gap-3 px-0.5">
                 {neighbours.map((n) => (
                   <NeighbourMobileListRow
                     key={n.id}
@@ -218,6 +245,7 @@ export default function NeighboursPage() {
                     ratingAverage={n.ratingAverage}
                     ratingCount={n.ratingCount}
                     initialFavorite={!!n.is_favorite}
+                    traits={buildNeighbourMobileTraits(n, t)}
                   />
                 ))}
               </div>

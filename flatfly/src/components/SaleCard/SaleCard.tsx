@@ -368,11 +368,11 @@ export default function SaleCard({
     };
 
     const listingBodyPadding = cg
-        ? "py-1.5 px-2.5 sm:py-2 sm:px-3"
+        ? "py-1.5 px-2.5 sm:py-2 sm:px-3 max-[770px]:py-2 max-[770px]:px-3"
         : "py-3 px-4 max-[1220px]:py-2.5 max-[1220px]:px-3";
     const titleClass = `${
         cg
-            ? "text-[14px] leading-tight sm:text-[15px] sm:leading-snug"
+            ? "text-[14px] leading-tight sm:text-[15px] sm:leading-snug max-[770px]:line-clamp-1 max-[770px]:text-[15px]"
             : "text-lg max-[1220px]:text-base leading-snug"
     } font-semibold tracking-tight line-clamp-2 ${
         isVisited
@@ -380,12 +380,16 @@ export default function SaleCard({
             : "text-[#C505EB] dark:text-[#D946EF]"
     }`;
     const addressClass = `${
-        cg ? "text-xs sm:text-[13px]" : "text-sm max-[1220px]:text-[13px]"
+        cg
+            ? "text-xs sm:text-[13px] max-[770px]:line-clamp-1"
+            : "text-sm max-[1220px]:text-[13px]"
     } font-normal leading-relaxed line-clamp-2 ${
         isVisited ? "text-gray-500 dark:text-gray-400" : "text-zinc-600 dark:text-zinc-400"
     }`;
     const priceClass = `${
-        cg ? "text-sm sm:text-[15px]" : "text-lg max-[1220px]:text-base"
+        cg
+            ? "text-sm sm:text-[15px] max-[770px]:text-[15px]"
+            : "text-lg max-[1220px]:text-base"
     } font-bold tabular-nums tracking-tight ${listingPriceClass}`;
 
     const ApartmentOrRoomBody = () => (
@@ -407,7 +411,7 @@ export default function SaleCard({
                 <div
                     className={`mt-auto flex flex-wrap items-center border-t border-zinc-200/80 dark:border-zinc-600/80 ${
                         cg
-                            ? "gap-1 pt-1.5"
+                            ? "gap-1 pt-1.5 max-[770px]:gap-1 max-[770px]:pt-1.5"
                             : "gap-2 pt-2.5 max-[1220px]:gap-1.5 max-[1220px]:pt-2"
                     }`}
                     aria-label={t("listing.amenities")}
@@ -501,15 +505,15 @@ export default function SaleCard({
             ? denseNeighbourDesktop
                 ? "h-[300px] w-[220px] max-w-full shrink-0 sm:h-[312px] sm:w-[220px] lg:h-[324px] lg:w-[228px] xl:h-[336px] xl:w-[236px] rounded-lg shadow-sm"
                 : "h-[312px] w-[256px] max-w-full shrink-0 sm:h-[326px] sm:w-[272px] lg:h-[340px] lg:w-[288px] xl:h-[352px] xl:w-[300px] rounded-lg shadow-sm"
-            : "h-[283px] w-[256px] max-w-full shrink-0 sm:h-[299px] sm:w-[272px] lg:h-[311px] lg:w-[288px] xl:h-[323px] xl:w-[300px] rounded-lg shadow-sm"
-        : "w-full max-w-[384px] min-h-[380px] max-[1220px]:min-h-[300px] rounded-xl shadow-md";
+            : "h-[283px] w-[256px] max-w-full shrink-0 sm:h-[299px] sm:w-[272px] lg:h-[311px] lg:w-[288px] xl:h-[323px] xl:w-[300px] max-[770px]:h-auto max-[770px]:min-h-0 max-[770px]:w-full max-[770px]:max-w-none rounded-lg shadow-sm"
+        : "w-full max-w-[384px] min-h-[380px] max-[1220px]:min-h-[300px] max-[770px]:max-w-none rounded-xl shadow-md";
     const imgFrame = cg
         ? normalizedType === "NEIGHBOUR"
             ? denseNeighbourDesktop
                 ? "h-[160px] shrink-0 sm:h-[168px] lg:h-[176px] xl:h-[184px]"
                 : "h-[168px] shrink-0 sm:h-[178px] lg:h-[190px] xl:h-[198px]"
-            : "h-[128px] shrink-0 sm:h-[138px] lg:h-[148px] xl:h-[156px]"
-        : "h-[240px] max-[1220px]:h-[170px] shrink-0";
+            : "h-[128px] shrink-0 sm:h-[138px] lg:h-[148px] xl:h-[156px] max-[770px]:aspect-[4/3] max-[770px]:h-auto max-[770px]:w-full"
+        : "h-[240px] max-[1220px]:h-[170px] max-[770px]:aspect-[4/3] max-[770px]:h-auto shrink-0";
     const topOverlayPad = cg ? "p-2 sm:p-2.5" : "p-3";
     const heartBtn = cg
         ? "h-9 w-9 sm:h-10 sm:w-10"
