@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/universities/", views.universities_list, name="universities_list"),
     path("api/universities/faculties/", views.university_faculties_list, name="university_faculties_list"),
     path("api/launch-date/", views.launch_date_view, name="launch_date"),
+    path("api/team-members/", views.team_members_view, name="team_members"),
     path("api/listings/", views.listings_view, name="listings"),
     path("api/listings/<int:listing_id>/images/", views.upload_listing_image, name="upload_listing_image"),
     path("api/listings/<int:listing_id>/invite/", views.create_home_invite, name="create_home_invite"),

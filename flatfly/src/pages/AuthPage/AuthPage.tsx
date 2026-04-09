@@ -201,8 +201,8 @@ export default function AuthPage() {
         <div
             className={`w-full flex flex-col items-center interFont text-black dark:text-white bg-transparent ${
                 isLogin
-                    ? "min-h-screen px-4 pb-10 pt-[108px] sm:px-6 sm:pt-[116px]"
-                    : "min-h-screen flex flex-col pb-10 pt-[108px] max-[770px]:pb-8 sm:pt-[116px]"
+                    ? "min-h-screen px-4 pb-10 pt-[58px] sm:px-6 min-[771px]:pt-[108px] min-[771px]:sm:pt-[116px]"
+                    : "min-h-screen flex flex-col pb-10 pt-[58px] max-[770px]:pb-8 min-[771px]:pt-[108px] min-[771px]:sm:pt-[116px]"
             }`}
         >
             <div

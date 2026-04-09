@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile, ProfileCompletionWeight, ProfileRankingConfig, University, UniversityFaculty
+from .models import Profile, ProfileCompletionWeight, ProfileRankingConfig, TeamMember, University, UniversityFaculty
 
 
 class UniversityFacultyInline(admin.TabularInline):
@@ -230,3 +230,16 @@ class ProfileRankingConfigAdmin(admin.ModelAdmin):
     list_display = ("code", "label", "weight", "hard_filter", "is_active", "updated_at")
     list_filter = ("hard_filter", "is_active")
     search_fields = ("code", "label")
+
+
+@admin.register(TeamMember)
+class TeamMemberAdmin(admin.ModelAdmin):
+    list_display = ("sort_order", "name", "role_en", "email", "phone", "website")
+    list_display_links = ("name",)
+    list_editable = ("sort_order",)
+    ordering = ("sort_order", "id")
+    fieldsets = (
+        (None, {"fields": ("sort_order", "photo", "name")}),
+        ("Контакты", {"fields": ("email", "phone", "website")}),
+        ("Должность (языки)", {"fields": ("role_cz", "role_en", "role_ru")}),
+    )

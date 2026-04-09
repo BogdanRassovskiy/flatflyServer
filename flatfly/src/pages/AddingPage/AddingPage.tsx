@@ -825,7 +825,7 @@ export default function AddingPage() {
 
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
 
-                <div className={`w-full flex flex-col items-center mt-[124px] mb-[100px]`}>
+                <div className={`mb-[100px] mt-[74px] flex w-full flex-col items-center min-[771px]:mt-[124px]`}>
 
                     <span className={`font-bold text-[32px] mb-6 text-black dark:text-white text-center max-[770px]:text-2xl`}>
                         {showPromotionStep && !isEditMode ? t("add.promotion.stepTitle") : t("add.title")}

@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST,require_http_methods
 from django.db import close_old_connections
 from django.db.models import Q, Avg, Count, Max, Prefetch
 from django.utils import timezone
-from users.models import Profile, ProfileCompletionWeight, ProfileGalleryPhoto, ProfileRankingConfig, ProfileReview, University, UniversityFaculty
+from users.models import Profile, ProfileCompletionWeight, ProfileGalleryPhoto, ProfileRankingConfig, ProfileReview, TeamMember, University, UniversityFaculty
 from chats.models import ChatBlock
 from users.neighbour_ranking import (
     apply_neighbour_hard_filters,
@@ -965,6 +965,37 @@ def launch_date_view(request):
     return JsonResponse({
         "launch_date": launch_settings.launch_date.isoformat()
     })
+
+
+def team_members_view(request):
+    """Публичный список команды для главной (фото + контакты из админки)."""
+    lang = (request.GET.get("lang") or "en").strip().lower()
+    if lang == "cz":
+        role_attr = "role_cz"
+    elif lang == "ru":
+        role_attr = "role_ru"
+    else:
+        role_attr = "role_en"
+
+    members = []
+    for m in TeamMember.objects.all().order_by("sort_order", "id"):
+        role = (getattr(m, role_attr, "") or "").strip() or m.role_en
+        photo_url = None
+        if m.photo:
+            photo_url = request.build_absolute_uri(m.photo.url)
+        members.append(
+            {
+                "id": m.id,
+                "name": m.name,
+                "role": role,
+                "photo_url": photo_url,
+                "email": (m.email or "").strip(),
+                "phone": (m.phone or "").strip(),
+                "website": (m.website or "").strip(),
+            }
+        )
+    return JsonResponse({"members": members})
+
 
 def me(request):
     if not request.user.is_authenticated:

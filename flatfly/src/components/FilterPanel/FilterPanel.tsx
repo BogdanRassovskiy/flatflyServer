@@ -850,28 +850,14 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
               ) : null}
             </div>
 
-            {/* Мобильная */}
+            {/* Мобильная: только кнопка «Все фильтры» — быстрые 4 сегмента в модалке */}
             <div className="flex min-[771px]:hidden w-full flex-col gap-2.5">
-              <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06]">
-                <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
-                  {pinnedOrder.map((k, i) => renderPinnedCell(k, "mobile", i))}
-                </div>
-                {pinnedOpen ? (
-                  <div
-                    className="filter-panel-dropdown border-t border-zinc-200/90 bg-white p-4 dark:border-zinc-600 dark:bg-zinc-900"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    {renderPinnedDropdownBody(pinnedOpen, true)}
-                  </div>
-                ) : null}
-              </div>
-
               <button
                 type="button"
                 onClick={openConfigureModal}
-                className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
+                className="flex w-full items-center justify-center gap-2.5 rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
               >
-                <span className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
+                <span className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
                   <Icon icon="mage:filter" className="h-6 w-6 shrink-0" style={{ color: "#08E2BE" }} />
                   <span className="text-base font-bold tracking-tight">{t("filter.filters")}</span>
                 </span>

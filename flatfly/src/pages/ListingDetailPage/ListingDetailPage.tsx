@@ -1608,8 +1608,8 @@ out center;`;
         <div
             className={`interFont flex min-h-screen w-full flex-col items-center bg-transparent text-black dark:text-white ${
                 type === "NEIGHBOUR"
-                    ? "pt-[124px] sm:pt-[132px] min-[770px]:pt-[140px]"
-                    : "pt-[100px]"
+                    ? "max-[770px]:pt-[58px] min-[771px]:pt-[124px] min-[771px]:sm:pt-[132px] min-[771px]:min-[900px]:pt-[140px]"
+                    : "max-[770px]:pt-[50px] min-[771px]:pt-[100px]"
             }`}
         >
             

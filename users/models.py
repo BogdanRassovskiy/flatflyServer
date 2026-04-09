@@ -266,3 +266,25 @@ class ProfileReview(models.Model):
 
     def __str__(self):
         return f"{self.reviewer_id} -> {self.target_id} ({self.rating})"
+
+
+class TeamMember(models.Model):
+    """Участники блока «Команда» на главной; фото и контакты редактируются в админке."""
+
+    sort_order = models.PositiveSmallIntegerField(default=0, db_index=True)
+    photo = models.ImageField(upload_to="team/", blank=True, null=True)
+    name = models.CharField(max_length=200)
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=64, blank=True, default="")
+    website = models.URLField(blank=True, default="")
+    role_cz = models.CharField(max_length=120)
+    role_en = models.CharField(max_length=120)
+    role_ru = models.CharField(max_length=120)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "Team member (homepage)"
+        verbose_name_plural = "Team members (homepage)"
+
+    def __str__(self):
+        return f"{self.sort_order}: {self.name}"

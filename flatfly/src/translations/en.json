@@ -426,7 +426,9 @@
     "sendSuccess": "Message sent successfully",
     "sendFailed": "Failed to send",
     "serverError": "Server error",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "phone": "Phone",
+    "website": "Website"
   },
   "add": {
     "title": "New listing",
