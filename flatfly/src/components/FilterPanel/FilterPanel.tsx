@@ -175,7 +175,6 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       const map: Record<string, string> = {
         "male": t("filter.preferredGenderMale"),
         "female": t("filter.preferredGenderFemale"),
-        "any": t("filter.preferredGenderAny"),
       };
       return map[value] || value;
     };
@@ -434,7 +433,6 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       { value: "", label: "-" },
       { value: "male", label: t("filter.preferredGenderMale") },
       { value: "female", label: t("filter.preferredGenderFemale") },
-      { value: "any", label: t("filter.preferredGenderAny") },
     ];
 
     const infrastructureOptions = [

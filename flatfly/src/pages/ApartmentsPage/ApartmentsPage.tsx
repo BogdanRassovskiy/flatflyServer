@@ -82,6 +82,7 @@ export default function ApartmentsPage() {
         filters: {
           ...defaultFilters,
           ...(parsed?.filters || {}),
+          preferredGender: parsed?.filters?.preferredGender === "any" ? "" : (parsed?.filters?.preferredGender || ""),
           amenities: Array.isArray(parsed?.filters?.amenities) ? parsed.filters.amenities : [],
           infrastructure: Array.isArray(parsed?.filters?.infrastructure) ? parsed.filters.infrastructure : [],
         } as FilterState,
@@ -133,34 +134,6 @@ export default function ApartmentsPage() {
   useEffect(() => {
     loadListings();
   }, [pagination, filters]);
-
-  useEffect(() => {
-    if (filters.preferredGender) {
-      return;
-    }
-
-    let cancelled = false;
-    const loadPreferredGenderFromProfile = async () => {
-      try {
-        const response = await fetch("/api/profile/", { credentials: "include" });
-        if (!response.ok) {
-          return;
-        }
-        const data = await response.json();
-        const profileGender = String(data?.gender || "").toLowerCase();
-        if (!cancelled && (profileGender === "male" || profileGender === "female")) {
-          setFilters((prev) => (prev.preferredGender ? prev : { ...prev, preferredGender: profileGender }));
-        }
-      } catch {
-        // no-op: leave default when profile is unavailable
-      }
-    };
-
-    loadPreferredGenderFromProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.preferredGender]);
 
   const loadListings = async () => {
     try {

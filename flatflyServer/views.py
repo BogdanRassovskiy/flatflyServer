@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 import math
+import threading
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import unicodedata
@@ -14,6 +15,7 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 import jwt
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST,require_http_methods
+from django.db import close_old_connections
 from django.db.models import Q, Avg, Count, Max, Prefetch
 from django.utils import timezone
 from users.models import Profile, ProfileCompletionWeight, ProfileGalleryPhoto, ProfileRankingConfig, ProfileReview, TeamMember, University, UniversityFaculty
@@ -483,6 +485,43 @@ def resolve_street_coordinates(address, city, region):
     return street.latitude, street.longitude
 
 
+def _run_in_background(task_name, target, *args, **kwargs):
+    def _wrapped():
+        close_old_connections()
+        try:
+            target(*args, **kwargs)
+        except Exception as exc:
+            print(f"[bg:{task_name}] failed: {exc}")
+        finally:
+            close_old_connections()
+
+    threading.Thread(
+        target=_wrapped,
+        name=f"flatfly-{task_name}",
+        daemon=True,
+    ).start()
+
+
+def _resolve_listing_coordinates_async(listing_id):
+    listing = Listing.objects.filter(id=listing_id).first()
+    if not listing:
+        return
+    if listing.geo_lat is not None and listing.geo_lng is not None:
+        return
+    resolved_lat, resolved_lng = resolve_street_coordinates(listing.address, listing.city, listing.region)
+    if resolved_lat is not None and resolved_lng is not None:
+        listing.geo_lat = resolved_lat
+        listing.geo_lng = resolved_lng
+        listing.save(update_fields=["geo_lat", "geo_lng"])
+
+
+def _publish_listing_to_channel_async(listing_id, force_refresh=False):
+    listing = Listing.objects.filter(id=listing_id).first()
+    if not listing or not listing.is_active:
+        return
+    publish_listing_to_channel(listing, force_refresh=force_refresh)
+
+
 def _parse_bool_choice(raw_value):
     value = str(raw_value or "").strip().lower()
     if value in ["yes", "true", "1"]:
@@ -609,13 +648,16 @@ def _normalize_preferred_gender(raw_value, default=None):
 
 
 def _build_requested_listing_filters(request):
+    preferred_gender = _normalize_preferred_gender(request.GET.get("preferredGender"), None)
+    if preferred_gender == "any":
+        preferred_gender = None
     requested = {
         "property_type": None,
         "region": request.GET.get("region") or None,
         "price_from": _parse_float_safe(request.GET.get("priceFrom")),
         "price_to": _parse_float_safe(request.GET.get("priceTo")),
         "currency": request.GET.get("currency") or None,
-        "preferred_gender": _normalize_preferred_gender(request.GET.get("preferredGender"), None),
+        "preferred_gender": preferred_gender,
         "sort_by": request.GET.get("sortBy") or "price_asc",
         "rooms": _normalize_rooms_filter(request.GET.get("rooms")),
         "has_roommates": _parse_bool_choice(request.GET.get("hasRoommates")),
@@ -991,7 +1033,7 @@ def neighbours_list(request):
     qs = Profile.objects.all().annotate(
         rating_average=Avg("received_reviews__rating"),
         rating_count=Count("received_reviews"),
-    )
+    ).exclude(user__username="support")
 
     # Do not show the current user's own profile in neighbours list.
     if request.user.is_authenticated:
@@ -1812,7 +1854,7 @@ def listing_detail(request, listing_id):
         if was_active and not listing.is_active:
             delete_listing_from_channel(listing, clear_fields=True)
         elif (not was_active) and listing.is_active:
-            publish_listing_to_channel(listing)
+            _run_in_background("listing-publish", _publish_listing_to_channel_async, listing.id, False)
         return JsonResponse({"detail": "Updated"})
 
     ordered_images = get_ordered_listing_images(listing)
@@ -2039,11 +2081,7 @@ def listings_view(request):
         )
 
         if listing.geo_lat is None or listing.geo_lng is None:
-            resolved_lat, resolved_lng = resolve_street_coordinates(listing.address, listing.city, listing.region)
-            if resolved_lat is not None and resolved_lng is not None:
-                listing.geo_lat = resolved_lat
-                listing.geo_lng = resolved_lng
-                listing.save(update_fields=["geo_lat", "geo_lng"])
+            _run_in_background("listing-geocode", _resolve_listing_coordinates_async, listing.id)
 
         # Guard against DB integrity errors when profile already has a residency.
         existing_residency = ListingResident.objects.filter(profile=profile).first()
@@ -2521,7 +2559,7 @@ def upload_listing_image(request, listing_id):
     publish_now_raw = str(request.POST.get("publish_now", "")).strip().lower()
     publish_now = publish_now_raw in {"1", "true", "yes", "on"}
     if publish_now:
-        publish_listing_to_channel(listing, force_refresh=True)
+        _run_in_background("listing-publish-refresh", _publish_listing_to_channel_async, listing.id, True)
 
     return JsonResponse({
         "id": img.id,

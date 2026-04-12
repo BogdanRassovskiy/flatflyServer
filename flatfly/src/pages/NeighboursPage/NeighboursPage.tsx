@@ -56,7 +56,7 @@ interface NeighbourFilterState {
 function getNeighbourBadgeLabel(
   fieldName: string,
   value: string | boolean | undefined,
-  t: (key: string) => string
+  t: (key: string) => string,
 ): string | null {
   if (value === null || value === undefined || value === "") return null;
 
@@ -72,23 +72,41 @@ function getNeighbourBadgeLabel(
   return t(`badges.${normalizedValue}`) || String(value);
 }
 
-function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): string[] {
-  const potentialBadges: (string | null)[] = [
-    getNeighbourBadgeLabel("verified", n.verified, t),
-    getNeighbourBadgeLabel("lookingForHousing", n.looking_for_housing, t),
-    getNeighbourBadgeLabel(n.gender || "", n.gender, t),
-    getNeighbourBadgeLabel("smoking", n.smoking, t),
-    getNeighbourBadgeLabel("alcohol", n.alcohol, t),
-    getNeighbourBadgeLabel("pets", n.pets, t),
-    getNeighbourBadgeLabel("sleepSchedule", n.sleep_schedule, t),
-    getNeighbourBadgeLabel("gamer", n.gamer, t),
-    getNeighbourBadgeLabel("workFromHome", n.work_from_home, t),
-    getNeighbourBadgeLabel("withChildren", n.with_children, t),
-    getNeighbourBadgeLabel("withDisability", n.with_disability, t),
-    getNeighbourBadgeLabel("pensioner", n.pensioner, t),
+type NeighbourBadgeIcon =
+  | "gamepad"
+  | "moon"
+  | "gender"
+  | "alcohol"
+  | "smoking"
+  | "pets"
+  | "work"
+  | "children"
+  | "accessibility"
+  | "pensioner";
+
+type NeighbourBadge = {
+  label: string;
+  icon?: NeighbourBadgeIcon;
+};
+
+function buildNeighbourBadges(n: Neighbour, t: (key: string) => string): NeighbourBadge[] {
+  const rows: Array<{ label: string | null; icon?: NeighbourBadgeIcon }> = [
+    { label: getNeighbourBadgeLabel(n.gender || "", n.gender, t), icon: "gender" },
+    { label: getNeighbourBadgeLabel("smoking", n.smoking, t), icon: "smoking" },
+    { label: getNeighbourBadgeLabel("alcohol", n.alcohol, t), icon: "alcohol" },
+    { label: getNeighbourBadgeLabel("pets", n.pets, t), icon: "pets" },
+    { label: getNeighbourBadgeLabel("sleepSchedule", n.sleep_schedule, t), icon: "moon" },
+    { label: getNeighbourBadgeLabel("gamer", n.gamer, t), icon: "gamepad" },
+    { label: getNeighbourBadgeLabel("workFromHome", n.work_from_home, t), icon: "work" },
+    { label: getNeighbourBadgeLabel("withChildren", n.with_children, t), icon: "children" },
+    { label: getNeighbourBadgeLabel("withDisability", n.with_disability, t), icon: "accessibility" },
+    { label: getNeighbourBadgeLabel("pensioner", n.pensioner, t), icon: "pensioner" },
   ];
 
-  return potentialBadges.filter((b): b is string => b !== null).slice(0, 6);
+  return rows
+    .filter((r): r is { label: string; icon?: NeighbourBadgeIcon } => r.label !== null)
+    .slice(0, 6)
+    .map((r) => ({ label: r.label, icon: r.icon }));
 }
 
 /** Характеристики для мобильных карточек (иконка + подпись), тот же порядок/фильтр, что и бейджи на ПК */
@@ -149,6 +167,7 @@ export default function NeighboursPage() {
       return {
         ...defaultFilters,
         ...parsed,
+        gender: "",
         ratingMin: parsed?.ratingMin === "" || parsed?.ratingMin === undefined ? "0" : String(parsed.ratingMin),
       };
     } catch {
@@ -158,7 +177,9 @@ export default function NeighboursPage() {
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem("neighbourFilters", JSON.stringify(filters));
+    // Don't persist gender: should be empty by default on page open.
+    const { gender: _gender, ...persistable } = filters;
+    localStorage.setItem("neighbourFilters", JSON.stringify(persistable));
   }, [filters]);
 
   useEffect(() => {
@@ -224,10 +245,10 @@ export default function NeighboursPage() {
           />
 
           {loading ? (
-            <div className="mt-5 text-xl max-[770px]:mt-4 min-[771px]:mt-10">Loading...</div>
+            <div className="mt-5 text-xl max-[770px]:mt-4 min-[771px]:mt-10">{t("neighboursPage.loading")}</div>
           ) : neighbours.length === 0 ? (
             <div className="mt-5 text-xl opacity-60 max-[770px]:mt-4 min-[771px]:mt-10">
-              {t("No neighbours found")}
+              {t("neighboursPage.noResults")}
             </div>
           ) : (
             <>
@@ -264,6 +285,7 @@ export default function NeighboursPage() {
                       from={regionValueToLabel(n.city)}
                       image={getImageUrl(n.avatar)}
                       badges={badges}
+                      verified={n.verified}
                       ratingAverage={n.ratingAverage}
                       ratingCount={n.ratingCount}
                       matchPercentage={n.matchPercentage}

@@ -1,5 +1,5 @@
 import {Icon} from "@iconify/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Baby, Briefcase, CheckCircle2, ChevronLeft, ChevronRight, Cigarette, Clock, Gamepad2, Moon, PawPrint, PersonStanding, VenusAndMars, Wine } from "lucide-react";
 import {useEffect, useMemo, useRef, useState} from "react";
 import type SwiperCore from "swiper";
 import { Pagination } from "swiper/modules";
@@ -34,9 +34,26 @@ export type SaleCardTypes = {
     is_favorite?: boolean;
     // Доп. поля для NEIGHBOUR
     from?: string;
-    badges?: string[];
+    badges?: Array<
+        string |
+        {
+            label: string;
+            icon?:
+                | "gamepad"
+                | "moon"
+                | "gender"
+                | "alcohol"
+                | "smoking"
+                | "pets"
+                | "work"
+                | "children"
+                | "accessibility"
+                | "pensioner";
+        }
+    >;
     ratingAverage?: number;
     ratingCount?: number;
+    verified?: boolean;
     // Возможные старые поля (сохраняем в типе, но не используем)
     region?: string;
     title?: string;
@@ -72,6 +89,7 @@ export default function SaleCard({
     badges = [],
     ratingAverage,
     ratingCount,
+    verified = false,
     is_favorite,
     is_active = true,
     linkState,
@@ -454,12 +472,41 @@ export default function SaleCard({
                 return <ApartmentOrRoomBody />;
             case "NEIGHBOUR":
                 const visibleBadges = cg ? badges.slice(0, 4) : badges;
+                const renderBadgeIcon = (
+                    icon?:
+                        | "gamepad"
+                        | "moon"
+                        | "gender"
+                        | "alcohol"
+                        | "smoking"
+                        | "pets"
+                        | "work"
+                        | "children"
+                        | "accessibility"
+                        | "pensioner",
+                ) => {
+                    if (!icon) return null;
+                    const cls = cg ? "h-3 w-3 sm:h-3.5 sm:w-3.5" : "h-3.5 w-3.5";
+                    if (icon === "gamepad") return <Gamepad2 className={cls} aria-hidden />;
+                    if (icon === "moon") return <Moon className={cls} aria-hidden />;
+                    if (icon === "gender") return <VenusAndMars className={cls} aria-hidden />;
+                    if (icon === "smoking") return <Cigarette className={cls} aria-hidden />;
+                    if (icon === "pets") return <PawPrint className={cls} aria-hidden />;
+                    if (icon === "work") return <Briefcase className={cls} aria-hidden />;
+                    if (icon === "children") return <Baby className={cls} aria-hidden />;
+                    if (icon === "accessibility") return <PersonStanding className={cls} aria-hidden />;
+                    if (icon === "pensioner") return <Clock className={cls} aria-hidden />;
+                    return <Wine className={cls} aria-hidden />;
+                };
                 return (
                     <div
                         className={`w-full flex flex-col items-stretch ${listingBodyPadding} ${cg ? "min-h-0 flex-1 gap-0.5 overflow-hidden" : "gap-1.5"}`}
                     >
                         <h3 className={`${titleClass} shrink-0 flex flex-wrap gap-x-1.5 gap-y-0`}>
                             <span>{name}</span>
+                            {verified ? (
+                                <CheckCircle2 className="mt-[1px] h-4 w-4 text-emerald-500" aria-label={t("badges.verified")} />
+                            ) : null}
                             {age != null ? (
                                 <span className="font-medium text-zinc-500 dark:text-zinc-400">{age}</span>
                             ) : null}
@@ -484,11 +531,14 @@ export default function SaleCard({
                                 {visibleBadges.map((value, index) => (
                                     <span
                                         key={index}
-                                        className={`rounded-md border border-zinc-400/60 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[#06B396] dark:border-zinc-500 dark:text-[#08E2BE] ${
-                                            cg ? "text-[9px] sm:text-[10px]" : "text-[10px] max-[1220px]:text-[9px]"
+                                        className={`inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md border border-zinc-400/60 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[#06B396] dark:border-zinc-500 dark:text-[#08E2BE] ${
+                                            cg ? "text-[8px] sm:text-[9px]" : "text-[9px] max-[1220px]:text-[8px]"
                                         }`}
                                     >
-                                        {value}
+                                        {typeof value === "string" ? null : renderBadgeIcon(value.icon)}
+                                        <span className="min-w-0 max-w-[120px] truncate">
+                                            {typeof value === "string" ? value : value.label}
+                                        </span>
                                     </span>
                                 ))}
                             </div>

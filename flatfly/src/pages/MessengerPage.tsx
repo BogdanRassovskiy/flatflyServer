@@ -7,6 +7,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
 const MESSAGE_CACHE_KEY = "flatfly.messageCache.v1";
 const MESSAGES_PAGE_SIZE = 10;
+const FLATFLY_SUPPORT_EMAIL = "support@flatfly.local";
 
 interface User {
   id: number;
@@ -267,7 +268,6 @@ export default function MessengerPage() {
   const isDraftConversationActive = Boolean(draftConversation);
   const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
   const canSendInCurrentChat = selectedChat ? (selectedChatPermission?.canSend ?? true) : true;
-  const isSendLocked = Boolean(selectedChat?.is_blocked) || isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
 
   const getOtherParticipant = (chat: Chat) => {
     if (currentUserId === null) return chat.participants[0] ?? null;
@@ -305,11 +305,14 @@ export default function MessengerPage() {
   const activeParticipant = getActiveParticipant();
   const activeParticipantName = getParticipantName(activeParticipant);
   const activeParticipantAvatar = getParticipantAvatar(activeParticipant);
-  const canOpenParticipantProfile = typeof activeParticipant?.profile_id === "number";
+  const isFlatFlySupportParticipant = activeParticipant?.email === FLATFLY_SUPPORT_EMAIL;
+  const canInteractWithParticipant = !isFlatFlySupportParticipant;
+  const canOpenParticipantProfile = isFlatFlySupportParticipant || typeof activeParticipant?.profile_id === "number";
   const canShareContacts = Boolean(currentUserContacts.email || currentUserContacts.phone);
   const selectedChatIsBlocked = Boolean(selectedChat?.is_blocked);
   const selectedChatBlockedByMe = Boolean(selectedChat?.blocked_by_me);
   const isMobileChatOpen = Boolean(selectedChat || draftConversation);
+  const isSendLocked = !canInteractWithParticipant || Boolean(selectedChat?.is_blocked) || isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
 
   const updateMessageCacheEntry = (
     chatId: number,
@@ -695,6 +698,12 @@ export default function MessengerPage() {
   }, []);
 
   useEffect(() => {
+    if (!isFlatFlySupportParticipant) return;
+    setIsReportingOpen(false);
+    setIsMobileActionsOpen(false);
+  }, [isFlatFlySupportParticipant]);
+
+  useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
 
     const chatParam = searchParams.get("chat");
@@ -979,7 +988,7 @@ export default function MessengerPage() {
   };
 
   const handleShareContacts = async () => {
-    if (!canShareContacts) {
+    if (!canInteractWithParticipant || !canShareContacts) {
       return;
     }
 
@@ -995,7 +1004,16 @@ export default function MessengerPage() {
   };
 
   const handleOpenParticipantProfile = () => {
-    if (!canOpenParticipantProfile || !activeParticipant?.profile_id) {
+    if (!canOpenParticipantProfile || !activeParticipant) {
+      return;
+    }
+
+    if (isFlatFlySupportParticipant) {
+      navigate("/#about");
+      return;
+    }
+
+    if (!activeParticipant.profile_id) {
       return;
     }
 
@@ -1012,6 +1030,7 @@ export default function MessengerPage() {
   };
 
   const handleBlockParticipant = async () => {
+    if (!canInteractWithParticipant) return;
     if (!activeParticipant?.id) return;
     const response = await fetch("/api/chats/block/", {
       method: "POST",
@@ -1210,15 +1229,17 @@ export default function MessengerPage() {
                 </button>
               </div>
               <div className="relative flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  className="md:hidden rounded-lg border border-gray-300 p-2 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                  onClick={() => setIsMobileActionsOpen((prev) => !prev)}
-                  aria-label={t("header.openMenu")}
-                >
-                  <MoreVertical size={18} />
-                </button>
-                {isMobileActionsOpen && (
+                {canInteractWithParticipant && (
+                  <button
+                    type="button"
+                    className="md:hidden rounded-lg border border-gray-300 p-2 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => setIsMobileActionsOpen((prev) => !prev)}
+                    aria-label={t("header.openMenu")}
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                )}
+                {isMobileActionsOpen && canInteractWithParticipant && (
                   <div className="absolute right-0 top-11 z-30 min-w-[210px] rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800 md:hidden">
                     <button
                       type="button"
@@ -1259,36 +1280,40 @@ export default function MessengerPage() {
                 )}
               </div>
               <div className="hidden md:flex flex-wrap items-center justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                  onClick={() => {
-                    void handleShareContacts();
-                  }}
-                  disabled={isSending || !canShareContacts}
-                >
-                  {t("messenger.shareContacts")}
-                </button>
-                {selectedChat && (
+                {canInteractWithParticipant && (
                   <>
-                    {!selectedChatBlockedByMe && (
-                      <button
-                        type="button"
-                        className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
-                        onClick={() => {
-                          void handleBlockParticipant();
-                        }}
-                      >
-                        {t("messenger.blockUser")}
-                      </button>
-                    )}
                     <button
                       type="button"
-                      className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                      onClick={() => setIsReportingOpen(true)}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        void handleShareContacts();
+                      }}
+                      disabled={isSending || !canShareContacts}
                     >
-                      {t("messenger.reportUser")}
+                      {t("messenger.shareContacts")}
                     </button>
+                    {selectedChat && (
+                      <>
+                        {!selectedChatBlockedByMe && (
+                          <button
+                            type="button"
+                            className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                            onClick={() => {
+                              void handleBlockParticipant();
+                            }}
+                          >
+                            {t("messenger.blockUser")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                          onClick={() => setIsReportingOpen(true)}
+                        >
+                          {t("messenger.reportUser")}
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>

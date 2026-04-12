@@ -22,6 +22,7 @@ import FaqChatWidget from "./components/FaqChatWidget/FaqChatWidget";
 import PageBackground from "./components/PageBackground/PageBackground";
 import MessengerPage from "./pages/MessengerPage";
 import ProfilePlansPage from "./pages/ProfilePlansPage";
+import PublishQueuedPage from "./pages/PublishQueuedPage/PublishQueuedPage";
 // import другие страницы при необходимости
 
 function RootPage() {
@@ -68,6 +69,14 @@ function App() {
                                 <AddingPage />
                             </ProtectedRoute>
                         } 
+                    />
+                    <Route
+                        path="/listing-published"
+                        element={
+                            <ProtectedRoute>
+                                <PublishQueuedPage />
+                            </ProtectedRoute>
+                        }
                     />
 
                     <Route 
