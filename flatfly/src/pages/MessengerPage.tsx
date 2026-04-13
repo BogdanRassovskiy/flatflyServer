@@ -13,8 +13,8 @@ import {
   MoreVertical,
   Send,
   Square,
-  ThumbsDown,
-  ThumbsUp,
+  Heart,
+  HeartCrack,
   Users,
   XCircle,
 } from "lucide-react";
@@ -24,8 +24,6 @@ const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
 const MESSAGE_CACHE_KEY = "flatfly.messageCache.v1";
 const MESSAGES_PAGE_SIZE = 10;
 const FLATFLY_SUPPORT_EMAIL = "support@flatfly.local";
-const LISTING_RATING_UI_SLOTS = 6;
-
 interface User {
   id: number;
   email: string;
@@ -493,29 +491,29 @@ function MessengerChatListingCard({
           </div>
         </button>
         {onVote ? (
-          <div className="mt-2 space-y-2 px-1">
-            <div className="flex items-center gap-1.5" aria-label={t("messenger.housingGroup.listingVotesRowLabel")}>
-              {Array.from({ length: LISTING_RATING_UI_SLOTS }, (_, i) => {
-                const voter = message.listing_ratings?.voters[i];
-                const borderClass = voter
-                  ? voter.is_like
-                    ? "ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
-                    : "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
-                  : "border border-dashed border-gray-300 dark:border-gray-600";
-                const src = voter?.avatar ? getImageUrl(String(voter.avatar)) : null;
-                const initial = voter?.display_name?.trim()?.charAt(0)?.toUpperCase() || "?";
+          <div className="mt-2 flex items-center justify-between gap-3 px-1">
+            <div
+              className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"
+              aria-label={t("messenger.housingGroup.listingVotesRowLabel")}
+            >
+              {(message.listing_ratings?.voters ?? []).map((voter) => {
+                const borderClass = voter.is_like
+                  ? "ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
+                  : "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900";
+                const src = voter.avatar ? getImageUrl(String(voter.avatar)) : null;
+                const initial = (voter.display_name ?? "").trim().charAt(0).toUpperCase() || "?";
                 return (
                   <div
-                    key={i}
+                    key={voter.user_id}
                     className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200 ${borderClass}`}
-                    title={voter?.display_name || undefined}
+                    title={voter.display_name || undefined}
                   >
-                    {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : voter ? initial : ""}
+                    {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initial}
                   </div>
                 );
               })}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 disabled={voteBusy}
@@ -523,15 +521,20 @@ function MessengerChatListingCard({
                   e.stopPropagation();
                   onVote(message.id, true);
                 }}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition disabled:opacity-50 ${
                   message.listing_ratings?.my_vote === true
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    ? "border-rose-400 bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/25 dark:border-rose-400 dark:from-rose-600 dark:to-pink-700"
+                    : "border-gray-200 bg-white text-gray-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500 dark:hover:border-rose-500/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                 }`}
                 aria-pressed={message.listing_ratings?.my_vote === true}
+                aria-label={t("messenger.housingGroup.listingLike")}
               >
-                <ThumbsUp size={14} aria-hidden />
-                {t("messenger.housingGroup.listingLike")}
+                <Heart
+                  size={20}
+                  className={message.listing_ratings?.my_vote === true ? "fill-current" : ""}
+                  strokeWidth={message.listing_ratings?.my_vote === true ? 0 : 2}
+                  aria-hidden
+                />
               </button>
               <button
                 type="button"
@@ -540,15 +543,15 @@ function MessengerChatListingCard({
                   e.stopPropagation();
                   onVote(message.id, false);
                 }}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition disabled:opacity-50 ${
                   message.listing_ratings?.my_vote === false
-                    ? "border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    ? "border-red-400 bg-red-500/15 text-red-600 shadow-md shadow-red-500/20 dark:border-red-500 dark:bg-red-950/50 dark:text-red-400"
+                    : "border-gray-200 bg-white text-gray-400 hover:border-red-300 hover:bg-red-50 hover:text-red-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500 dark:hover:border-red-500/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                 }`}
                 aria-pressed={message.listing_ratings?.my_vote === false}
+                aria-label={t("messenger.housingGroup.listingDislike")}
               >
-                <ThumbsDown size={14} aria-hidden />
-                {t("messenger.housingGroup.listingDislike")}
+                <HeartCrack size={20} strokeWidth={2} aria-hidden />
               </button>
             </div>
           </div>
