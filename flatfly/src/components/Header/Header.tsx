@@ -363,15 +363,15 @@ export default function Header() {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`inline-flex cursor-pointer items-center gap-2.5 rounded-full border border-gray-300 bg-white px-2.5 py-1.5 shadow-sm transition-colors duration-300 hover:border-[#C505EB] hover:shadow dark:border-gray-600 dark:bg-gray-800 min-[771px]:gap-3 min-[771px]:px-3 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB] ring-1 ring-[#C505EB]/30" : ""}`}
+                            className={`inline-flex h-8 min-[771px]:h-10 cursor-pointer items-center gap-1.5 rounded-full border border-gray-300 bg-white px-2 shadow-sm transition-colors duration-300 hover:border-[#C505EB] hover:shadow dark:border-gray-600 dark:bg-gray-800 min-[771px]:gap-2 min-[771px]:px-2.5 ${isMenuOpen ? "border-[#C505EB] ring-1 ring-[#C505EB]/30" : ""}`}
                             aria-label={t("header.openMenu")}
                         >
-                            <span className="flex flex-col justify-center gap-[5px]" aria-hidden="true">
-                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
-                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
-                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
+                            <span className="flex shrink-0 flex-col justify-center gap-[3px]" aria-hidden="true">
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
                             </span>
-                            <span className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-full border border-gray-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 min-[771px]:h-9 min-[771px]:w-9">
+                            <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 min-[771px]:h-8 min-[771px]:w-8">
                                 {isAuthenticated && user?.avatar && !menuAvatarFailed ? (
                                     <img
                                         src={getImageUrl(user.avatar)}
@@ -381,7 +381,7 @@ export default function Header() {
                                     />
                                 ) : (
                                     <span className="flex h-full w-full items-center justify-center">
-                                        <User className="h-4 w-4 text-zinc-500 dark:text-zinc-300 min-[771px]:h-[18px] min-[771px]:w-[18px]" strokeWidth={2} aria-hidden />
+                                        <User className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-300 min-[771px]:h-4 min-[771px]:w-4" strokeWidth={2} aria-hidden />
                                     </span>
                                 )}
                             </span>
