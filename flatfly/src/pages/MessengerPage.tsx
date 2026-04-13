@@ -557,13 +557,14 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-[140px] sm:w-[168px] sm:flex-shrink-0">
+          {/* Фиксированная сетка: одинаковая высота карточек; фото — contain в рамке, без обрезки */}
+          <div className="flex w-full flex-col sm:h-[152px] sm:flex-row sm:items-stretch">
+            <div className="relative flex h-[136px] w-full shrink-0 items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-full sm:w-[176px] sm:min-h-0">
               {currentSrc ? (
                 <img
                   src={currentSrc}
                   alt=""
-                  className="h-full w-full object-cover object-center"
+                  className="max-h-full max-w-full object-contain object-center"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-gray-400">
@@ -599,21 +600,23 @@ function MessengerChatListingCard({
                 </>
               ) : null}
             </div>
-            <div className="flex min-h-[140px] min-w-0 flex-1 flex-col justify-center gap-1.5 p-3 sm:p-4">
-              <div className="line-clamp-2 text-sm font-bold text-gray-900 dark:text-white">{listingTitle}</div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-1 overflow-hidden p-3 sm:max-h-[152px] sm:min-h-0 sm:py-2.5 sm:pl-3 sm:pr-3.5">
+              <div className="line-clamp-2 text-left text-sm font-bold leading-snug text-gray-900 dark:text-white">
+                {listingTitle}
+              </div>
               {priceLine ? (
-                <div className="text-sm font-semibold text-[#C505EB]">{priceLine}</div>
+                <div className="line-clamp-1 shrink-0 text-left text-sm font-semibold text-[#C505EB]">{priceLine}</div>
               ) : null}
               {(roomsStr || sizeStr) ? (
-                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+                <div className="flex min-w-0 flex-nowrap items-center gap-3 truncate text-xs text-gray-600 dark:text-gray-300">
                   {roomsStr ? (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex shrink-0 items-center gap-1">
                       <Bed className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
                       {roomsStr}
                     </span>
                   ) : null}
                   {sizeStr ? (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex shrink-0 items-center gap-1">
                       <Square className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
                       {sizeStr}
                       <span className="text-[10px] opacity-80">m²</span>
@@ -622,23 +625,23 @@ function MessengerChatListingCard({
                 </div>
               ) : null}
               {amenityIcons.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2 dark:border-gray-600/80">
+                <div className="flex min-h-0 flex-wrap items-center gap-1.5 border-t border-gray-100 pt-1.5 dark:border-gray-600/80">
                   {amenityIcons.map((key) => (
                     <span
                       key={key}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
                       title={amenityLabel(key)}
                     >
-                      <Icon icon={CHAT_LISTING_AMENITY_ICONS[key]} className="h-4 w-4" aria-hidden />
+                      <Icon icon={CHAT_LISTING_AMENITY_ICONS[key]} className="h-3.5 w-3.5" aria-hidden />
                     </span>
                   ))}
                 </div>
               ) : null}
               {addressLine ? (
-                <div className="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{addressLine}</div>
+                <div className="line-clamp-1 text-left text-xs text-gray-500 dark:text-gray-400">{addressLine}</div>
               ) : null}
               {!addressLine && locLine ? (
-                <div className="text-xs text-gray-500 dark:text-gray-400">{locLine}</div>
+                <div className="line-clamp-1 text-left text-xs text-gray-500 dark:text-gray-400">{locLine}</div>
               ) : null}
             </div>
           </div>
