@@ -505,7 +505,7 @@ function MessengerChatListingCard({
       className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`touch-manipulation max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%] ${
+        className={`touch-manipulation w-full max-w-[360px] shrink-0 ${
           highlighted
             ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
             : ""
@@ -545,7 +545,7 @@ function MessengerChatListingCard({
         ) : null}
         <button
           type="button"
-          className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
+          className="w-full max-w-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
           onClick={() => {
             if (suppressListingOpenAfterReplyLongPressRef?.current) {
               suppressListingOpenAfterReplyLongPressRef.current = false;
@@ -557,14 +557,15 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          {/* Фиксированная сетка: одинаковая высота карточек; фото — contain в рамке, без обрезки */}
-          <div className="flex w-full flex-col sm:h-[152px] sm:flex-row sm:items-stretch">
-            <div className="relative flex h-[136px] w-full shrink-0 items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-full sm:w-[176px] sm:min-h-0">
+          {/* Фиксированные ширина/высота: сетка 148px + остаток; фото — целиком в ячейке (object-contain), без clip */}
+          <div className="grid h-[148px] w-full grid-cols-[148px_minmax(0,1fr)] grid-rows-1">
+            <div className="relative box-border h-full w-[148px] min-w-[148px] max-w-[148px] bg-gray-100 dark:bg-gray-900">
               {currentSrc ? (
                 <img
                   src={currentSrc}
                   alt=""
-                  className="max-h-full max-w-full object-contain object-center"
+                  className="box-border h-full w-full object-contain object-center"
+                  decoding="async"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-gray-400">
@@ -600,7 +601,7 @@ function MessengerChatListingCard({
                 </>
               ) : null}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-1 overflow-hidden p-3 sm:max-h-[152px] sm:min-h-0 sm:py-2.5 sm:pl-3 sm:pr-3.5">
+            <div className="flex min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden border-l border-gray-100 px-2.5 py-2 dark:border-gray-700/80 sm:px-3">
               <div className="line-clamp-2 text-left text-sm font-bold leading-snug text-gray-900 dark:text-white">
                 {listingTitle}
               </div>
