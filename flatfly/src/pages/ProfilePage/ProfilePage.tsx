@@ -1496,20 +1496,20 @@ export default function ProfilePage() {
         return (
             <div
                 className={`rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 ${
-                    isSidebar ? "p-4" : "p-5 max-[770px]:p-4"
+                    isSidebar ? "rounded-3xl p-6 shadow-lg shadow-[#C505EB]/10 dark:shadow-[#08D3E2]/5" : "p-5 max-[770px]:p-4"
                 }`}
             >
                 <div
                     className={
                         isSidebar
-                            ? "flex flex-col items-center gap-4 text-center"
+                            ? "flex flex-col items-center gap-6 text-center"
                             : "flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start"
                     }
                 >
                     <div
                         className={
                             isSidebar
-                                ? "relative h-[112px] w-[112px] shrink-0"
+                                ? "relative h-[168px] w-[168px] shrink-0"
                                 : "relative h-[140px] w-[140px] max-[770px]:h-[120px] max-[770px]:w-[120px] shrink-0"
                         }
                     >
@@ -1543,36 +1543,42 @@ export default function ProfilePage() {
                                 className="transition-all duration-700 ease-out"
                             />
                         </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
+                        <div
+                            className={`absolute inset-0 flex flex-col items-center justify-center px-1 ${isSidebar ? "gap-1" : "gap-0.5"}`}
+                        >
                             <span
                                 className={`font-extrabold leading-none text-[#C505EB] ${
-                                    isSidebar ? "text-[28px]" : "text-[34px] max-[770px]:text-[30px]"
+                                    isSidebar ? "text-[42px]" : "text-[34px] max-[770px]:text-[30px]"
                                 }`}
                             >
                                 {completionPercent}%
                             </span>
-                            <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
+                            <span
+                                className={`font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400 ${
+                                    isSidebar ? "text-[10px]" : "text-[8px]"
+                                }`}
+                            >
                                 {t("profile.completion")}
                             </span>
                         </div>
                     </div>
 
-                    <div className="min-w-0">
+                    <div className={`min-w-0 ${isSidebar ? "w-full" : ""}`}>
                         <h2
                             className={`font-bold text-[#C505EB] ${
-                                isSidebar ? "text-lg" : "text-2xl max-[770px]:text-xl"
+                                isSidebar ? "text-2xl" : "text-2xl max-[770px]:text-xl"
                             }`}
                         >
                             {t("profile.completionTitle")}
                         </h2>
                         <p
                             className={`text-gray-600 dark:text-gray-300 mt-1 ${
-                                isSidebar ? "text-xs" : "text-sm max-[770px]:text-xs"
+                                isSidebar ? "text-sm leading-relaxed" : "text-sm max-[770px]:text-xs"
                             }`}
                         >
                             {t("profile.completionSubtitle")}
                         </p>
-                        <p className={`font-semibold text-[#08D3E2] mt-3 ${isSidebar ? "text-xs" : "text-sm"}`}>
+                        <p className={`font-semibold text-[#08D3E2] mt-3 ${isSidebar ? "text-sm" : "text-sm"}`}>
                             {t("profile.completionMissing")
                                 .replace("{{missing}}", String(profileCompletion.missingCount || 0))
                                 .replace("{{total}}", String(profileCompletion.totalFields || 0))}
@@ -1580,7 +1586,7 @@ export default function ProfilePage() {
                         {profileCompletion.missingCount === 0 ? (
                             <p
                                 className={`mt-3 font-semibold text-green-600 dark:text-green-400 ${
-                                    isSidebar ? "text-xs" : "text-sm"
+                                    isSidebar ? "text-sm" : "text-sm"
                                 }`}
                             >
                                 {t("profile.completionNoMissing")}
@@ -1609,7 +1615,7 @@ export default function ProfilePage() {
                 <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
                 <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-start min-[771px]:justify-between min-[771px]:gap-6">
-                    <div className="min-w-0 w-full min-[771px]:max-w-[700px] min-[771px]:flex-none">
+                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,640px)] min-[771px]:flex-none">
                 {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
                 <div className="mb-6 hidden min-[771px]:block">
                     <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
@@ -2913,7 +2919,7 @@ export default function ProfilePage() {
                     )}
                 </div>
                     </div>
-                    <aside className="hidden min-[771px]:block w-[272px] shrink-0 self-start sticky top-[116px] z-10">
+                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-start sticky top-[112px] z-10 max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                         {renderProfileCompletion("sidebar")}
                     </aside>
                 </div>
