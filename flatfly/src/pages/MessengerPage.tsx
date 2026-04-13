@@ -424,6 +424,8 @@ type MessengerChatListingCardProps = {
   replyLongPress?: ReplyLongPressPointerProps;
   /** После long-press ответа подавить следующий клик по телу карточки (открытие объявления) */
   suppressListingOpenAfterReplyLongPressRef?: MutableRefObject<boolean>;
+  /** Режим сетки «только inzeráty» в общем чате — карточка на всю ячейку */
+  layout?: "chat" | "grid";
 };
 
 function MessengerChatListingCard({
@@ -440,6 +442,7 @@ function MessengerChatListingCard({
   highlighted,
   replyLongPress,
   suppressListingOpenAfterReplyLongPressRef,
+  layout = "chat",
 }: MessengerChatListingCardProps) {
   const [imgIndex, setImgIndex] = useState(0);
 
@@ -499,13 +502,21 @@ function MessengerChatListingCard({
     setImgIndex((i) => (i + 1) % galleryUrls.length);
   };
 
+  const isGridLayout = layout === "grid";
+
   return (
     <div
       id={`chat-message-${message.id}`}
-      className={`mb-4 flex min-w-0 ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
+      className={`flex min-w-0 ${
+        isGridLayout
+          ? "mb-0 w-full"
+          : `mb-4 ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`
+      }`}
     >
       <div
-        className={`touch-manipulation min-w-0 w-full max-w-full shrink @[360px]/msg:max-w-[360px] ${
+        className={`touch-manipulation min-w-0 w-full shrink ${
+          isGridLayout ? "max-w-none" : "max-w-full @[360px]/msg:max-w-[360px]"
+        } ${
           highlighted
             ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
             : ""
@@ -2575,6 +2586,44 @@ export default function MessengerPage() {
                   {isHousingGroupChat && housingMessageFilter === "listings"
                     ? t("messenger.housingGroup.noListingMessages")
                     : t("messenger.noMessages")}
+                </div>
+              ) : isHousingGroupChat && housingMessageFilter === "listings" ? (
+                <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+                  {visibleMessages.map((message) => {
+                    const preview = message.listing_preview as ListingPreview | undefined;
+                    if (message.message_kind !== "listing" || !preview) return null;
+                    return (
+                      <MessengerChatListingCard
+                        key={message.id}
+                        layout="grid"
+                        message={message}
+                        preview={preview}
+                        currentUserId={currentUserId}
+                        t={t}
+                        getParticipantName={getParticipantName}
+                        onOpenListing={openExternalFromChat}
+                        onVote={submitListingReaction}
+                        voteBusy={listingVoteBusyId === message.id}
+                        highlighted={highlightedMessageId === message.id}
+                        onReply={selectedChat ? () => startReplyTo(message) : undefined}
+                        onJumpToReplyTarget={jumpToQuotedMessage}
+                        replyLongPress={
+                          selectedChat
+                            ? {
+                                onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+                                  if (e.button !== 0) return;
+                                  handleMessageReplyPressStart(message, { suppressListingOpenOnFire: true });
+                                },
+                                onPointerUp: handleMessageReplyPressEnd,
+                                onPointerCancel: handleMessageReplyPressEnd,
+                                onPointerLeave: handleMessageReplyPressEnd,
+                              }
+                            : undefined
+                        }
+                        suppressListingOpenAfterReplyLongPressRef={suppressListingOpenAfterReplyLongPressRef}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 visibleMessages.map((message) => {
