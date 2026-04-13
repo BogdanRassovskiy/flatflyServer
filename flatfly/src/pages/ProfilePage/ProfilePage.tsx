@@ -805,18 +805,6 @@ export default function ProfilePage() {
         }
     };
 
-    const getMyHomeListingUrl = (listing: any) => {
-        if (!listing) return "/apartments";
-        const listingType = String(listing.type || "").toUpperCase();
-        if (listingType === "ROOM") {
-            return `/rooms/${listing.id}`;
-        }
-        if (listingType === "NEIGHBOUR") {
-            return `/neighbours/${listing.id}`;
-        }
-        return `/apartments/${listing.id}`;
-    };
-
     const getInitials = (name: string) => {
         return (name || "?")
             .split(" ")
@@ -842,6 +830,41 @@ export default function ProfilePage() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, favPage, myListingsPage]);
+
+    const convertMyHomeListingToSaleCard = (listing: {
+        id: number;
+        title?: string;
+        type?: string;
+        image?: string | null;
+        address?: string | null;
+        region?: string | null;
+        price?: number;
+        currency?: string;
+        area?: number | null;
+        amenities?: string[];
+        images?: string[];
+        is_favorite?: boolean;
+        is_active?: boolean;
+    }) => {
+        const raw = String(listing?.type || "").toUpperCase();
+        const cardType = raw === "ROOM" ? ("ROOM" as const) : ("APARTMENT" as const);
+        return {
+            id: listing.id,
+            type: cardType,
+            price: listing.price,
+            currency: listing.currency || "CZK",
+            image: getImageUrl(listing.image),
+            images: listing.images,
+            title: listing.title,
+            region: listing.region || "",
+            address: listing.address || "",
+            city: "",
+            size: listing.area != null ? String(listing.area) : "N/A",
+            amenities: Array.isArray(listing.amenities) ? listing.amenities : [],
+            is_favorite: listing.is_favorite ?? false,
+            is_active: listing.is_active !== false,
+        };
+    };
 
     const convertToSaleCardType = (favorite: FavoriteListing) => {
         if (favorite.type === "NEIGHBOUR") {
@@ -2795,30 +2818,19 @@ export default function ProfilePage() {
 
                             {!myHomeLoading && myHomeData?.listing && (
                                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate(getMyHomeListingUrl(myHomeData.listing))}
-                                        className="w-full mb-5 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-[#C505EB] transition-all duration-300 text-left"
-                                    >
-                                        <div className="w-full max-w-[320px] aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden mx-auto">
-                                            <img
-                                                src={getImageUrl(myHomeData.listing.image)}
-                                                alt={myHomeData.listing.title}
-                                                className="w-full h-full object-cover"
+                                    <div className="mb-6 flex flex-col items-start gap-2">
+                                        <div className="w-full max-[770px]:max-w-none min-[771px]:w-[256px] min-[480px]:min-[771px]:w-[272px] lg:min-[771px]:w-[288px] xl:min-[771px]:w-[300px]">
+                                            <SaleCard
+                                                {...convertMyHomeListingToSaleCard(myHomeData.listing)}
+                                                compactGrid
+                                                linkState={{ profileTab: "myHome" }}
                                             />
                                         </div>
-                                        <div className="p-4 bg-white dark:bg-gray-800">
-                                            <div className="text-xl font-bold text-[#C505EB] hover:text-[#BA00F8] underline underline-offset-4">
-                                                {myHomeData.listing.title}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                {myHomeData.listing.address || myHomeData.listing.region}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                                                {t("profile.residents")}: {myHomeData.listing.residentsCount} / {myHomeData.listing.maxResidents}
-                                            </div>
-                                        </div>
-                                    </button>
+                                        <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                                            {t("profile.residents")}: {myHomeData.listing.residentsCount} /{" "}
+                                            {myHomeData.listing.maxResidents}
+                                        </p>
+                                    </div>
 
                                     <div className="mb-6">
                                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
