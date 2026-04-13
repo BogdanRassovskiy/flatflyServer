@@ -1614,43 +1614,43 @@ export default function ProfilePage() {
 
                 <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
-                {/* Вкладки на всю ширину контейнера — одна строка; карточка справа начинается вровень с формой */}
-                <div className="mb-6 hidden min-[771px]:block w-full min-w-0">
-                    <div className="flex w-full min-w-0 flex-nowrap items-stretch justify-start gap-0.5 rounded-xl bg-gray-100 p-1 dark:bg-gray-800 min-[1100px]:gap-1">
-                        {sections.map((section) => {
-                            const miss = sectionMissingCounts[section.key];
-                            const active = activeSection === section.key;
-                            return (
-                                <button
-                                    key={section.key}
-                                    type="button"
-                                    onClick={() => setActiveSection(section.key)}
-                                    className={`flex shrink-0 items-center gap-0.5 rounded-lg px-1 py-1.5 text-left text-[10px] font-semibold leading-tight whitespace-nowrap transition-all duration-300 min-[900px]:gap-1.5 min-[900px]:px-2.5 min-[900px]:py-2 min-[900px]:text-xs min-[1200px]:px-3 min-[1200px]:text-sm ${
-                                        active
-                                            ? "bg-[#C505EB] text-white shadow-md"
-                                            : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
-                                    }`}
-                                >
-                                    <span>{section.label}</span>
-                                    {miss > 0 ? (
-                                        <span
-                                            className={`inline-flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full px-0.5 text-[9px] font-bold tabular-nums min-[900px]:h-[18px] min-[900px]:min-w-[18px] min-[900px]:px-1 min-[900px]:text-[10px] ${
-                                                active
-                                                    ? "bg-white/25 text-white"
-                                                    : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
-                                            }`}
-                                        >
-                                            {miss > 99 ? "99+" : miss}
-                                        </span>
-                                    ) : null}
-                                </button>
-                            );
-                        })}
+                {/* Десктоп: сетка — вкладки ровно по ширине пары колонок (форма + сайдбар), без выступа */}
+                <div className="flex min-w-0 w-full flex-col min-[771px]:grid min-[771px]:grid-cols-[minmax(0,1fr)_minmax(300px,340px)] min-[771px]:gap-x-6 min-[771px]:items-start min-[771px]:justify-items-stretch">
+                    <div className="mb-6 hidden min-[771px]:col-span-2 min-[771px]:block min-w-0">
+                        <div className="flex w-full min-w-0 flex-nowrap items-stretch justify-start gap-0.5 overflow-hidden rounded-xl bg-gray-100 p-1 dark:bg-gray-800 min-[1100px]:gap-1">
+                            {sections.map((section) => {
+                                const miss = sectionMissingCounts[section.key];
+                                const active = activeSection === section.key;
+                                return (
+                                    <button
+                                        key={section.key}
+                                        type="button"
+                                        onClick={() => setActiveSection(section.key)}
+                                        className={`flex shrink-0 items-center gap-0.5 rounded-lg px-1 py-1.5 text-left text-[10px] font-semibold leading-tight whitespace-nowrap transition-all duration-300 min-[900px]:gap-1.5 min-[900px]:px-2.5 min-[900px]:py-2 min-[900px]:text-xs min-[1200px]:px-3 min-[1200px]:text-sm ${
+                                            active
+                                                ? "bg-[#C505EB] text-white shadow-md"
+                                                : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
+                                        }`}
+                                    >
+                                        <span>{section.label}</span>
+                                        {miss > 0 ? (
+                                            <span
+                                                className={`inline-flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full px-0.5 text-[9px] font-bold tabular-nums min-[900px]:h-[18px] min-[900px]:min-w-[18px] min-[900px]:px-1 min-[900px]:text-[10px] ${
+                                                    active
+                                                        ? "bg-white/25 text-white"
+                                                        : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
+                                                }`}
+                                            >
+                                                {miss > 99 ? "99+" : miss}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-stretch min-[771px]:justify-between min-[771px]:gap-6">
-                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,820px)] min-[771px]:flex-none">
+                    <div className="min-w-0 w-full min-[771px]:max-w-[820px] min-[771px]:justify-self-start">
                 {/* Section Tabs - Mobile (Carousel) */}
                 <div className="mb-4 flex max-[770px]:flex min-[771px]:hidden items-stretch gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                     <button
@@ -2919,7 +2919,7 @@ export default function ProfilePage() {
                     )}
                 </div>
                     </div>
-                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-stretch min-h-0">
+                    <aside className="hidden min-[771px]:block w-full min-w-0 self-stretch min-h-0">
                         <div className="sticky top-[132px] z-10 max-h-[calc(100vh-8.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                             {renderProfileCompletion("sidebar")}
                         </div>
