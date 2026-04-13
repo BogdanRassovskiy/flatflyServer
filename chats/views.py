@@ -218,6 +218,45 @@ class ChatViewSet(viewsets.ModelViewSet):
             'awaiting_reply': awaiting_reply,
         })
 
+    @action(detail=True, methods=['get'], url_path='listing-reactions-sync')
+    def listing_reactions_sync(self, request, pk=None):
+        """
+        Возвращает актуальные listing_ratings для карточек объявлений по id сообщений.
+        Нужен для опроса: голоса других участников не создают новых сообщений.
+        """
+        chat = self.get_object()
+        if chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'updates': []})
+
+        raw = (request.query_params.get('message_ids') or '').strip()
+        if not raw:
+            return Response({'updates': []})
+
+        try:
+            ids = [int(x.strip()) for x in raw.split(',') if x.strip()]
+        except ValueError:
+            return Response({'detail': 'Invalid message_ids'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ids = [i for i in ids if i > 0][:120]
+        if not ids:
+            return Response({'updates': []})
+
+        msgs = (
+            chat.messages.filter(id__in=ids, message_kind=Message.KIND_LISTING)
+            .prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+        )
+        serializer = MessageSerializer(msgs, many=True, context={'request': request})
+        updates = [
+            {'id': row['id'], 'listing_ratings': row['listing_ratings']}
+            for row in serializer.data
+        ]
+        return Response({'updates': updates})
+
     @action(detail=False, methods=['post'])
     def start(self, request):
         user_ids = request.data.get('user_ids', [])

@@ -1120,6 +1120,56 @@ export default function MessengerPage() {
     });
   };
 
+  const LISTING_REACTIONS_SYNC_CHUNK = 48;
+
+  const syncListingReactionsForHousingChat = async (chatId: number) => {
+    const entry = messageCacheRef.current[chatId];
+    if (!entry?.messages?.length) {
+      return;
+    }
+    const listingIds = entry.messages.filter((m) => m.message_kind === "listing").map((m) => m.id);
+    if (listingIds.length === 0) {
+      return;
+    }
+    const mergedById = new Map<number, ListingRatingsPayload | null>();
+    for (let i = 0; i < listingIds.length; i += LISTING_REACTIONS_SYNC_CHUNK) {
+      const chunk = listingIds.slice(i, i + LISTING_REACTIONS_SYNC_CHUNK);
+      const qs = new URLSearchParams();
+      qs.set("message_ids", chunk.join(","));
+      const response = await fetch(`/api/chats/${chatId}/listing-reactions-sync/?${qs.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        continue;
+      }
+      const data = (await response.json()) as {
+        updates?: Array<{ id: number; listing_ratings: ListingRatingsPayload | null }>;
+      };
+      for (const u of data.updates ?? []) {
+        mergedById.set(u.id, u.listing_ratings);
+      }
+    }
+    if (mergedById.size === 0) {
+      return;
+    }
+    updateMessageCacheEntry(chatId, (previous) => {
+      if (!previous) {
+        return entry;
+      }
+      const list = previous.messages.map((m) => {
+        if (m.message_kind !== "listing") {
+          return m;
+        }
+        const lr = mergedById.get(m.id);
+        if (lr === undefined) {
+          return m;
+        }
+        return { ...m, listing_ratings: lr };
+      });
+      return buildCacheEntry(list, previous, {});
+    });
+  };
+
   const openDraftConversation = (userId: number, participant: User | null = null) => {
     setSelectedChat(null);
     setDraftConversation({ userId, participant });
@@ -1796,14 +1846,23 @@ export default function MessengerPage() {
       return;
     }
 
-    const intervalId = window.setInterval(() => {
+    const housing = selectedChat?.chat_type === "housing_group";
+
+    const tick = () => {
       void pollLatestMessages(selectedChatId);
-    }, 5000);
+      if (housing) {
+        void syncListingReactionsForHousingChat(selectedChatId);
+      }
+    };
+
+    void tick();
+
+    const intervalId = window.setInterval(tick, 5000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [selectedChatId]);
+  }, [selectedChatId, selectedChat?.chat_type]);
 
   useEffect(() => {
     setSendError(null);
