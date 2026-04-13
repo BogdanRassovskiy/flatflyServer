@@ -408,12 +408,16 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          <div className="flex min-h-[140px] flex-col sm:flex-row">
-            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 sm:h-[140px] sm:w-[168px] dark:bg-gray-900">
+          <div className="flex min-h-[140px] flex-col sm:flex-row sm:items-stretch">
+            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-auto sm:min-h-0 sm:w-[168px] sm:flex-shrink-0">
               {currentSrc ? (
-                <img src={currentSrc} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={currentSrc}
+                  alt=""
+                  className="h-full w-full object-cover object-center sm:absolute sm:inset-0 sm:h-full sm:min-h-[140px] sm:w-full"
+                />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-400">
+                <div className="flex h-full w-full items-center justify-center text-gray-400 sm:absolute sm:inset-0 sm:min-h-[140px]">
                   <Users className="opacity-40" size={40} />
                 </div>
               )}
