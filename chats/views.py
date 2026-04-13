@@ -137,7 +137,11 @@ class ChatViewSet(viewsets.ModelViewSet):
             awaiting_reply = not has_reply_from_other and my_messages_count > 0
 
         chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
-        base_queryset = chat.messages.select_related('sender__profile', 'listing')
+        base_queryset = chat.messages.select_related(
+            'sender__profile',
+            'listing',
+            'reply_to__sender__profile',
+        )
 
         if is_housing_group:
             liked_by = request.query_params.get('housing_filter_liked_by')
@@ -454,13 +458,21 @@ class ChatViewSet(viewsets.ModelViewSet):
         return Response(MessageSerializer(msg, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all().select_related('sender__profile', 'chat')
+    queryset = Message.objects.all().select_related(
+        'sender__profile',
+        'chat',
+        'reply_to__sender__profile',
+    )
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         chat_id = self.request.query_params.get('chatid')
-        qs = Message.objects.filter(chat__participants=self.request.user)
+        qs = Message.objects.filter(chat__participants=self.request.user).select_related(
+            'sender__profile',
+            'chat',
+            'reply_to__sender__profile',
+        )
         if chat_id:
             qs = qs.filter(chat_id=chat_id)
         return qs.order_by('created_at')
@@ -498,7 +510,23 @@ class MessageViewSet(viewsets.ModelViewSet):
                 'text': ['This field may not be blank.'],
             })
 
-        serializer.save(sender=self.request.user, chat=chat, message_kind=Message.KIND_TEXT)
+        raw_reply = self.request.data.get('reply_to')
+        reply_to = None
+        if raw_reply is not None and raw_reply != '':
+            try:
+                rid = int(raw_reply)
+            except (TypeError, ValueError):
+                raise ValidationError({'reply_to': ['Invalid reply_to']})
+            reply_to = Message.objects.filter(pk=rid, chat=chat).first()
+            if not reply_to:
+                raise ValidationError({'reply_to': ['Reply target not found in this chat']})
+
+        serializer.save(
+            sender=self.request.user,
+            chat=chat,
+            message_kind=Message.KIND_TEXT,
+            reply_to=reply_to,
+        )
 
     @action(detail=True, methods=['post'], url_path='listing-reaction')
     def listing_reaction(self, request, pk=None):
@@ -521,7 +549,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         )
         message = (
             Message.objects.filter(pk=message.pk)
-            .select_related('sender__profile', 'listing', 'chat')
+            .select_related('sender__profile', 'listing', 'chat', 'reply_to__sender__profile')
             .prefetch_related(
                 Prefetch(
                     'listing_reactions',

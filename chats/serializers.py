@@ -50,6 +50,7 @@ class MessageSerializer(serializers.ModelSerializer):
     display_text = serializers.SerializerMethodField()
     listing_id = serializers.SerializerMethodField()
     listing_ratings = serializers.SerializerMethodField()
+    reply_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -65,6 +66,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "listing_preview",
             "display_text",
             "listing_ratings",
+            "reply_preview",
         )
 
     def get_listing_id(self, obj):
@@ -119,6 +121,37 @@ class MessageSerializer(serializers.ModelSerializer):
             "like_count": stats["likes"] or 0,
             "dislike_count": stats["dislikes"] or 0,
         }
+
+    def get_reply_preview(self, obj):
+        ref = getattr(obj, "reply_to", None)
+        if ref is None:
+            return None
+        sender_data = UserSerializer(ref.sender, context=self.context).data
+        sender_name = (sender_data.get("display_name") or "").strip()
+        if not sender_name:
+            u = ref.sender
+            sender_name = f"{u.first_name or ''} {u.last_name or ''}".strip() or ""
+        out = {
+            "id": ref.id,
+            "message_kind": ref.message_kind,
+            "sender_name": sender_name,
+            "text_snippet": "",
+            "listing_thumb": None,
+        }
+        if ref.message_kind == Message.KIND_LISTING:
+            lp = ref.listing_preview if isinstance(ref.listing_preview, dict) else {}
+            title = (lp.get("title") or "").strip()
+            out["text_snippet"] = title or (f"Listing #{ref.listing_id}" if ref.listing_id else "")
+            images = lp.get("images")
+            thumb = None
+            if isinstance(images, list) and images:
+                thumb = images[0]
+            elif lp.get("image"):
+                thumb = lp["image"]
+            out["listing_thumb"] = thumb
+        else:
+            out["text_snippet"] = ((ref.text or "").strip())[:280]
+        return out
 
 
 class ChatSerializer(serializers.ModelSerializer):

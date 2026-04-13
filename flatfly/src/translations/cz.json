@@ -75,6 +75,11 @@
     "awaitingReplyError": "Můžete odeslat jen jednu zprávu, dokud druhá strana neodpoví.",
     "sendError": "Zprávu se nepodařilo odeslat",
     "deleteError": "Chat se nepodařilo smazat",
+    "reply": "Odpovědět",
+    "replyingTo": "Odpovídáte:",
+    "cancelReply": "Zrušit odpověď",
+    "replyJumpToOriginal": "Přejít na původní zprávu",
+    "replyJumpNotFound": "Zpráva není v tomto zobrazení — zkuste načíst starší zprávy.",
     "cancel": "Zrušit",
     "housingGroup": {
       "entryButton": "Hledáme společně",

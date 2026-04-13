@@ -75,6 +75,11 @@
     "awaitingReplyError": "You can send only one message until the other participant replies.",
     "sendError": "Failed to send message",
     "deleteError": "Failed to delete chat",
+    "reply": "Reply",
+    "replyingTo": "Replying to:",
+    "cancelReply": "Cancel reply",
+    "replyJumpToOriginal": "Go to original message",
+    "replyJumpNotFound": "Message is not loaded here — try scrolling up to load older messages.",
     "cancel": "Cancel",
     "housingGroup": {
       "entryButton": "Search together",

@@ -11,11 +11,13 @@ import {
   Copy,
   MessageCircle,
   MoreVertical,
+  Reply,
   Send,
   Square,
   Heart,
   HeartCrack,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -65,6 +67,14 @@ interface ListingRatingsPayload {
   dislike_count: number;
 }
 
+interface MessageReplyPreview {
+  id: number;
+  message_kind: string;
+  sender_name: string;
+  text_snippet: string;
+  listing_thumb?: string | null;
+}
+
 interface Message {
   id: number;
   chat: number;
@@ -77,6 +87,81 @@ interface Message {
   listing_preview?: ListingPreview | Record<string, unknown>;
   display_text?: string;
   listing_ratings?: ListingRatingsPayload | null;
+  reply_preview?: MessageReplyPreview | null;
+}
+
+function buildReplyPreviewFromMessage(
+  message: Message,
+  getParticipantName: (participant: User | null) => string,
+): MessageReplyPreview {
+  const sender_name = getParticipantName(message.sender);
+  if (message.message_kind === "listing") {
+    const lp = message.listing_preview as ListingPreview | undefined;
+    const title = (lp?.title || message.display_text || "").trim();
+    let listing_thumb: string | null = null;
+    if (lp?.image) {
+      listing_thumb = String(lp.image);
+    } else if (Array.isArray(lp?.images) && lp.images.length > 0) {
+      listing_thumb = String(lp.images[0]);
+    }
+    return {
+      id: message.id,
+      message_kind: "listing",
+      sender_name,
+      text_snippet: title || (message.display_text ?? ""),
+      listing_thumb,
+    };
+  }
+  return {
+    id: message.id,
+    message_kind: "text",
+    sender_name,
+    text_snippet: (message.text || "").slice(0, 280),
+    listing_thumb: null,
+  };
+}
+
+function MessageReplyQuote({
+  preview,
+  variant,
+  onJump,
+  t,
+}: {
+  preview: MessageReplyPreview;
+  variant: "incoming" | "outgoing" | "listing";
+  onJump: () => void;
+  t: (key: string) => string;
+}) {
+  const thumbSrc = preview.listing_thumb ? getImageUrl(String(preview.listing_thumb)) : null;
+  const barCls =
+    variant === "outgoing"
+      ? "border-white/30 bg-white/15 hover:bg-white/22"
+      : variant === "listing"
+        ? "border-gray-200 bg-gray-100 hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-700/80 dark:hover:bg-gray-600"
+        : "border-gray-300 bg-gray-100 hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-700/80 dark:hover:bg-gray-600";
+  const nameCls =
+    variant === "outgoing" ? "text-white/85" : "text-gray-600 dark:text-gray-300";
+  const snippetCls = variant === "outgoing" ? "text-white/95" : "text-gray-800 dark:text-gray-100";
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onJump();
+      }}
+      className={`mb-2 flex w-full max-w-full items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition ${barCls}`}
+      title={t("messenger.replyJumpToOriginal")}
+    >
+      {thumbSrc ? (
+        <img src={thumbSrc} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className={`text-[10px] font-semibold ${nameCls}`}>{preview.sender_name}</div>
+        <div className={`line-clamp-2 text-xs ${snippetCls}`}>{preview.text_snippet}</div>
+      </div>
+    </button>
+  );
 }
 
 interface Chat {
@@ -315,6 +400,9 @@ type MessengerChatListingCardProps = {
   onOpenListing: (path: string) => void;
   onVote?: (messageId: number, isLike: boolean) => void;
   voteBusy?: boolean;
+  onReply?: () => void;
+  onJumpToReplyTarget?: (messageId: number) => void;
+  highlighted?: boolean;
 };
 
 function MessengerChatListingCard({
@@ -326,6 +414,9 @@ function MessengerChatListingCard({
   onOpenListing,
   onVote,
   voteBusy,
+  onReply,
+  onJumpToReplyTarget,
+  highlighted,
 }: MessengerChatListingCardProps) {
   const [imgIndex, setImgIndex] = useState(0);
 
@@ -387,17 +478,47 @@ function MessengerChatListingCard({
 
   return (
     <div
+      id={`chat-message-${message.id}`}
       className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
     >
-      <div className="max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%]">
+      <div
+        className={`max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%] ${
+          highlighted
+            ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
+            : ""
+        }`}
+      >
         <div className="mb-1 flex items-center justify-between gap-2 px-1">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
             {getParticipantName(message.sender)}
           </span>
-          <span className="text-[10px] text-gray-400">
-            {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onReply ? (
+              <button
+                type="button"
+                className="rounded-md p-1 text-gray-500 transition hover:bg-gray-200 hover:text-[#C505EB] dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-[#e9d5ff]"
+                aria-label={t("messenger.reply")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReply();
+                }}
+              >
+                <Reply size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            <span className="text-[10px] text-gray-400">
+              {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
         </div>
+        {message.reply_preview && onJumpToReplyTarget ? (
+          <MessageReplyQuote
+            preview={message.reply_preview}
+            variant="listing"
+            t={t}
+            onJump={() => onJumpToReplyTarget(message.reply_preview!.id)}
+          />
+        ) : null}
         <button
           type="button"
           className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
@@ -408,16 +529,16 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          <div className="flex min-h-[140px] flex-col sm:flex-row sm:items-stretch">
-            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-auto sm:min-h-0 sm:w-[168px] sm:flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-start">
+            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-900 sm:h-[140px] sm:w-[168px] sm:flex-shrink-0">
               {currentSrc ? (
                 <img
                   src={currentSrc}
                   alt=""
-                  className="h-full w-full object-cover object-center sm:absolute sm:inset-0 sm:h-full sm:min-h-[140px] sm:w-full"
+                  className="h-full w-full object-cover object-center"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-400 sm:absolute sm:inset-0 sm:min-h-[140px]">
+                <div className="flex h-full w-full items-center justify-center text-gray-400">
                   <Users className="opacity-40" size={40} />
                 </div>
               )}
@@ -450,7 +571,7 @@ function MessengerChatListingCard({
                 </>
               ) : null}
             </div>
-            <div className="flex min-h-[120px] min-w-0 flex-1 flex-col gap-1.5 p-3 sm:p-4">
+            <div className="flex min-h-[140px] min-w-0 flex-1 flex-col justify-center gap-1.5 p-3 sm:p-4">
               <div className="line-clamp-2 text-sm font-bold text-gray-900 dark:text-white">{listingTitle}</div>
               {priceLine ? (
                 <div className="text-sm font-semibold text-[#C505EB]">{priceLine}</div>
@@ -616,6 +737,8 @@ export default function MessengerPage() {
   const [pendingJoinToken, setPendingJoinToken] = useState<string | null>(null);
   const [joinConflictChatId, setJoinConflictChatId] = useState<number | null>(null);
   const [isJoinBusy, setIsJoinBusy] = useState(false);
+  const [replyDraft, setReplyDraft] = useState<MessageReplyPreview | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoOpenAttemptedRef = useRef(false);
@@ -1007,6 +1130,29 @@ export default function MessengerPage() {
       toastTimeoutRef.current = null;
     }, 2600);
   };
+
+  const jumpToQuotedMessage = useCallback(
+    (messageId: number) => {
+      const el = document.getElementById(`chat-message-${messageId}`);
+      if (!el) {
+        showToast(t("messenger.replyJumpNotFound"), "error");
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      window.setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 2200);
+    },
+    [showToast, t],
+  );
+
+  const startReplyTo = useCallback(
+    (message: Message) => {
+      setReplyDraft(buildReplyPreviewFromMessage(message, getParticipantName));
+    },
+    [getParticipantName],
+  );
 
   const clearJoinGroupQuery = useCallback(() => {
     const next = new URLSearchParams(searchParams);
@@ -1584,6 +1730,7 @@ export default function MessengerPage() {
 
   useEffect(() => {
     setSendError(null);
+    setReplyDraft(null);
   }, [selectedChatId, draftConversation?.userId]);
 
   useEffect(() => {
@@ -1643,7 +1790,7 @@ export default function MessengerPage() {
     pendingScrollAdjustmentRef.current = { mode: "none" };
   }, [visibleMessages.length, selectedChatId]);
 
-  const sendMessage = async (rawText: string) => {
+  const sendMessage = async (rawText: string, options?: { omitReply?: boolean }) => {
     const sentText = rawText.trim();
     if (!sentText || isSending || isSendLocked) return;
 
@@ -1685,6 +1832,12 @@ export default function MessengerPage() {
 
       const chatId = activeChat.chatid;
 
+      const payload: Record<string, unknown> = { chat: chatId, text: sentText };
+      const replySource = options?.omitReply ? null : replyDraft;
+      if (replySource?.id) {
+        payload.reply_to = replySource.id;
+      }
+
       const response = await fetch("/api/messages/", {
         method: "POST",
         headers: {
@@ -1692,7 +1845,7 @@ export default function MessengerPage() {
           "X-CSRFToken": getCsrfToken(),
         },
         credentials: "include",
-        body: JSON.stringify({ chat: chatId, text: sentText }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -1727,6 +1880,7 @@ export default function MessengerPage() {
 
       const createdMessage = (await response.json()) as Message;
       setInput("");
+      setReplyDraft(null);
 
       updateMessageCacheEntry(chatId, (previous) => {
         const merged = mergeMessages(previous?.messages ?? [], [createdMessage]);
@@ -1771,7 +1925,7 @@ export default function MessengerPage() {
       contactLines.push(`${t("messenger.contactsMessageEmail")}: ${currentUserContacts.email}`);
     }
 
-    await sendMessage(contactLines.join("\n"));
+    await sendMessage(contactLines.join("\n"), { omitReply: true });
   };
 
   const handleOpenParticipantProfile = () => {
@@ -2058,8 +2212,8 @@ export default function MessengerPage() {
       <div className={`${isMobileChatOpen ? "flex" : "hidden md:flex"} h-full flex-1 flex-col`}>
         {selectedChat || draftConversation ? (
           <>
-            <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 md:gap-3 md:px-4 md:py-3">
+              <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <button
                   type="button"
                   className="md:hidden rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -2108,7 +2262,49 @@ export default function MessengerPage() {
                   </div>
                 </button>
               </div>
-              <div className="relative flex items-center justify-end gap-2">
+              {isHousingGroupChat && housingMessageFilter === "listings" && selectedChat ? (
+                <div
+                  className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto px-0.5 sm:gap-1.5"
+                  role="toolbar"
+                  aria-label={t("messenger.housingGroup.listingFilterHint")}
+                >
+                  {selectedChat.participants.map((participant) => {
+                    const active = housingListingVoteFilter === participant.id;
+                    const src = participant.avatar ? getImageUrl(String(participant.avatar)) : null;
+                    const initial = getParticipantName(participant).charAt(0).toUpperCase() || "?";
+                    return (
+                      <button
+                        key={participant.id}
+                        type="button"
+                        title={t("messenger.housingGroup.filterByMemberLikes").replace("{{name}}", getParticipantName(participant))}
+                        onClick={() => {
+                          setHousingListingVoteFilter((prev) => (prev === participant.id ? null : participant.id));
+                        }}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-gray-200 text-[10px] font-bold text-gray-700 transition dark:bg-gray-700 dark:text-gray-200 sm:h-9 sm:w-9 sm:text-xs ${
+                          active ? "border-[#C505EB] shadow-sm" : "border-transparent"
+                        }`}
+                      >
+                        {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initial}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    title={t("messenger.housingGroup.filterUnanimousLikes")}
+                    onClick={() => {
+                      setHousingListingVoteFilter((prev) => (prev === "unanimous" ? null : "unanimous"));
+                    }}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[#C505EB]/20 to-[#08D3E2]/25 text-[#7a0cb3] transition dark:from-[#C505EB]/30 dark:to-[#08D3E2]/30 dark:text-[#e9d5ff] sm:h-9 sm:w-9 ${
+                      housingListingVoteFilter === "unanimous" ? "border-[#C505EB] shadow-sm" : "border-transparent"
+                    }`}
+                  >
+                    <Users className="h-4 w-4 sm:h-[18px] sm:w-[18px]" aria-hidden />
+                  </button>
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1" aria-hidden />
+              )}
+              <div className="relative flex shrink-0 items-center justify-end gap-2">
                 {(canInteractWithParticipant || isHousingGroupChat) && (
                   <button
                     type="button"
@@ -2211,7 +2407,7 @@ export default function MessengerPage() {
                   </div>
                 )}
               </div>
-              <div className="hidden md:flex flex-wrap items-center justify-end gap-2">
+              <div className="hidden shrink-0 md:flex flex-wrap items-center justify-end gap-2">
                 {isHousingGroupChat && selectedChat && (
                   <>
                     <button
@@ -2294,43 +2490,6 @@ export default function MessengerPage() {
                 )}
               </div>
             </div>
-            {isHousingGroupChat && housingMessageFilter === "listings" && selectedChat ? (
-              <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-gray-200 bg-gray-50/90 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/90">
-                <span className="sr-only">{t("messenger.housingGroup.listingFilterHint")}</span>
-                {selectedChat.participants.map((participant) => {
-                  const active = housingListingVoteFilter === participant.id;
-                  const src = participant.avatar ? getImageUrl(String(participant.avatar)) : null;
-                  const initial = getParticipantName(participant).charAt(0).toUpperCase() || "?";
-                  return (
-                    <button
-                      key={participant.id}
-                      type="button"
-                      title={t("messenger.housingGroup.filterByMemberLikes").replace("{{name}}", getParticipantName(participant))}
-                      onClick={() => {
-                        setHousingListingVoteFilter((prev) => (prev === participant.id ? null : participant.id));
-                      }}
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-gray-200 text-xs font-bold text-gray-700 transition dark:bg-gray-700 dark:text-gray-200 ${
-                        active ? "border-[#C505EB] shadow-sm" : "border-transparent"
-                      }`}
-                    >
-                      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initial}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  title={t("messenger.housingGroup.filterUnanimousLikes")}
-                  onClick={() => {
-                    setHousingListingVoteFilter((prev) => (prev === "unanimous" ? null : "unanimous"));
-                  }}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[#C505EB]/20 to-[#08D3E2]/25 text-[#7a0cb3] transition dark:from-[#C505EB]/30 dark:to-[#08D3E2]/30 dark:text-[#e9d5ff] ${
-                    housingListingVoteFilter === "unanimous" ? "border-[#C505EB] shadow-sm" : "border-transparent"
-                  }`}
-                >
-                  <Users size={18} aria-hidden />
-                </button>
-              </div>
-            ) : null}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto bg-white p-6 dark:bg-gray-900"
@@ -2366,21 +2525,69 @@ export default function MessengerPage() {
                         onOpenListing={openExternalFromChat}
                         onVote={isHousingGroupChat ? submitListingReaction : undefined}
                         voteBusy={listingVoteBusyId === message.id}
+                        highlighted={highlightedMessageId === message.id}
+                        onReply={selectedChat ? () => startReplyTo(message) : undefined}
+                        onJumpToReplyTarget={jumpToQuotedMessage}
                       />
                     );
                   }
 
+                  const isOutgoingText = message.sender.id === currentUserId;
                   return (
-                    <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender.id === currentUserId ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"}`}>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-xs font-semibold">{getParticipantName(message.sender)}</span>
-                          <span className="ml-2 text-[10px] text-gray-300">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    <div
+                      key={message.id}
+                      id={`chat-message-${message.id}`}
+                      className={`mb-4 flex ${isOutgoingText ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 transition-shadow duration-300 ${
+                          isOutgoingText ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"
+                        } ${
+                          highlightedMessageId === message.id
+                            ? "ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white dark:ring-offset-gray-900"
+                            : ""
+                        }`}
+                      >
+                        {message.reply_preview ? (
+                          <MessageReplyQuote
+                            preview={message.reply_preview}
+                            variant={isOutgoingText ? "outgoing" : "incoming"}
+                            t={t}
+                            onJump={() => jumpToQuotedMessage(message.reply_preview!.id)}
+                          />
+                        ) : null}
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span
+                            className={`text-xs font-semibold ${isOutgoingText ? "text-white/95" : "text-gray-800 dark:text-gray-100"}`}
+                          >
+                            {getParticipantName(message.sender)}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {selectedChat ? (
+                              <button
+                                type="button"
+                                className={`rounded-md p-1 transition ${
+                                  isOutgoingText
+                                    ? "text-white/70 hover:bg-white/15 hover:text-white"
+                                    : "text-gray-500 hover:bg-gray-300/60 hover:text-[#C505EB] dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-[#e9d5ff]"
+                                }`}
+                                aria-label={t("messenger.reply")}
+                                onClick={() => startReplyTo(message)}
+                              >
+                                <Reply size={15} strokeWidth={2} aria-hidden />
+                              </button>
+                            ) : null}
+                            <span
+                              className={`text-[10px] ${isOutgoingText ? "text-white/65" : "text-gray-500 dark:text-gray-400"}`}
+                            >
+                              {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
                         </div>
-                        <div>{message.text}</div>
+                        <div className={isOutgoingText ? "text-white" : ""}>{message.text}</div>
                         <div className="mt-1 flex items-center gap-1">
                           {message.sender.id === currentUserId && (
-                            <span className="text-[10px] text-gray-400">
+                            <span className={`text-[10px] ${isOutgoingText ? "text-white/55" : "text-gray-400"}`}>
                               {message.is_read ? t("messenger.read") : t("messenger.sent")}
                             </span>
                           )}
@@ -2392,6 +2599,31 @@ export default function MessengerPage() {
               )}
             </div>
             <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+              {replyDraft ? (
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#C505EB]/35 bg-[#C505EB]/8 px-3 py-2 dark:border-[#C505EB]/45 dark:bg-[#C505EB]/15">
+                  {replyDraft.listing_thumb ? (
+                    <img
+                      src={getImageUrl(String(replyDraft.listing_thumb))}
+                      alt=""
+                      className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-semibold text-[#7a0cb3] dark:text-[#e9d5ff]">
+                      {t("messenger.replyingTo")} {replyDraft.sender_name}
+                    </div>
+                    <div className="line-clamp-2 text-sm text-gray-800 dark:text-gray-100">{replyDraft.text_snippet}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
+                    aria-label={t("messenger.cancelReply")}
+                    onClick={() => setReplyDraft(null)}
+                  >
+                    <X size={18} aria-hidden />
+                  </button>
+                </div>
+              ) : null}
               {(sendError
                 || selectedChatIsBlocked
                 || isDraftConversationActive
