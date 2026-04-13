@@ -594,60 +594,14 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
     };
 
     const togglePinned = (key: PinnedKey) => {
+      if (key !== "price") {
+        return;
+      }
       setPinnedOpen((prev) => (prev === key ? null : key));
     };
 
-    const selectClass =
-      "w-full rounded-xl border border-zinc-200/90 bg-white px-3 py-2.5 text-sm text-black outline-none transition-[border-color,box-shadow] duration-200 ease-out hover:border-[#C505EB]/35 focus:border-[#C505EB] focus:ring-2 focus:ring-[#C505EB]/15 dark:border-zinc-600 dark:bg-zinc-800/80 dark:text-white dark:hover:border-[#C505EB]/45 dark:focus:ring-[#C505EB]/25";
-
-    const renderPinnedDropdownBody = (key: PinnedKey, compactPrice: boolean) => {
-      if (key === "region") {
-        return (
-          <select
-            value={filters.region}
-            onChange={(e) => handleFilterChange("region", e.target.value)}
-            className={selectClass}
-          >
-            {regions.map((region) => (
-              <option key={region.value || "all"} value={region.value}>
-                {region.label}
-              </option>
-            ))}
-          </select>
-        );
-      }
-      if (key === "propertyType") {
-        return (
-          <select
-            value={filters.propertyType}
-            onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-            className={selectClass}
-          >
-            <option value="">{t("filter.propertyValue")}</option>
-            {propertyTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        );
-      }
-      if (key === "preferredGender") {
-        return (
-          <select
-            value={filters.preferredGender || ""}
-            onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
-            className={selectClass}
-          >
-            {preferredGenderOptions.map((option) => (
-              <option key={option.value || "none"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        );
-      }
-      const histH = compactPrice ? "h-20" : "h-24";
+    const renderPinnedPriceDropdownBody = () => {
+      const histH = "h-20";
       return (
         <div className="flex flex-col gap-3">
           <div className={`w-full rounded-xl border border-[#E0E0E0] dark:border-gray-600 bg-[#F8FAFB] dark:bg-gray-900/60 px-3 py-3`}>
@@ -730,21 +684,106 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       );
     };
 
-    const renderPinnedCell = (key: PinnedKey, layout: "desktop" | "mobile", pinIndex: number) => {
-      const isOpen = pinnedOpen === key;
-      const isDesktop = layout === "desktop";
+    const renderPinnedNativeSelect = (key: PinnedKey) => {
+      if (key === "region") {
+        return (
+          <select
+            value={filters.region}
+            onChange={(e) => handleFilterChange("region", e.target.value)}
+            className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
+            style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
+            aria-label={pinnedTitle(key)}
+          >
+            {regions.map((region) => (
+              <option key={region.value || "all"} value={region.value}>
+                {region.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      if (key === "propertyType") {
+        return (
+          <select
+            value={filters.propertyType}
+            onChange={(e) => handleFilterChange("propertyType", e.target.value)}
+            className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
+            style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
+            aria-label={pinnedTitle(key)}
+          >
+            <option value="">{t("filter.propertyValue")}</option>
+            {propertyTypes.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      return (
+        <select
+          value={filters.preferredGender || ""}
+          onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
+          className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
+          style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
+          aria-label={pinnedTitle(key)}
+        >
+          {preferredGenderOptions.map((option) => (
+            <option key={option.value || "none"} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    };
+
+    const renderPinnedCell = (key: PinnedKey, pinIndex: number) => {
       const isFirstPin = pinIndex === 0;
-
-      const mobileCorner =
-        pinIndex === 0
-          ? "rounded-tl-2xl"
-          : pinIndex === 1
-            ? "rounded-tr-2xl"
-            : pinIndex === 2
-              ? "rounded-bl-2xl"
-              : "rounded-br-2xl";
-
       const segmentBg = "bg-white dark:bg-zinc-900";
+      const shellClass = `relative min-h-[56px] min-w-0 flex-1 transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-50/90 focus-within:bg-zinc-50/90 focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#C505EB]/20 dark:hover:bg-zinc-800/55 dark:focus-within:bg-zinc-800/55 dark:focus-within:ring-[#C505EB]/30 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
+
+      if (key !== "price") {
+        return (
+          <div key={key} className={shellClass}>
+            <div
+              className={`pointer-events-none absolute inset-0 z-0 flex min-h-[56px] flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 pr-10 ${
+                isFirstPin ? "rounded-l-full" : ""
+              }`}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                {pinnedTitle(key)}
+              </span>
+              <span
+                className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug ${
+                  pinnedHasValue(key)
+                    ? "text-zinc-900 dark:text-zinc-100"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                {pinnedSummary(key)}
+              </span>
+            </div>
+            <ChevronDown
+              size={15}
+              strokeWidth={2.25}
+              className="pointer-events-none absolute right-2.5 top-1/2 z-[1] -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+            />
+            {renderPinnedNativeSelect(key)}
+            {pinnedHasValue(key) ? (
+              <button
+                type="button"
+                onClick={(e) => clearPinned(key, e)}
+                className="absolute right-8 top-1/2 z-[3] -translate-y-1/2 rounded-full p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-200/80 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                aria-label={t("filter.clearPinned")}
+              >
+                <X size={12} strokeWidth={2.5} />
+              </button>
+            ) : null}
+          </div>
+        );
+      }
+
+      const isOpen = pinnedOpen === "price";
       const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
       const triggerClass = [
@@ -755,16 +794,14 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
           : "hover:bg-zinc-50/90 dark:hover:bg-zinc-800/55",
         triggerRing,
         pinnedHasValue(key) ? "pr-14" : "pr-10",
-        isDesktop && isFirstPin ? "rounded-l-full" : "",
+        isFirstPin ? "rounded-l-full" : "",
       ].join(" ");
 
-      const shellClass = isDesktop
-        ? `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`
-        : `relative min-h-[54px] min-w-0 ${segmentBg} ${mobileCorner}`;
+      const priceShellClass = `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
 
       return (
-        <div key={key} className={shellClass}>
-          <button type="button" onClick={() => togglePinned(key)} className={triggerClass}>
+        <div key={key} className={priceShellClass}>
+          <button type="button" onClick={() => togglePinned("price")} className={triggerClass}>
             <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               {pinnedTitle(key)}
             </span>
@@ -793,14 +830,12 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
               <X size={12} strokeWidth={2.5} />
             </button>
           ) : null}
-          {isDesktop && isOpen ? (
+          {isOpen ? (
             <div
-              className={`filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06] ${
-                key === "price" ? "w-[min(calc(100vw-2rem),28rem)]" : "w-[min(calc(100vw-2rem),20rem)]"
-              }`}
+              className="filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] w-[min(calc(100vw-2rem),28rem)] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06]"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {renderPinnedDropdownBody(key, key === "price")}
+              {renderPinnedPriceDropdownBody()}
             </div>
           ) : null}
         </div>
@@ -814,7 +849,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
             <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
               <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
                 <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
-                  {pinnedOrder.map((k, i) => renderPinnedCell(k, "desktop", i))}
+                  {pinnedOrder.map((k, i) => renderPinnedCell(k, i))}
                 </div>
                 <button
                   type="button"

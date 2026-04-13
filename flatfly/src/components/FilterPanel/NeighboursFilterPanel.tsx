@@ -388,19 +388,64 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     };
 
     const togglePinned = (key: NeighbourPinnedKey) => {
+        if (key !== "age") {
+            return;
+        }
         setPinnedOpen((prev) => (prev === key ? null : key));
     };
 
-    const selectClass =
-        "w-full rounded-xl border border-zinc-200/90 bg-white px-3 py-2.5 text-sm text-black outline-none transition-[border-color,box-shadow] duration-200 ease-out hover:border-[#C505EB]/35 focus:border-[#C505EB] focus:ring-2 focus:ring-[#C505EB]/15 dark:border-zinc-600 dark:bg-zinc-800/80 dark:text-white dark:hover:border-[#C505EB]/45 dark:focus:ring-[#C505EB]/25";
+    const renderPinnedAgeDropdownBody = () => (
+        <div className="flex flex-col gap-3">
+            <div className="text-center text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                {normalizedAgeFrom} – {normalizedAgeTo}
+            </div>
+            <div className="relative h-9">
+                <div className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[#D4DAE0] dark:bg-gray-700">
+                    <div
+                        className="absolute h-full rounded-full bg-[#C505EB]"
+                        style={{
+                            left: `${selectedAgeFromPercent}%`,
+                            width: `${Math.max(2, selectedAgeToPercent - selectedAgeFromPercent)}%`,
+                        }}
+                    />
+                </div>
+                <input
+                    type="range"
+                    min={ageSliderMin}
+                    max={ageSliderMax}
+                    value={normalizedAgeFrom}
+                    onChange={(e) => applyAgeRange(Number(e.target.value), normalizedAgeTo)}
+                    className="age-range-input z-20"
+                />
+                <input
+                    type="range"
+                    min={ageSliderMin}
+                    max={ageSliderMax}
+                    value={normalizedAgeTo}
+                    onChange={(e) => applyAgeRange(normalizedAgeFrom, Number(e.target.value))}
+                    className="age-range-input z-30"
+                />
+            </div>
+            <div className="flex justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                <span>18</span>
+                <span>100</span>
+            </div>
+        </div>
+    );
 
-    const renderPinnedDropdownBody = (key: NeighbourPinnedKey) => {
+    const nativeSelectOverlayClass =
+        "absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0";
+
+    const renderPinnedNativeSelect = (key: NeighbourPinnedKey) => {
+        const rightOffset = pinnedHasValue(key) ? "4.5rem" : "2.25rem";
         if (key === "region") {
             return (
                 <select
                     value={filters.city}
                     onChange={(e) => handleFilterChange("city", e.target.value)}
-                    className={selectClass}
+                    className={nativeSelectOverlayClass}
+                    style={{ right: rightOffset }}
+                    aria-label={pinnedTitle(key)}
                 >
                     <option value="">{t("-")}</option>
                     {CZECH_REGIONS.map((region) => (
@@ -411,52 +456,14 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                 </select>
             );
         }
-        if (key === "age") {
-            return (
-                <div className="flex flex-col gap-3">
-                    <div className="text-center text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                        {normalizedAgeFrom} – {normalizedAgeTo}
-                    </div>
-                    <div className="relative h-9">
-                        <div className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[#D4DAE0] dark:bg-gray-700">
-                            <div
-                                className="absolute h-full rounded-full bg-[#C505EB]"
-                                style={{
-                                    left: `${selectedAgeFromPercent}%`,
-                                    width: `${Math.max(2, selectedAgeToPercent - selectedAgeFromPercent)}%`,
-                                }}
-                            />
-                        </div>
-                        <input
-                            type="range"
-                            min={ageSliderMin}
-                            max={ageSliderMax}
-                            value={normalizedAgeFrom}
-                            onChange={(e) => applyAgeRange(Number(e.target.value), normalizedAgeTo)}
-                            className="age-range-input z-20"
-                        />
-                        <input
-                            type="range"
-                            min={ageSliderMin}
-                            max={ageSliderMax}
-                            value={normalizedAgeTo}
-                            onChange={(e) => applyAgeRange(normalizedAgeFrom, Number(e.target.value))}
-                            className="age-range-input z-30"
-                        />
-                    </div>
-                    <div className="flex justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        <span>18</span>
-                        <span>100</span>
-                    </div>
-                </div>
-            );
-        }
         if (key === "alcohol") {
             return (
                 <select
                     value={filters.alcohol}
                     onChange={(e) => handleFilterChange("alcohol", e.target.value)}
-                    className={selectClass}
+                    className={nativeSelectOverlayClass}
+                    style={{ right: rightOffset }}
+                    aria-label={pinnedTitle(key)}
                 >
                     <option value="">-</option>
                     {alcoholOptions.map((option) => (
@@ -471,7 +478,9 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
             <select
                 value={filters.sleepSchedule}
                 onChange={(e) => handleFilterChange("sleepSchedule", e.target.value)}
-                className={selectClass}
+                className={nativeSelectOverlayClass}
+                style={{ right: rightOffset }}
+                aria-label={pinnedTitle(key)}
             >
                 <option value="">-</option>
                 {sleepScheduleOptions.map((option) => (
@@ -484,10 +493,53 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     };
 
     const renderPinnedCell = (key: NeighbourPinnedKey, pinIndex: number) => {
-        const isOpen = pinnedOpen === key;
         const isFirstPin = pinIndex === 0;
-
         const segmentBg = "bg-white dark:bg-zinc-900";
+
+        if (key !== "age") {
+            const shellClass = `relative min-h-[56px] min-w-0 flex-1 transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-50/90 focus-within:bg-zinc-50/90 focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#C505EB]/20 dark:hover:bg-zinc-800/55 dark:focus-within:bg-zinc-800/55 dark:focus-within:ring-[#C505EB]/30 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
+
+            return (
+                <div key={key} className={shellClass}>
+                    <div
+                        className={`pointer-events-none absolute inset-0 z-0 flex min-h-[56px] flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 pr-10 ${
+                            isFirstPin ? "rounded-l-full" : ""
+                        }`}
+                    >
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            {pinnedTitle(key)}
+                        </span>
+                        <span
+                            className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug ${
+                                pinnedHasValue(key)
+                                    ? "text-zinc-900 dark:text-zinc-100"
+                                    : "text-zinc-400 dark:text-zinc-500"
+                            }`}
+                        >
+                            {pinnedSummary(key)}
+                        </span>
+                    </div>
+                    <ChevronDown
+                        size={15}
+                        strokeWidth={2.25}
+                        className="pointer-events-none absolute right-2.5 top-1/2 z-[1] -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+                    />
+                    {renderPinnedNativeSelect(key)}
+                    {pinnedHasValue(key) ? (
+                        <button
+                            type="button"
+                            onClick={(e) => clearPinned(key, e)}
+                            className="absolute right-8 top-1/2 z-[3] -translate-y-1/2 rounded-full p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-200/80 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                            aria-label={t("filter.clearPinned")}
+                        >
+                            <X size={12} strokeWidth={2.5} />
+                        </button>
+                    ) : null}
+                </div>
+            );
+        }
+
+        const isOpen = pinnedOpen === "age";
         const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
         const triggerClass = [
@@ -501,14 +553,11 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
             isFirstPin ? "rounded-l-full" : "",
         ].join(" ");
 
-        const shellClass = `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
-
-        const dropdownWidth =
-            key === "age" ? "w-[min(calc(100vw-2rem),28rem)]" : "w-[min(calc(100vw-2rem),20rem)]";
+        const ageShellClass = `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
 
         return (
-            <div key={key} className={shellClass}>
-                <button type="button" onClick={() => togglePinned(key)} className={triggerClass}>
+            <div key={key} className={ageShellClass}>
+                <button type="button" onClick={() => togglePinned("age")} className={triggerClass}>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         {pinnedTitle(key)}
                     </span>
@@ -539,10 +588,10 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                 ) : null}
                 {isOpen ? (
                     <div
-                        className={`filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06] ${dropdownWidth}`}
+                        className="filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] w-[min(calc(100vw-2rem),28rem)] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06]"
                         onMouseDown={(e) => e.stopPropagation()}
                     >
-                        {renderPinnedDropdownBody(key)}
+                        {renderPinnedAgeDropdownBody()}
                     </div>
                 ) : null}
             </div>
