@@ -3,15 +3,16 @@
 
 def listing_to_preview_dict(listing, request=None):
     """Serializable preview for a listing message bubble."""
-    image_url = None
+    image_urls = []
     qs = getattr(listing, "images", None)
     if qs is not None:
-        primary = qs.filter(is_primary=True).first()
-        first = qs.order_by("uploaded_at").first()
-        chosen = primary or first
-        if chosen and getattr(chosen, "image", None):
-            rel = chosen.image.url
-            image_url = request.build_absolute_uri(rel) if request else rel
+        ordered = qs.order_by("-is_primary", "uploaded_at")
+        for row in ordered:
+            if getattr(row, "image", None):
+                rel = row.image.url
+                image_urls.append(request.build_absolute_uri(rel) if request else rel)
+
+    image_url = image_urls[0] if image_urls else None
 
     type_map = {
         "APARTMENT": "apartments",
@@ -23,6 +24,8 @@ def listing_to_preview_dict(listing, request=None):
     path_prefix = type_map.get(listing.type, "apartments")
     path = f"/{path_prefix}/{listing.id}"
 
+    amenities = listing.amenities if isinstance(listing.amenities, list) else []
+
     return {
         "id": listing.id,
         "type": listing.type,
@@ -31,6 +34,11 @@ def listing_to_preview_dict(listing, request=None):
         "currency": listing.currency or "",
         "city": listing.city or "",
         "region": listing.region or "",
+        "address": listing.address or "",
         "image": image_url,
+        "images": image_urls,
+        "rooms": listing.rooms,
+        "size": listing.size,
+        "amenities": amenities,
         "path": path,
     }

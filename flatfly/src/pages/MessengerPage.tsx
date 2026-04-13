@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Icon } from "@iconify/react";
 import { getCsrfToken } from "../utils/csrf";
 import { getImageUrl } from "../utils/defaultImage";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  Bed,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   Copy,
   MessageCircle,
   MoreVertical,
   Send,
+  Square,
   Users,
   XCircle,
 } from "lucide-react";
@@ -37,7 +41,12 @@ interface ListingPreview {
   currency?: string;
   city?: string;
   region?: string;
+  address?: string;
   image?: string | null;
+  images?: string[];
+  rooms?: string | number | null;
+  size?: string | number | null;
+  amenities?: string[];
   path?: string;
 }
 
@@ -245,6 +254,233 @@ function buildCacheEntry(
   };
 }
 
+function messengerUrlWithChat(searchParams: URLSearchParams, chatId: number | null): string {
+  const next = new URLSearchParams(searchParams);
+  if (chatId === null || !Number.isFinite(chatId) || chatId <= 0) {
+    next.delete("chat");
+    next.delete("user");
+    next.delete("profile");
+  } else {
+    next.set("chat", String(chatId));
+    next.delete("user");
+    next.delete("profile");
+  }
+  const qs = next.toString();
+  return qs ? `/messenger?${qs}` : "/messenger";
+}
+
+function canonicalChatListingAmenityKey(raw: string): string {
+  let k = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const aliases: Record<string, string> = {
+    washingmachine: "washing_machine",
+    airconditioning: "air_conditioning",
+  };
+  return aliases[k] || k;
+}
+
+const CHAT_LISTING_AMENITY_ORDER = ["dishwasher", "balcony", "parking", "furnished"] as const;
+type ChatListingAmenityKey = (typeof CHAT_LISTING_AMENITY_ORDER)[number];
+const CHAT_LISTING_AMENITY_ICONS: Record<ChatListingAmenityKey, string> = {
+  dishwasher: "mdi:dishwasher",
+  balcony: "mdi:balcony",
+  parking: "mdi:car",
+  furnished: "mdi:sofa-outline",
+};
+
+type MessengerChatListingCardProps = {
+  message: Message;
+  preview: ListingPreview;
+  currentUserId: number | null;
+  t: (key: string) => string;
+  getParticipantName: (participant: User | null) => string;
+  onOpenListing: (path: string) => void;
+};
+
+function MessengerChatListingCard({
+  message,
+  preview,
+  currentUserId,
+  t,
+  getParticipantName,
+  onOpenListing,
+}: MessengerChatListingCardProps) {
+  const [imgIndex, setImgIndex] = useState(0);
+
+  useEffect(() => {
+    setImgIndex(0);
+  }, [message.id]);
+
+  const galleryUrls = useMemo(() => {
+    if (Array.isArray(preview.images) && preview.images.length > 0) {
+      return preview.images.map((u) => getImageUrl(String(u)));
+    }
+    if (preview.image) {
+      return [getImageUrl(preview.image)];
+    }
+    return [];
+  }, [preview.images, preview.image]);
+
+  const listingPath = preview.path ? preview.path : null;
+  const listingTitle = preview.title || message.display_text || "";
+  const priceLine = preview.price
+    ? `${preview.price}${preview.currency ? ` ${preview.currency}` : ""}`
+    : "";
+  const locLine = [preview.city, preview.region].filter(Boolean).join(", ");
+  const addressLine = typeof preview.address === "string" ? preview.address.trim() : "";
+  const amenities = Array.isArray(preview.amenities) ? preview.amenities : [];
+  const amenitySet = new Set(amenities.map((a) => canonicalChatListingAmenityKey(String(a))));
+  const amenityIcons = CHAT_LISTING_AMENITY_ORDER.filter((k) => amenitySet.has(k));
+  const roomsStr = preview.rooms != null && String(preview.rooms).trim() !== "" ? String(preview.rooms) : "";
+  const sizeStr = preview.size != null && String(preview.size).trim() !== "" ? String(preview.size) : "";
+  const showArrows = galleryUrls.length > 1;
+  const currentSrc = galleryUrls[imgIndex] ?? null;
+
+  const amenityLabel = (key: ChatListingAmenityKey): string => {
+    switch (key) {
+      case "dishwasher":
+        return t("filter.amenityDishwasher");
+      case "balcony":
+        return t("filter.amenityBalcony");
+      case "parking":
+        return t("filter.amenityParking");
+      case "furnished":
+        return t("filter.amenityFurnished");
+      default:
+        return key;
+    }
+  };
+
+  const goPrev = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (galleryUrls.length < 2) return;
+    setImgIndex((i) => (i - 1 + galleryUrls.length) % galleryUrls.length);
+  };
+
+  const goNext = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (galleryUrls.length < 2) return;
+    setImgIndex((i) => (i + 1) % galleryUrls.length);
+  };
+
+  return (
+    <div
+      className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
+    >
+      <div className="max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%]">
+        <div className="mb-1 flex items-center justify-between gap-2 px-1">
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+            {getParticipantName(message.sender)}
+          </span>
+          <span className="text-[10px] text-gray-400">
+            {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
+          onClick={() => {
+            if (listingPath) {
+              onOpenListing(listingPath);
+            }
+          }}
+        >
+          <div className="flex min-h-[140px] flex-col sm:flex-row">
+            <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 sm:h-[140px] sm:w-[168px] dark:bg-gray-900">
+              {currentSrc ? (
+                <img src={currentSrc} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-gray-400">
+                  <Users className="opacity-40" size={40} />
+                </div>
+              )}
+              {showArrows ? (
+                <>
+                  <button
+                    type="button"
+                    className="absolute left-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm transition hover:bg-black/60"
+                    aria-label={t("listing.previousImage")}
+                    onClick={goPrev}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm transition hover:bg-black/60"
+                    aria-label={t("listing.nextImage")}
+                    onClick={goNext}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-1.5 left-0 right-0 flex justify-center gap-1">
+                    {galleryUrls.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 w-1.5 rounded-full ${i === imgIndex ? "bg-white" : "bg-white/40"}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <div className="flex min-h-[120px] min-w-0 flex-1 flex-col gap-1.5 p-3 sm:p-4">
+              <div className="line-clamp-2 text-sm font-bold text-gray-900 dark:text-white">{listingTitle}</div>
+              {priceLine ? (
+                <div className="text-sm font-semibold text-[#C505EB]">{priceLine}</div>
+              ) : null}
+              {(roomsStr || sizeStr) ? (
+                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+                  {roomsStr ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Bed className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                      {roomsStr}
+                    </span>
+                  ) : null}
+                  {sizeStr ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Square className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                      {sizeStr}
+                      <span className="text-[10px] opacity-80">m²</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {amenityIcons.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2 dark:border-gray-600/80">
+                  {amenityIcons.map((key) => (
+                    <span
+                      key={key}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                      title={amenityLabel(key)}
+                    >
+                      <Icon icon={CHAT_LISTING_AMENITY_ICONS[key]} className="h-4 w-4" aria-hidden />
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {addressLine ? (
+                <div className="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{addressLine}</div>
+              ) : null}
+              {!addressLine && locLine ? (
+                <div className="text-xs text-gray-500 dark:text-gray-400">{locLine}</div>
+              ) : null}
+            </div>
+          </div>
+        </button>
+        <div className="mt-1 flex items-center gap-1 px-1">
+          {message.sender.id === currentUserId && (
+            <span className="text-[10px] text-gray-400">
+              {message.is_read ? t("messenger.read") : t("messenger.sent")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MessengerPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -265,6 +501,10 @@ export default function MessengerPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [deleteConfirmationChatId, setDeleteConfirmationChatId] = useState<number | null>(null);
   const [rememberDeleteChoice, setRememberDeleteChoice] = useState(false);
+  const [housingDestructiveConfirm, setHousingDestructiveConfirm] = useState<
+    null | { mode: "leave" | "delete"; chatId: number }
+  >(null);
+  const [isHousingConfirmBusy, setIsHousingConfirmBusy] = useState(false);
   const [blacklist, setBlacklist] = useState<User[]>([]);
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false);
   const [isReportingOpen, setIsReportingOpen] = useState(false);
@@ -311,6 +551,27 @@ export default function MessengerPage() {
   const isDraftConversationActive = Boolean(draftConversation);
   const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
   const canSendInCurrentChat = selectedChat ? (selectedChatPermission?.canSend ?? true) : true;
+
+  const replaceMessengerUrlChat = useCallback(
+    (chatId: number | null) => {
+      navigate(messengerUrlWithChat(new URLSearchParams(searchParams), chatId), { replace: true });
+    },
+    [navigate, searchParams],
+  );
+
+  const openExternalFromChat = useCallback(
+    (path: string) => {
+      if (selectedChatId) {
+        navigate(messengerUrlWithChat(new URLSearchParams(searchParams), selectedChatId), { replace: true });
+        window.setTimeout(() => {
+          navigate(path);
+        }, 0);
+        return;
+      }
+      navigate(path);
+    },
+    [navigate, searchParams, selectedChatId],
+  );
 
   const getOtherParticipant = (chat: Chat) => {
     if (currentUserId === null) return chat.participants[0] ?? null;
@@ -365,7 +626,7 @@ export default function MessengerPage() {
   const canInteractWithDirectParticipant = !isFlatFlySupportParticipant && !isHousingGroupChat;
   const canInteractWithParticipant = canInteractWithDirectParticipant;
   const isSendLocked =
-    !canInteractWithDirectParticipant
+    (!isHousingGroupChat && !canInteractWithDirectParticipant)
     || Boolean(selectedChat?.is_blocked)
     || (!isHousingGroupChat && isAwaitingReply)
     || (Boolean(selectedChat) && !canSendInCurrentChat);
@@ -650,6 +911,7 @@ export default function MessengerPage() {
         });
         setSelectedChat(data.chat);
         setDraftConversation(null);
+        replaceMessengerUrlChat(data.chat.chatid);
         showToast(t("messenger.housingGroup.alreadyHaveGroupOpened"), "success");
         return;
       }
@@ -664,6 +926,7 @@ export default function MessengerPage() {
       });
       setSelectedChat(chat);
       setDraftConversation(null);
+      replaceMessengerUrlChat(chat.chatid);
       showToast(t("messenger.housingGroup.groupCreated"), "success");
     } catch {
       showToast(t("messenger.housingGroup.createGroupError"), "error");
@@ -672,7 +935,7 @@ export default function MessengerPage() {
     }
   };
 
-  const leaveHousingGroup = async (chatId: number) => {
+  const leaveHousingGroup = async (chatId: number): Promise<boolean> => {
     try {
       const response = await fetch(`/api/chats/${chatId}/leave-housing-group/`, {
         method: "POST",
@@ -685,16 +948,19 @@ export default function MessengerPage() {
       });
       if (!response.ok) {
         showToast(t("messenger.housingGroup.leaveFailed"), "error");
-        return;
+        return false;
       }
       setChats((previous) => previous.filter((chat) => chat.chatid !== chatId));
       removeMessageCacheEntry(chatId);
       if (selectedChat?.chatid === chatId) {
+        replaceMessengerUrlChat(null);
         setSelectedChat(null);
       }
       showToast(t("messenger.housingGroup.leftGroupSuccess"), "success");
+      return true;
     } catch {
       showToast(t("messenger.housingGroup.leaveFailed"), "error");
+      return false;
     }
   };
 
@@ -743,6 +1009,7 @@ export default function MessengerPage() {
       });
       setSelectedChat(chat);
       setDraftConversation(null);
+      replaceMessengerUrlChat(chat.chatid);
       setPendingJoinToken(null);
       clearJoinGroupQuery();
       showToast(t("messenger.housingGroup.joinedSuccess"), "success");
@@ -775,6 +1042,7 @@ export default function MessengerPage() {
       setChats((previous) => previous.filter((chat) => chat.chatid !== joinConflictChatId));
       removeMessageCacheEntry(joinConflictChatId);
       if (selectedChat?.chatid === joinConflictChatId) {
+        replaceMessengerUrlChat(null);
         setSelectedChat(null);
       }
       setJoinConflictChatId(null);
@@ -794,6 +1062,7 @@ export default function MessengerPage() {
       });
       setSelectedChat(chat);
       setDraftConversation(null);
+      replaceMessengerUrlChat(chat.chatid);
       setPendingJoinToken(null);
       clearJoinGroupQuery();
       showToast(t("messenger.housingGroup.joinedSuccess"), "success");
@@ -804,7 +1073,7 @@ export default function MessengerPage() {
     }
   };
 
-  const executeDeleteChat = async (chatId: number) => {
+  const executeDeleteChat = async (chatId: number): Promise<boolean> => {
     const isDeletingSelectedChat = selectedChat?.chatid === chatId;
     try {
       const response = await fetch(`/api/chats/${chatId}/`, {
@@ -822,16 +1091,19 @@ export default function MessengerPage() {
         } else {
           showToast(t("messenger.deleteError"), "error");
         }
-        return;
+        return false;
       }
 
       setChats((previous) => previous.filter((chat) => chat.chatid !== chatId));
       removeMessageCacheEntry(chatId);
       if (isDeletingSelectedChat) {
+        replaceMessengerUrlChat(null);
         setSelectedChat(null);
       }
+      return true;
     } catch {
       showToast(t("messenger.deleteError"), "error");
+      return false;
     } finally {
       setActionMenuChatId(null);
       setDeleteConfirmationChatId(null);
@@ -862,6 +1134,48 @@ export default function MessengerPage() {
 
     setSkipDeleteConfirmation(rememberDeleteChoice);
     await executeDeleteChat(deleteConfirmationChatId);
+  };
+
+  const openHousingLeaveConfirm = (chatId: number) => {
+    setHousingDestructiveConfirm({ mode: "leave", chatId });
+    setActionMenuChatId(null);
+    setIsMobileActionsOpen(false);
+  };
+
+  const openHousingDeleteConfirm = (chatId: number) => {
+    setHousingDestructiveConfirm({ mode: "delete", chatId });
+    setActionMenuChatId(null);
+    setIsMobileActionsOpen(false);
+  };
+
+  const closeHousingDestructiveConfirm = () => {
+    if (isHousingConfirmBusy) {
+      return;
+    }
+    setHousingDestructiveConfirm(null);
+  };
+
+  const confirmHousingDestructive = async () => {
+    if (!housingDestructiveConfirm) {
+      return;
+    }
+    const { mode, chatId } = housingDestructiveConfirm;
+    setIsHousingConfirmBusy(true);
+    try {
+      if (mode === "leave") {
+        const ok = await leaveHousingGroup(chatId);
+        if (ok) {
+          setHousingDestructiveConfirm(null);
+        }
+      } else {
+        const ok = await executeDeleteChat(chatId);
+        if (ok) {
+          setHousingDestructiveConfirm(null);
+        }
+      }
+    } finally {
+      setIsHousingConfirmBusy(false);
+    }
   };
 
   const handleMessagesScroll = () => {
@@ -984,6 +1298,7 @@ export default function MessengerPage() {
         if (foundById) {
           setDraftConversation(null);
           setSelectedChat(foundById);
+          navigate(messengerUrlWithChat(new URLSearchParams(searchParams), foundById.chatid), { replace: true });
           autoOpenAttemptedRef.current = true;
           return;
         }
@@ -1025,6 +1340,7 @@ export default function MessengerPage() {
       if (foundChat) {
         setDraftConversation(null);
         setSelectedChat(foundChat);
+        navigate(messengerUrlWithChat(new URLSearchParams(searchParams), foundChat.chatid), { replace: true });
         autoOpenAttemptedRef.current = true;
         return;
       }
@@ -1040,7 +1356,7 @@ export default function MessengerPage() {
     openOrCreateChat().catch(() => {
       autoOpenAttemptedRef.current = true;
     });
-  }, [chats, chatsLoaded, searchParams]);
+  }, [chats, chatsLoaded, navigate, searchParams]);
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -1049,7 +1365,12 @@ export default function MessengerPage() {
       return;
     }
 
-    inputRef.current?.focus();
+    const coarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    if (!coarsePointer) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
     shouldStickToBottomRef.current = true;
     initialScrollCompletedForChatRef.current = null;
 
@@ -1179,6 +1500,7 @@ export default function MessengerPage() {
         });
         setSelectedChat(activeChat);
         setDraftConversation(null);
+        replaceMessengerUrlChat(activeChat.chatid);
       }
 
       if (!activeChat) {
@@ -1282,6 +1604,13 @@ export default function MessengerPage() {
     }
 
     if (isFlatFlySupportParticipant) {
+      if (selectedChatId) {
+        navigate(messengerUrlWithChat(new URLSearchParams(searchParams), selectedChatId), { replace: true });
+        window.setTimeout(() => {
+          navigate("/#about");
+        }, 0);
+        return;
+      }
       navigate("/#about");
       return;
     }
@@ -1290,7 +1619,7 @@ export default function MessengerPage() {
       return;
     }
 
-    navigate(`/neighbours/${activeParticipant.profile_id}`);
+    openExternalFromChat(`/neighbours/${activeParticipant.profile_id}`);
   };
 
   const loadBlacklist = async () => {
@@ -1322,6 +1651,7 @@ export default function MessengerPage() {
     setSelectedChat((previous) => (previous ? { ...previous, is_blocked: true, blocked_by_me: true } : previous));
     void loadBlacklist();
     setChats((previous) => previous.filter((chat) => chat.chatid !== selectedChatId));
+    replaceMessengerUrlChat(null);
     setSelectedChat(null);
   };
 
@@ -1373,6 +1703,7 @@ export default function MessengerPage() {
       setSelectedChat((previous) => (previous ? { ...previous, is_blocked: true, blocked_by_me: true } : previous));
       void loadBlacklist();
       setChats((previous) => previous.filter((chat) => chat.chatid !== selectedChatId));
+      replaceMessengerUrlChat(null);
       setSelectedChat(null);
     }
     setIsReportingOpen(false);
@@ -1426,6 +1757,7 @@ export default function MessengerPage() {
             onClick={() => {
               setDraftConversation(null);
               setSelectedChat(chat);
+              replaceMessengerUrlChat(chat.chatid);
             }}
             onContextMenu={(event) => {
               event.preventDefault();
@@ -1467,8 +1799,7 @@ export default function MessengerPage() {
                         className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
                         onClick={(event) => {
                           event.stopPropagation();
-                          void leaveHousingGroup(chat.chatid);
-                          setActionMenuChatId(null);
+                          openHousingLeaveConfirm(chat.chatid);
                         }}
                       >
                         {t("messenger.housingGroup.leaveGroup")}
@@ -1480,7 +1811,7 @@ export default function MessengerPage() {
                         className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
                         onClick={(event) => {
                           event.stopPropagation();
-                          void handleDeleteChat(chat.chatid);
+                          openHousingDeleteConfirm(chat.chatid);
                         }}
                       >
                         {t("messenger.housingGroup.deleteGroup")}
@@ -1523,6 +1854,7 @@ export default function MessengerPage() {
                   type="button"
                   className="md:hidden rounded-lg border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                   onClick={() => {
+                    replaceMessengerUrlChat(null);
                     setSelectedChat(null);
                     setDraftConversation(null);
                     setIsMobileActionsOpen(false);
@@ -1608,8 +1940,7 @@ export default function MessengerPage() {
                             type="button"
                             className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
                             onClick={() => {
-                              setIsMobileActionsOpen(false);
-                              void leaveHousingGroup(selectedChat.chatid);
+                              openHousingLeaveConfirm(selectedChat.chatid);
                             }}
                           >
                             {t("messenger.housingGroup.leaveGroup")}
@@ -1620,8 +1951,7 @@ export default function MessengerPage() {
                             type="button"
                             className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
                             onClick={() => {
-                              setIsMobileActionsOpen(false);
-                              void handleDeleteChat(selectedChat.chatid);
+                              openHousingDeleteConfirm(selectedChat.chatid);
                             }}
                           >
                             {t("messenger.housingGroup.deleteGroup")}
@@ -1697,7 +2027,7 @@ export default function MessengerPage() {
                         type="button"
                         className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                         onClick={() => {
-                          void leaveHousingGroup(selectedChat.chatid);
+                          openHousingLeaveConfirm(selectedChat.chatid);
                         }}
                       >
                         {t("messenger.housingGroup.leaveGroup")}
@@ -1708,7 +2038,7 @@ export default function MessengerPage() {
                         type="button"
                         className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
                         onClick={() => {
-                          void handleDeleteChat(selectedChat.chatid);
+                          openHousingDeleteConfirm(selectedChat.chatid);
                         }}
                       >
                         {t("messenger.housingGroup.deleteGroup")}
@@ -1776,61 +2106,18 @@ export default function MessengerPage() {
                 visibleMessages.map((message) => {
                   const isListing = message.message_kind === "listing";
                   const preview = message.listing_preview as ListingPreview | undefined;
-                  const listingPath = preview?.path ? preview.path : null;
-                  const listingImage = preview?.image ? getImageUrl(preview.image) : null;
-                  const listingTitle = preview?.title || message.display_text || "";
-                  const priceLine = preview?.price
-                    ? `${preview.price}${preview.currency ? ` ${preview.currency}` : ""}`
-                    : "";
-                  const locLine = [preview?.city, preview?.region].filter(Boolean).join(", ");
 
                   if (isListing && preview) {
                     return (
-                      <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
-                        <div className="max-w-[92%] md:max-w-[70%]">
-                          <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{getParticipantName(message.sender)}</span>
-                            <span className="text-[10px] text-gray-400">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
-                            onClick={() => {
-                              if (listingPath) {
-                                navigate(listingPath);
-                              }
-                            }}
-                          >
-                            <div className="flex flex-col sm:flex-row">
-                              <div className="relative h-40 w-full shrink-0 bg-gray-100 sm:h-auto sm:w-36 sm:min-h-[140px] dark:bg-gray-900">
-                                {listingImage ? (
-                                  <img src={listingImage} alt="" className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full min-h-[140px] w-full items-center justify-center text-gray-400">
-                                    <Users className="opacity-40" size={40} />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex min-w-0 flex-1 flex-col gap-1 p-4">
-                                <div className="line-clamp-2 text-sm font-bold text-gray-900 dark:text-white">{listingTitle}</div>
-                                {priceLine ? (
-                                  <div className="text-sm font-semibold text-[#C505EB]">{priceLine}</div>
-                                ) : null}
-                                {locLine ? (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{locLine}</div>
-                                ) : null}
-                              </div>
-                            </div>
-                          </button>
-                          <div className="mt-1 flex items-center gap-1 px-1">
-                            {message.sender.id === currentUserId && (
-                              <span className="text-[10px] text-gray-400">
-                                {message.is_read ? t("messenger.read") : t("messenger.sent")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <MessengerChatListingCard
+                        key={message.id}
+                        message={message}
+                        preview={preview}
+                        currentUserId={currentUserId}
+                        t={t}
+                        getParticipantName={getParticipantName}
+                        onOpenListing={openExternalFromChat}
+                      />
                     );
                   }
 
@@ -1856,13 +2143,16 @@ export default function MessengerPage() {
               )}
             </div>
             <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-              {(isDraftConversationActive || isAwaitingReply || sendError || selectedChatIsBlocked) && (
+              {(sendError
+                || selectedChatIsBlocked
+                || isDraftConversationActive
+                || (!isHousingGroupChat && isAwaitingReply)) && (
                 <div className={`mb-3 rounded-lg border px-3 py-2 text-sm ${sendError ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-900/20 dark:text-red-300" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300"}`}>
                   {sendError
                     ? sendError
                     : selectedChatIsBlocked
                       ? t("messenger.blockedChatWarning")
-                    : isAwaitingReply
+                    : !isHousingGroupChat && isAwaitingReply
                       ? t("messenger.awaitingReplyWarning")
                       : t("messenger.firstMessageWarning")}
                 </div>
@@ -1879,9 +2169,16 @@ export default function MessengerPage() {
                   }
                 }}
                 onKeyDown={(event) => event.key === "Enter" && void handleSend()}
-                className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                placeholder={isAwaitingReply ? t("messenger.awaitingReplyPlaceholder") : t("messenger.inputPlaceholder")}
+                className="flex-1 touch-manipulation rounded-xl border border-gray-300 bg-white px-4 py-2 text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                placeholder={
+                  !isHousingGroupChat && isAwaitingReply
+                    ? t("messenger.awaitingReplyPlaceholder")
+                    : t("messenger.inputPlaceholder")
+                }
                 disabled={isSending || isSendLocked}
+                autoComplete="off"
+                enterKeyHint="send"
+                inputMode="text"
               />
               <button
                 onClick={() => {
@@ -1935,6 +2232,53 @@ export default function MessengerPage() {
                 }}
               >
                 {t("messenger.deleteChatForBoth")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {housingDestructiveConfirm !== null && (
+        <div
+          className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={closeHousingDestructiveConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 text-lg font-bold text-black dark:text-white">
+              {housingDestructiveConfirm.mode === "leave"
+                ? t("messenger.housingGroup.leaveConfirmTitle")
+                : t("messenger.housingGroup.deleteConfirmTitle")}
+            </div>
+            <div className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+              {housingDestructiveConfirm.mode === "leave"
+                ? t("messenger.housingGroup.leaveConfirmBody")
+                : t("messenger.housingGroup.deleteConfirmBody")}
+            </div>
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/25 dark:text-amber-100">
+              {t("messenger.housingGroup.destructiveDataWarning")}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={closeHousingDestructiveConfirm}
+                disabled={isHousingConfirmBusy}
+              >
+                {t("messenger.cancel")}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                disabled={isHousingConfirmBusy}
+                onClick={() => {
+                  void confirmHousingDestructive();
+                }}
+              >
+                {housingDestructiveConfirm.mode === "leave"
+                  ? t("messenger.housingGroup.confirmLeaveButton")
+                  : t("messenger.housingGroup.confirmDeleteButton")}
               </button>
             </div>
           </div>
@@ -2185,21 +2529,41 @@ export default function MessengerPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 text-lg font-bold text-black dark:text-white">{t("messenger.housingGroup.participants")}</div>
-            <ul className="max-h-72 space-y-3 overflow-y-auto">
-              {selectedChat.participants.map((participant) => (
-                <li key={participant.id} className="flex items-center gap-3">
-                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    {participant.avatar ? (
-                      <img src={participant.avatar} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-200">
-                        {getParticipantName(participant).charAt(0).toUpperCase() || "?"}
+            <ul className="max-h-72 space-y-1 overflow-y-auto">
+              {selectedChat.participants.map((participant) => {
+                const canOpenProfile = typeof participant.profile_id === "number";
+                return (
+                  <li key={participant.id}>
+                    <button
+                      type="button"
+                      className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition ${
+                        canOpenProfile
+                          ? "hover:bg-gray-100 dark:hover:bg-gray-700"
+                          : "cursor-default opacity-80"
+                      }`}
+                      disabled={!canOpenProfile}
+                      onClick={() => {
+                        if (!canOpenProfile || typeof participant.profile_id !== "number") {
+                          return;
+                        }
+                        setIsHousingParticipantsOpen(false);
+                        openExternalFromChat(`/neighbours/${participant.profile_id}`);
+                      }}
+                    >
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                        {participant.avatar ? (
+                          <img src={participant.avatar} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-200">
+                            {getParticipantName(participant).charAt(0).toUpperCase() || "?"}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 text-sm font-medium text-black dark:text-white">{getParticipantName(participant)}</div>
-                </li>
-              ))}
+                      <div className="min-w-0 text-sm font-medium text-black dark:text-white">{getParticipantName(participant)}</div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-6 flex justify-end">
               <button

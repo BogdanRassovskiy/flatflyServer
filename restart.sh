@@ -1,3 +1,9 @@
+cd "$(dirname "$0")"
+
+# Автокоммит при перезапуске; в сообщении коммита — дата и время
+git add -A
+git commit -m "restart $(date '+%Y-%m-%d %H:%M:%S')" || true
+
 cd flatfly
 npm run build
 cd ..

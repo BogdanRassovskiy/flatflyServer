@@ -752,7 +752,6 @@ export default function ListingDetailPage() {
             if (group) {
                 await shareListingToHousingChat(group.chatid);
                 showToast(t("listing.sendToGroupSuccess"), "success");
-                router(`/messenger?chat=${group.chatid}`);
                 return;
             }
             setSendToGroupModalOpen(true);
@@ -782,16 +781,13 @@ export default function ListingDetailPage() {
                 await shareListingToHousingChat(data.chat.chatid);
                 setSendToGroupModalOpen(false);
                 showToast(t("listing.sendToGroupSuccess"), "success");
-                router(`/messenger?chat=${data.chat.chatid}`);
                 return;
             }
             if (!res.ok) {
                 throw new Error("create");
             }
-            const chat = data as { chatid: number };
             setSendToGroupModalOpen(false);
             showToast(t("listing.sendToGroupSuccess"), "success");
-            router(`/messenger?chat=${chat.chatid}`);
         } catch {
             showToast(t("listing.sendToGroupFailed"), "error");
         } finally {

@@ -106,7 +106,14 @@
       "joinedSuccess": "You joined the group.",
       "groupCreated": "Group created.",
       "leftGroupSuccess": "You left the group.",
-      "noListingMessages": "No listing messages in this view yet."
+      "noListingMessages": "No listing messages in this view yet.",
+      "leaveConfirmTitle": "Leave this group?",
+      "leaveConfirmBody": "You will leave the “Search together” group. You will no longer see this chat’s messages or shared listings.",
+      "deleteConfirmTitle": "Delete the group permanently?",
+      "deleteConfirmBody": "The group and all of its messages will be permanently deleted. Other members will lose access to this chat.",
+      "destructiveDataWarning": "Warning: this cannot be undone. Your data from this group will be lost.",
+      "confirmLeaveButton": "Leave group",
+      "confirmDeleteButton": "Delete permanently"
     }
   },
   "neighbours": {

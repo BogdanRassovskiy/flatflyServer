@@ -38,6 +38,22 @@ def _parse_positive_int(raw_value, default_value):
 
     return parsed if parsed >= 0 else default_value
 
+
+def _delete_listing_card_reactions_for_chat(chat_pk: int) -> None:
+    """Listing card reactions FK to Message; table may exist before an in-repo migration."""
+    from django.db import connection
+
+    table = "chats_listingcardreaction"
+    if table not in connection.introspection.table_names():
+        return
+    qn = connection.ops.quote_name(table)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"DELETE FROM {qn} WHERE message_id IN (SELECT id FROM chats_message WHERE chat_id = %s)",
+            [chat_pk],
+        )
+
+
 class ChatViewSet(viewsets.ModelViewSet):
     queryset = Chat.objects.all().prefetch_related('participants__profile')
     serializer_class = ChatSerializer
@@ -57,6 +73,11 @@ class ChatViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         return super().destroy(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        _delete_listing_card_reactions_for_chat(instance.pk)
+        Message.objects.filter(chat=instance).update(reply_to=None)
+        super().perform_destroy(instance)
 
     def get_queryset(self):
         blocked_by_current_user = ChatBlock.objects.filter(

@@ -47,6 +47,13 @@ class Message(models.Model):
         on_delete=models.SET_NULL,
         related_name="chat_messages",
     )
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+    )
     listing_preview = models.JSONField(default=dict, blank=True)
 
     def __str__(self):

@@ -106,7 +106,14 @@
       "joinedSuccess": "Vstoupili jste do skupiny.",
       "groupCreated": "Skupina byla vytvořena.",
       "leftGroupSuccess": "Opustili jste skupinu.",
-      "noListingMessages": "V tomto zobrazení zatím nejsou žádné inzeráty."
+      "noListingMessages": "V tomto zobrazení zatím nejsou žádné inzeráty.",
+      "leaveConfirmTitle": "Opustit skupinu?",
+      "leaveConfirmBody": "Opustíte skupinu „Hledáme společně“. Historie chatu a sdílených inzerátů pro vás přestane být dostupná.",
+      "deleteConfirmTitle": "Trvale smazat skupinu?",
+      "deleteConfirmBody": "Skupina a všechny zprávy v ní budou nenávratně smazány. Ostatní členové ztratí přístup k tomuto chatu.",
+      "destructiveDataWarning": "Upozornění: akci nelze vrátit zpět. Data ze skupiny budou nenávratně ztracena.",
+      "confirmLeaveButton": "Opustit skupinu",
+      "confirmDeleteButton": "Smazat natrvalo"
     }
   },
   "neighbours": {
