@@ -505,7 +505,7 @@ function MessengerChatListingCard({
       className={`mb-4 flex min-w-0 ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`touch-manipulation min-w-0 w-full max-w-[min(100%,360px)] shrink ${
+        className={`touch-manipulation min-w-0 w-full max-w-full shrink @[360px]/msg:max-w-[360px] ${
           highlighted
             ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
             : ""
@@ -557,18 +557,18 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          {/* sm+: фиксированная сетка; до sm: колонка — фото на всю ширину, текст под ним (без сжатия в узкую колонку) */}
-          <div className="grid w-full min-w-0 max-sm:grid-cols-1 sm:h-[148px] sm:grid-cols-[148px_minmax(0,1fr)] sm:grid-rows-1">
-            <div className="relative box-border min-h-0 w-full overflow-hidden bg-gray-100 max-sm:h-[132px] sm:h-full sm:w-[148px] sm:min-w-[148px] sm:max-w-[148px] dark:bg-gray-900">
+          {/* В чате всегда колонка: ширина = контейнер ленты (не viewport), фото заполняет блок через cover */}
+          <div className="flex w-full min-w-0 flex-col">
+            <div className="relative aspect-[5/3] w-full min-h-0 shrink-0 overflow-hidden bg-gray-100 dark:bg-gray-900 @[480px]/msg:aspect-[16/9]">
               {currentSrc ? (
                 <img
                   src={currentSrc}
                   alt=""
-                  className="box-border h-full w-full object-cover object-center"
+                  className="absolute inset-0 h-full w-full object-cover object-center"
                   decoding="async"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-400">
+                <div className="flex h-full min-h-[120px] w-full items-center justify-center text-gray-400">
                   <Users className="opacity-40" size={40} />
                 </div>
               )}
@@ -601,7 +601,7 @@ function MessengerChatListingCard({
                 </>
               ) : null}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden border-gray-100 px-3 py-2.5 dark:border-gray-700/80 max-sm:border-t max-sm:pt-2.5 sm:border-l sm:px-3 sm:py-2">
+            <div className="flex min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden border-t border-gray-100 px-3 py-2.5 dark:border-gray-700/80">
               <div className="line-clamp-2 text-left text-sm font-bold leading-snug text-gray-900 dark:text-white">
                 {listingTitle}
               </div>
@@ -2111,7 +2111,7 @@ export default function MessengerPage() {
   };
 
   return (
-    <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full bg-white dark:bg-gray-900">
+    <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full min-w-0 bg-white dark:bg-gray-900">
       <div className={`${isMobileChatOpen ? "hidden md:block" : "block"} w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:min-w-[200px] md:max-w-[280px] md:w-[240px]`}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <MessageCircle className="text-[#C505EB]" size={24} />
@@ -2275,7 +2275,9 @@ export default function MessengerPage() {
           </div>
         ))}
       </div>
-      <div className={`${isMobileChatOpen ? "flex" : "hidden md:flex"} h-full flex-1 flex-col`}>
+      <div
+        className={`${isMobileChatOpen ? "flex" : "hidden md:flex"} h-full min-w-0 flex-1 flex-col overflow-x-hidden`}
+      >
         {selectedChat || draftConversation ? (
           <>
             <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 md:gap-3 md:px-4 md:py-3">
@@ -2558,7 +2560,7 @@ export default function MessengerPage() {
             </div>
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto bg-white px-3 py-4 sm:p-6 dark:bg-gray-900"
+              className="@container/msg min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-white px-3 py-4 sm:p-6 dark:bg-gray-900"
               onScroll={handleMessagesScroll}
             >
               {isLoadingOlderMessages && (
@@ -2617,10 +2619,10 @@ export default function MessengerPage() {
                     <div
                       key={message.id}
                       id={`chat-message-${message.id}`}
-                      className={`mb-4 flex ${isOutgoingText ? "justify-end" : "justify-start"}`}
+                      className={`mb-4 flex min-w-0 ${isOutgoingText ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`touch-manipulation max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 transition-shadow duration-300 ${
+                        className={`touch-manipulation min-w-0 max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 transition-shadow duration-300 ${
                           isOutgoingText ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"
                         } ${
                           highlightedMessageId === message.id
