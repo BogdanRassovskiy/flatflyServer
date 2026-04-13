@@ -586,6 +586,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
     const clearPinned = (key: PinnedKey, e: ReactMouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
+      setPinnedOpen(null);
       if (key === "price") {
         clearSingleFilter("priceFrom");
       } else {
@@ -593,12 +594,15 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       }
     };
 
-    const togglePinned = (key: PinnedKey) => {
-      if (key !== "price") {
-        return;
-      }
+    const togglePinnedKey = (key: PinnedKey) => {
       setPinnedOpen((prev) => (prev === key ? null : key));
     };
+
+    const listingModalSelectClass =
+      "flatfly-form-select w-full rounded-xl border border-[#E0E0E0] bg-white px-4 py-2.5 text-black transition-all duration-300 outline-none hover:border-[#C505EB]/50 focus:border-[#999999] focus:ring-2 focus:ring-[#C505EB]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-[#C505EB]/50 dark:focus:border-[#C505EB] dark:focus:ring-[#C505EB]/30";
+
+    const pinnedListingOptionClass = (active: boolean) =>
+      `flatfly-select-option-btn rounded-xl ${active ? "flatfly-select-option-btn--active" : ""}`;
 
     const renderPinnedPriceDropdownBody = () => {
       const histH = "h-20";
@@ -684,91 +688,114 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       );
     };
 
-    const renderPinnedNativeSelect = (key: PinnedKey) => {
+    const renderPinnedSelectDropdownBody = (key: Exclude<PinnedKey, "price">) => {
       if (key === "region") {
         return (
-          <select
-            value={filters.region}
-            onChange={(e) => handleFilterChange("region", e.target.value)}
-            className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
-            style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
-            aria-label={pinnedTitle(key)}
-          >
+          <div className="max-h-72 overflow-y-auto py-1">
             {regions.map((region) => (
-              <option key={region.value || "all"} value={region.value}>
+              <button
+                key={region.value || "empty"}
+                type="button"
+                className={pinnedListingOptionClass(filters.region === region.value)}
+                onClick={() => {
+                  handleFilterChange("region", region.value);
+                  setPinnedOpen(null);
+                }}
+              >
                 {region.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         );
       }
       if (key === "propertyType") {
         return (
-          <select
-            value={filters.propertyType}
-            onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-            className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
-            style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
-            aria-label={pinnedTitle(key)}
-          >
-            <option value="">{t("filter.propertyValue")}</option>
+          <div className="py-1">
+            <button
+              type="button"
+              className={pinnedListingOptionClass(!filters.propertyType)}
+              onClick={() => {
+                handleFilterChange("propertyType", "");
+                setPinnedOpen(null);
+              }}
+            >
+              {t("filter.propertyValue")}
+            </button>
             {propertyTypes.map((type) => (
-              <option key={type.value} value={type.value}>
+              <button
+                key={type.value}
+                type="button"
+                className={pinnedListingOptionClass(filters.propertyType === type.value)}
+                onClick={() => {
+                  handleFilterChange("propertyType", type.value);
+                  setPinnedOpen(null);
+                }}
+              >
                 {type.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         );
       }
       return (
-        <select
-          value={filters.preferredGender || ""}
-          onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
-          className="absolute inset-y-0 left-0 z-[2] min-h-[56px] cursor-pointer border-0 bg-transparent text-base opacity-0 appearance-none focus:outline-none focus:ring-0"
-          style={{ right: pinnedHasValue(key) ? "4.5rem" : "2.25rem" }}
-          aria-label={pinnedTitle(key)}
-        >
+        <div className="py-1">
           {preferredGenderOptions.map((option) => (
-            <option key={option.value || "none"} value={option.value}>
+            <button
+              key={option.value || "none"}
+              type="button"
+              className={pinnedListingOptionClass(filters.preferredGender === option.value)}
+              onClick={() => {
+                handleFilterChange("preferredGender", option.value);
+                setPinnedOpen(null);
+              }}
+            >
               {option.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       );
     };
 
     const renderPinnedCell = (key: PinnedKey, pinIndex: number) => {
       const isFirstPin = pinIndex === 0;
       const segmentBg = "bg-white dark:bg-zinc-900";
-      const shellClass = `relative min-h-[56px] min-w-0 flex-1 transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-50/90 focus-within:bg-zinc-50/90 focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#C505EB]/20 dark:hover:bg-zinc-800/55 dark:focus-within:bg-zinc-800/55 dark:focus-within:ring-[#C505EB]/30 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
 
       if (key !== "price") {
+        const selectKey = key as Exclude<PinnedKey, "price">;
+        const isOpen = pinnedOpen === key;
+        const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
+        const triggerClass = [
+          "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+          segmentBg,
+          isOpen
+            ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
+            : "hover:bg-zinc-50/90 dark:hover:bg-zinc-800/55",
+          triggerRing,
+          pinnedHasValue(key) ? "pr-14" : "pr-10",
+          isFirstPin ? "rounded-l-full" : "",
+        ].join(" ");
+
+        const shellClass = `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
+
         return (
           <div key={key} className={shellClass}>
-            <div
-              className={`pointer-events-none absolute inset-0 z-0 flex min-h-[56px] flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 pr-10 ${
-                isFirstPin ? "rounded-l-full" : ""
-              }`}
-            >
+            <button type="button" onClick={() => togglePinnedKey(key)} className={triggerClass} aria-expanded={isOpen}>
               <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 {pinnedTitle(key)}
               </span>
               <span
-                className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug ${
-                  pinnedHasValue(key)
-                    ? "text-zinc-900 dark:text-zinc-100"
-                    : "text-zinc-400 dark:text-zinc-500"
+                className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                  pinnedHasValue(key) ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"
                 }`}
               >
                 {pinnedSummary(key)}
               </span>
-            </div>
-            <ChevronDown
-              size={15}
-              strokeWidth={2.25}
-              className="pointer-events-none absolute right-2.5 top-1/2 z-[1] -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
-            />
-            {renderPinnedNativeSelect(key)}
+              <ChevronDown
+                size={15}
+                strokeWidth={2.25}
+                className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-transform duration-200 ease-out dark:text-zinc-500 ${isOpen ? "rotate-180 text-[#C505EB]" : ""}`}
+              />
+            </button>
             {pinnedHasValue(key) ? (
               <button
                 type="button"
@@ -778,6 +805,14 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
               >
                 <X size={12} strokeWidth={2.5} />
               </button>
+            ) : null}
+            {isOpen ? (
+              <div
+                className="filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] w-[min(calc(100vw-2rem),22rem)] rounded-2xl border border-zinc-200/90 bg-white p-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06]"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {renderPinnedSelectDropdownBody(selectKey)}
+              </div>
             ) : null}
           </div>
         );
@@ -801,7 +836,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
 
       return (
         <div key={key} className={priceShellClass}>
-          <button type="button" onClick={() => togglePinned("price")} className={triggerClass}>
+          <button type="button" onClick={() => togglePinnedKey("price")} className={triggerClass}>
             <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               {pinnedTitle(key)}
             </span>
@@ -961,12 +996,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                       <select
                                         value={filters.region}
                                         onChange={(e) => handleFilterChange("region", e.target.value)}
-                                        className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] 
-                                                    dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                    focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                    focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                    outline-0 duration-300 transition-all bg-white text-black
-                                                    hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        className={listingModalSelectClass}
                                       >
                                         {regions.map(region => (
                                           <option key={region.value} value={region.value}>
@@ -982,11 +1012,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.propertyType}
                                             onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">{t("filter.propertyValue")}</option>
                                             {propertyTypes.map((type) => (
@@ -1088,11 +1114,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.currency || "CZK"}
                                             onChange={(e) => handleFilterChange("currency", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             {currencyOptions.map((curr) => (
                                                 <option key={curr.value} value={curr.value}>{curr.label}</option>
@@ -1106,11 +1128,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                           <select
                                             value={filters.sortBy || "price_asc"}
                                             onChange={(e) => handleFilterChange("sortBy", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                  focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                  focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                  outline-0 duration-300 transition-all bg-white text-black
-                                                  hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                           >
                                             {sortByOptions.map((option) => (
                                               <option key={option.value} value={option.value}>{option.label}</option>
@@ -1124,11 +1142,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                       <select
                                         value={filters.preferredGender || ""}
                                         onChange={(e) => handleFilterChange("preferredGender", e.target.value)}
-                                        className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                              focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                              focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                              outline-0 duration-300 transition-all bg-white text-black
-                                              hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                        className={listingModalSelectClass}
                                       >
                                         {preferredGenderOptions.map((option) => (
                                           <option key={option.value || "none"} value={option.value}>{option.label}</option>
@@ -1142,11 +1156,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.rooms}
                                             onChange={(e) => handleFilterChange("rooms", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">{t("filter.roomsPlaceholder")}</option>
                                             {roomOptions.map((room) => (
@@ -1161,11 +1171,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.conditionState}
                                             onChange={(e) => handleFilterChange("conditionState", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             {conditionOptions.map((option) => (
@@ -1180,11 +1186,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.energyClass}
                                             onChange={(e) => handleFilterChange("energyClass", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             {energyClassOptions.map((option) => (
@@ -1199,11 +1201,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.hasRoommates}
                                             onChange={(e) => handleFilterChange("hasRoommates", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             {yesNoOptions.map((option) => (
@@ -1218,11 +1216,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.rentalPeriod}
                                             onChange={(e) => handleFilterChange("rentalPeriod", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             {rentalPeriods.map((period) => (
@@ -1237,11 +1231,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.internet}
                                             onChange={(e) => handleFilterChange("internet", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             <option value="yes">{t("filter.internetYes")}</option>
@@ -1255,11 +1245,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.utilities}
                                             onChange={(e) => handleFilterChange("utilities", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             <option value="yes">{t("filter.utilitiesIncluded")}</option>
@@ -1273,11 +1259,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.petsAllowed}
                                             onChange={(e) => handleFilterChange("petsAllowed", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             <option value="yes">{t("filter.petsAllowedYes")}</option>
@@ -1291,11 +1273,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         <select
                                             value={filters.smokingAllowed}
                                             onChange={(e) => handleFilterChange("smokingAllowed", e.target.value)}
-                                            className={`w-full px-4 py-2.5 rounded-xl border border-[#E0E0E0] dark:border-gray-600 dark:bg-gray-800 dark:text-white 
-                                                        focus:border-[#999999] dark:focus:border-[#C505EB] 
-                                                        focus:ring-2 focus:ring-[#C505EB]/20 dark:focus:ring-[#C505EB]/30
-                                                        outline-0 duration-300 transition-all bg-white text-black
-                                                        hover:border-[#C505EB]/50 dark:hover:border-[#C505EB]/50`}
+                                            className={listingModalSelectClass}
                                         >
                                             <option value="">-</option>
                                             <option value="yes">{t("filter.smokingAllowedYes")}</option>
