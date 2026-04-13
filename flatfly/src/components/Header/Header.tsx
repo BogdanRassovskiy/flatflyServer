@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Heart, Menu, Moon, Sun, User, X, MessageCircle, Plus } from "lucide-react";
+import { CircleUser, Globe, Heart, Moon, Sun, User, X, MessageCircle, Plus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -357,17 +357,34 @@ export default function Header() {
                     )}
 
                     <div className="relative" ref={menuRef}>
-                        <button 
+                        <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`flex cursor-pointer items-center gap-0.5 rounded-full border-2 border-[#DDDDDD] px-2.5 py-1 duration-300 hover:border-[#C505EB] dark:border-gray-600 min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
+                            className={`inline-flex cursor-pointer items-center gap-2.5 rounded-full border border-gray-300 bg-white px-2.5 py-1.5 shadow-sm transition-colors duration-300 hover:border-[#C505EB] hover:shadow dark:border-gray-600 dark:bg-gray-800 min-[771px]:gap-3 min-[771px]:px-3 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB] ring-1 ring-[#C505EB]/30" : ""}`}
                             aria-label={t("header.openMenu")}
                         >
-                            <Menu className="h-[18px] w-[18px] shrink-0 text-[#08E2BE] min-[771px]:h-6 min-[771px]:w-6" />
-                            <CircleUser className="h-[18px] w-[18px] shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
+                            <span className="flex flex-col justify-center gap-[5px]" aria-hidden="true">
+                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
+                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
+                                <span className="block h-[2px] w-[17px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-[19px]" />
+                            </span>
+                            <span className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-full border border-gray-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 min-[771px]:h-9 min-[771px]:w-9">
+                                {isAuthenticated && user?.avatar && !menuAvatarFailed ? (
+                                    <img
+                                        src={getImageUrl(user.avatar)}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                        onError={() => setMenuAvatarFailed(true)}
+                                    />
+                                ) : (
+                                    <span className="flex h-full w-full items-center justify-center">
+                                        <User className="h-4 w-4 text-zinc-500 dark:text-zinc-300 min-[771px]:h-[18px] min-[771px]:w-[18px]" strokeWidth={2} aria-hidden />
+                                    </span>
+                                )}
+                            </span>
                         </button>
                         
                         {/* Десктопное выпадающее меню — вертикальные блоки */}
