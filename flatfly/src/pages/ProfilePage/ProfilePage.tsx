@@ -1600,7 +1600,7 @@ export default function ProfilePage() {
 
     return (
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[70px] pb-[90px] max-[770px]:pb-[60px]`}>
-            <div className={`w-full max-w-[1200px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
+            <div className={`w-full max-w-[1320px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
                 
                 {/* Header */}
                 <div className={`mb-6 max-[770px]:mb-4`}>
@@ -1614,11 +1614,9 @@ export default function ProfilePage() {
 
                 <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
-                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-stretch min-[771px]:justify-between min-[771px]:gap-6">
-                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,720px)] min-[771px]:flex-none">
-                {/* Section Tabs - Desktop (перенос строк, без горизонтального скролла; выравнивание вправо) */}
-                <div className="mb-6 hidden min-[771px]:block">
-                    <div className="flex flex-wrap items-stretch justify-end gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                {/* Вкладки на всю ширину контейнера — одна строка; карточка справа начинается вровень с формой */}
+                <div className="mb-6 hidden min-[771px]:block w-full min-w-0">
+                    <div className="flex w-full min-w-0 flex-nowrap items-stretch justify-start gap-0.5 rounded-xl bg-gray-100 p-1 dark:bg-gray-800 min-[1100px]:gap-1">
                         {sections.map((section) => {
                             const miss = sectionMissingCounts[section.key];
                             const active = activeSection === section.key;
@@ -1627,7 +1625,7 @@ export default function ProfilePage() {
                                     key={section.key}
                                     type="button"
                                     onClick={() => setActiveSection(section.key)}
-                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold whitespace-nowrap transition-all duration-300 min-[900px]:px-3 min-[900px]:text-sm ${
+                                    className={`flex shrink-0 items-center gap-0.5 rounded-lg px-1 py-1.5 text-left text-[10px] font-semibold leading-tight whitespace-nowrap transition-all duration-300 min-[900px]:gap-1.5 min-[900px]:px-2.5 min-[900px]:py-2 min-[900px]:text-xs min-[1200px]:px-3 min-[1200px]:text-sm ${
                                         active
                                             ? "bg-[#C505EB] text-white shadow-md"
                                             : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
@@ -1636,7 +1634,7 @@ export default function ProfilePage() {
                                     <span>{section.label}</span>
                                     {miss > 0 ? (
                                         <span
-                                            className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+                                            className={`inline-flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full px-0.5 text-[9px] font-bold tabular-nums min-[900px]:h-[18px] min-[900px]:min-w-[18px] min-[900px]:px-1 min-[900px]:text-[10px] ${
                                                 active
                                                     ? "bg-white/25 text-white"
                                                     : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
@@ -1651,6 +1649,8 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
+                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-stretch min-[771px]:justify-between min-[771px]:gap-6">
+                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,820px)] min-[771px]:flex-none">
                 {/* Section Tabs - Mobile (Carousel) */}
                 <div className="mb-4 flex max-[770px]:flex min-[771px]:hidden items-stretch gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                     <button
