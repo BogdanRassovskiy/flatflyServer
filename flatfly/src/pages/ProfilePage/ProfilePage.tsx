@@ -2919,7 +2919,7 @@ export default function ProfilePage() {
                     )}
                 </div>
                     </div>
-                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-start">
+                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-start sticky top-[112px] z-10 max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                         {renderProfileCompletion("sidebar")}
                     </aside>
                 </div>
