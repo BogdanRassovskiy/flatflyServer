@@ -203,7 +203,7 @@ export default function RoomsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mt-8 min-[771px]:[grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))] min-[771px]:justify-items-stretch min-[771px]:gap-4 sm:min-[771px]:mt-12 lg:min-[771px]:gap-5 xl:min-[771px]:gap-6 md:min-[771px]:mt-[50px]">
+            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mx-auto min-[771px]:mt-8 min-[771px]:max-w-[1120px] min-[771px]:grid-cols-4 min-[771px]:justify-items-stretch min-[771px]:gap-4 sm:min-[771px]:mt-12 lg:min-[771px]:gap-5 md:min-[771px]:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}
