@@ -2721,12 +2721,12 @@ export default function ProfilePage() {
                             )}
                             {!myListingsLoading && myListings.length > 0 && (
                                 <>
-                                    <div className="mb-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)]">
+                                    <div className="mb-6 grid w-full grid-cols-2 justify-items-stretch gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
                                         {myListings.map((listing) => (
                                             <div
                                                 key={listing.id}
                                                 onClick={handleMyListingsCardClick}
-                                                className={`w-full max-[770px]:max-w-none min-[771px]:w-[256px] min-[480px]:min-[771px]:w-[272px] lg:min-[771px]:w-[288px] xl:min-[771px]:w-[300px] ${
+                                                className={`w-full min-w-0 ${
                                                     listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""
                                                 }`}
                                             >
