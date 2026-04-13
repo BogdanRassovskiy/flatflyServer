@@ -805,18 +805,6 @@ export default function ProfilePage() {
         }
     };
 
-    const getMyHomeListingUrl = (listing: any) => {
-        if (!listing) return "/apartments";
-        const listingType = String(listing.type || "").toUpperCase();
-        if (listingType === "ROOM") {
-            return `/rooms/${listing.id}`;
-        }
-        if (listingType === "NEIGHBOUR") {
-            return `/neighbours/${listing.id}`;
-        }
-        return `/apartments/${listing.id}`;
-    };
-
     const getInitials = (name: string) => {
         return (name || "?")
             .split(" ")
@@ -842,6 +830,41 @@ export default function ProfilePage() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, favPage, myListingsPage]);
+
+    const convertMyHomeListingToSaleCard = (listing: {
+        id: number;
+        title?: string;
+        type?: string;
+        image?: string | null;
+        address?: string | null;
+        region?: string | null;
+        price?: number;
+        currency?: string;
+        area?: number | null;
+        amenities?: string[];
+        images?: string[];
+        is_favorite?: boolean;
+        is_active?: boolean;
+    }) => {
+        const raw = String(listing?.type || "").toUpperCase();
+        const cardType = raw === "ROOM" ? ("ROOM" as const) : ("APARTMENT" as const);
+        return {
+            id: listing.id,
+            type: cardType,
+            price: listing.price,
+            currency: listing.currency || "CZK",
+            image: getImageUrl(listing.image),
+            images: listing.images,
+            title: listing.title,
+            region: listing.region || "",
+            address: listing.address || "",
+            city: "",
+            size: listing.area != null ? String(listing.area) : "N/A",
+            amenities: Array.isArray(listing.amenities) ? listing.amenities : [],
+            is_favorite: listing.is_favorite ?? false,
+            is_active: listing.is_active !== false,
+        };
+    };
 
     const convertToSaleCardType = (favorite: FavoriteListing) => {
         if (favorite.type === "NEIGHBOUR") {
@@ -1489,9 +1512,118 @@ export default function ProfilePage() {
     const completionCircumference = 2 * Math.PI * completionRadius;
     const completionOffset = completionCircumference - (completionPercent / 100) * completionCircumference;
 
+    const renderProfileCompletion = (layout: "banner" | "sidebar") => {
+        const isSidebar = layout === "sidebar";
+        const gradientId =
+            layout === "banner" ? "profileCompletionGradientBanner" : "profileCompletionGradientSidebar";
+        return (
+            <div
+                className={`rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 ${
+                    isSidebar ? "rounded-3xl p-6 shadow-lg shadow-[#C505EB]/10 dark:shadow-[#08D3E2]/5" : "p-5 max-[770px]:p-4"
+                }`}
+            >
+                <div
+                    className={
+                        isSidebar
+                            ? "flex flex-col items-center gap-6 text-center"
+                            : "flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start"
+                    }
+                >
+                    <div
+                        className={
+                            isSidebar
+                                ? "relative h-[168px] w-[168px] shrink-0"
+                                : "relative h-[140px] w-[140px] max-[770px]:h-[120px] max-[770px]:w-[120px] shrink-0"
+                        }
+                    >
+                        <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
+                            <defs>
+                                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#08D3E2" />
+                                    <stop offset="50%" stopColor="#08E2BE" />
+                                    <stop offset="100%" stopColor="#C505EB" />
+                                </linearGradient>
+                            </defs>
+                            <circle
+                                cx="70"
+                                cy="70"
+                                r={completionRadius}
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                fill="none"
+                                className="text-gray-200 dark:text-gray-700"
+                            />
+                            <circle
+                                cx="70"
+                                cy="70"
+                                r={completionRadius}
+                                stroke={`url(#${gradientId})`}
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                fill="none"
+                                strokeDasharray={completionCircumference}
+                                strokeDashoffset={completionOffset}
+                                className="transition-all duration-700 ease-out"
+                            />
+                        </svg>
+                        <div
+                            className={`absolute inset-0 flex flex-col items-center justify-center px-1 ${isSidebar ? "gap-1" : "gap-0.5"}`}
+                        >
+                            <span
+                                className={`font-extrabold leading-none text-[#C505EB] ${
+                                    isSidebar ? "text-[42px]" : "text-[34px] max-[770px]:text-[30px]"
+                                }`}
+                            >
+                                {completionPercent}%
+                            </span>
+                            <span
+                                className={`font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400 ${
+                                    isSidebar ? "text-[10px]" : "text-[8px]"
+                                }`}
+                            >
+                                {t("profile.completion")}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className={`min-w-0 ${isSidebar ? "w-full" : ""}`}>
+                        <h2
+                            className={`font-bold text-[#C505EB] ${
+                                isSidebar ? "text-2xl" : "text-2xl max-[770px]:text-xl"
+                            }`}
+                        >
+                            {t("profile.completionTitle")}
+                        </h2>
+                        <p
+                            className={`text-gray-600 dark:text-gray-300 mt-1 ${
+                                isSidebar ? "text-sm leading-relaxed" : "text-sm max-[770px]:text-xs"
+                            }`}
+                        >
+                            {t("profile.completionSubtitle")}
+                        </p>
+                        <p className={`font-semibold text-[#08D3E2] mt-3 ${isSidebar ? "text-sm" : "text-sm"}`}>
+                            {t("profile.completionMissing")
+                                .replace("{{missing}}", String(profileCompletion.missingCount || 0))
+                                .replace("{{total}}", String(profileCompletion.totalFields || 0))}
+                        </p>
+                        {profileCompletion.missingCount === 0 ? (
+                            <p
+                                className={`mt-3 font-semibold text-green-600 dark:text-green-400 ${
+                                    isSidebar ? "text-sm" : "text-sm"
+                                }`}
+                            >
+                                {t("profile.completionNoMissing")}
+                            </p>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[70px] pb-[90px] max-[770px]:pb-[60px]`}>
-            <div className={`w-full max-w-[1200px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
+            <div className={`w-full max-w-[1320px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
                 
                 {/* Header */}
                 <div className={`mb-6 max-[770px]:mb-4`}>
@@ -1503,138 +1635,84 @@ export default function ProfilePage() {
                     </p>
                 </div>
 
-                <div className="mb-6 max-[770px]:mb-4 rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 p-5 max-[770px]:p-4">
-                    <div className="flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start">
-                        <div className="relative w-[140px] h-[140px] max-[770px]:w-[120px] max-[770px]:h-[120px] shrink-0">
-                            <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-                                <defs>
-                                    <linearGradient id="profileCompletionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#08D3E2" />
-                                        <stop offset="50%" stopColor="#08E2BE" />
-                                        <stop offset="100%" stopColor="#C505EB" />
-                                    </linearGradient>
-                                </defs>
-                                <circle
-                                    cx="70"
-                                    cy="70"
-                                    r={completionRadius}
-                                    stroke="currentColor"
-                                    strokeWidth="12"
-                                    fill="none"
-                                    className="text-gray-200 dark:text-gray-700"
-                                />
-                                <circle
-                                    cx="70"
-                                    cy="70"
-                                    r={completionRadius}
-                                    stroke="url(#profileCompletionGradient)"
-                                    strokeWidth="12"
-                                    strokeLinecap="round"
-                                    fill="none"
-                                    strokeDasharray={completionCircumference}
-                                    strokeDashoffset={completionOffset}
-                                    className="transition-all duration-700 ease-out"
-                                />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
-                                <span className="text-[34px] max-[770px]:text-[30px] font-extrabold leading-none text-[#C505EB]">{completionPercent}%</span>
-                                <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
-                                    {t("profile.completion")}
-                                </span>
-                            </div>
-                        </div>
+                <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
-                        <div className="min-w-0">
-                            <h2 className="text-2xl max-[770px]:text-xl font-bold text-[#C505EB]">{t("profile.completionTitle")}</h2>
-                            <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                {t("profile.completionSubtitle")}
-                            </p>
-                            <p className="text-sm font-semibold text-[#08D3E2] mt-3">
-                                {t("profile.completionMissing")
-                                    .replace("{{missing}}", String(profileCompletion.missingCount || 0))
-                                    .replace("{{total}}", String(profileCompletion.totalFields || 0))}
-                            </p>
-                            {profileCompletion.missingCount === 0 ? (
-                                <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
-                                    {t("profile.completionNoMissing")}
-                                </p>
-                            ) : null}
+                {/* Десктоп: сетка — вкладки ровно по ширине пары колонок (форма + сайдбар), без выступа */}
+                <div className="flex min-w-0 w-full flex-col min-[771px]:grid min-[771px]:grid-cols-[minmax(0,1fr)_minmax(300px,340px)] min-[771px]:gap-x-6 min-[771px]:items-start min-[771px]:justify-items-stretch">
+                    <div className="mb-6 hidden min-[771px]:col-span-2 min-[771px]:block min-w-0">
+                        <div className="flex w-full min-w-0 flex-nowrap items-stretch justify-start gap-0.5 overflow-hidden rounded-xl bg-gray-100 p-1 dark:bg-gray-800 min-[1100px]:gap-1">
+                            {sections.map((section) => {
+                                const miss = sectionMissingCounts[section.key];
+                                const active = activeSection === section.key;
+                                return (
+                                    <button
+                                        key={section.key}
+                                        type="button"
+                                        onClick={() => setActiveSection(section.key)}
+                                        className={`flex shrink-0 items-center gap-0.5 rounded-lg px-1 py-1.5 text-left text-[10px] font-semibold leading-tight whitespace-nowrap transition-all duration-300 min-[900px]:gap-1.5 min-[900px]:px-2.5 min-[900px]:py-2 min-[900px]:text-xs min-[1200px]:px-3 min-[1200px]:text-sm ${
+                                            active
+                                                ? "bg-[#C505EB] text-white shadow-md"
+                                                : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
+                                        }`}
+                                    >
+                                        <span>{section.label}</span>
+                                        {miss > 0 ? (
+                                            <span
+                                                className={`inline-flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full px-0.5 text-[9px] font-bold tabular-nums min-[900px]:h-[18px] min-[900px]:min-w-[18px] min-[900px]:px-1 min-[900px]:text-[10px] ${
+                                                    active
+                                                        ? "bg-white/25 text-white"
+                                                        : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
+                                                }`}
+                                            >
+                                                {miss > 99 ? "99+" : miss}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
-                </div>
 
-                {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
-                <div className="mb-6 hidden min-[771px]:block">
-                    <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-                        {sections.map((section) => {
-                            const miss = sectionMissingCounts[section.key];
-                            const active = activeSection === section.key;
-                            return (
-                                <button
-                                    key={section.key}
-                                    type="button"
-                                    onClick={() => setActiveSection(section.key)}
-                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-semibold whitespace-nowrap transition-all duration-300 ${
-                                        active
-                                            ? "bg-[#C505EB] text-white shadow-md"
-                                            : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
-                                    }`}
-                                >
-                                    <span>{section.label}</span>
-                                    {miss > 0 ? (
-                                        <span
-                                            className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
-                                                active
-                                                    ? "bg-white/25 text-white"
-                                                    : "bg-[#C505EB] text-white dark:bg-[#BA00F8]"
-                                            }`}
-                                        >
-                                            {miss > 99 ? "99+" : miss}
-                                        </span>
-                                    ) : null}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
+                    <div className="min-w-0 w-full min-[771px]:max-w-[820px] min-[771px]:justify-self-start">
                 {/* Section Tabs - Mobile (Carousel) */}
-                <div className={`max-[770px]:flex min-[771px]:hidden items-center gap-2 mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
+                <div className="mb-4 flex max-[770px]:flex min-[771px]:hidden items-stretch gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                     <button
                         onClick={handlePrevious}
                         disabled={!canGoPrevious}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ${
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-lg transition-all duration-300 ${
                             canGoPrevious
-                                ? "bg-white dark:bg-gray-700 text-[#C505EB] hover:bg-[#C505EB] hover:text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                ? "bg-white text-[#C505EB] hover:bg-[#C505EB] hover:text-white dark:bg-gray-700"
+                                : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700"
                         }`}
                     >
                         <ChevronLeft size={20} />
                     </button>
-                    
-                    <div className="flex flex-1 items-center justify-center gap-2 px-2">
-                        <span className="text-base font-semibold text-[#C505EB]">
+
+                    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 px-1 py-1">
+                        <span className="line-clamp-2 text-center text-sm font-semibold leading-tight text-[#C505EB] min-[400px]:text-base">
                             {sections[currentSectionIndex].label}
                         </span>
-                        {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
-                            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
-                                {sectionMissingCounts[sections[currentSectionIndex].key] > 99
-                                    ? "99+"
-                                    : sectionMissingCounts[sections[currentSectionIndex].key]}
+                        <div className="flex shrink-0 items-center justify-center gap-2">
+                            {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
+                                    {sectionMissingCounts[sections[currentSectionIndex].key] > 99
+                                        ? "99+"
+                                        : sectionMissingCounts[sections[currentSectionIndex].key]}
+                                </span>
+                            ) : null}
+                            <span className="whitespace-nowrap text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                                ({currentSectionIndex + 1}/{sections.length})
                             </span>
-                        ) : null}
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                            ({currentSectionIndex + 1}/{sections.length})
-                        </span>
+                        </div>
                     </div>
-                    
+
                     <button
                         onClick={handleNext}
                         disabled={!canGoNext}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ${
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-lg transition-all duration-300 ${
                             canGoNext
-                                ? "bg-white dark:bg-gray-700 text-[#C505EB] hover:bg-[#C505EB] hover:text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                ? "bg-white text-[#C505EB] hover:bg-[#C505EB] hover:text-white dark:bg-gray-700"
+                                : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700"
                         }`}
                     >
                         <ChevronRight size={20} />
@@ -1658,17 +1736,17 @@ export default function ProfilePage() {
                                     <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
                                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
                                 </>
-                                <div
-                                    className="relative h-36 w-full min-[480px]:h-44"
-                                >
+                                <div className="relative h-36 w-full min-[480px]:h-44">
                                     <div className="absolute inset-0" />
                                     <button
                                         type="button"
                                         onClick={() => coverInputRef.current?.click()}
-                                        className="absolute bottom-2 right-2 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
+                                        className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white max-[770px]:text-[11px] min-[771px]:bottom-2 min-[771px]:left-auto min-[771px]:right-2 min-[771px]:top-auto min-[771px]:max-w-none min-[771px]:gap-2 min-[771px]:px-3 min-[771px]:text-sm dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
                                     >
-                                        <ImagePlus size={18} />
-                                        {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
+                                        <ImagePlus size={18} className="shrink-0 max-[770px]:h-4 max-[770px]:w-4" />
+                                        <span className="min-w-0 truncate sm:max-w-[14rem] min-[771px]:whitespace-nowrap min-[771px]:sm:max-w-none">
+                                            {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
+                                        </span>
                                     </button>
                                     <input
                                         ref={coverInputRef}
@@ -1678,7 +1756,7 @@ export default function ProfilePage() {
                                         onChange={handleCoverUpload}
                                     />
                                 </div>
-                                <div className="relative flex flex-col items-center px-4 pb-5 pt-0">
+                                <div className="relative z-20 flex flex-col items-center px-4 pb-5 pt-0">
                                     <div className="-mt-14 flex flex-col items-center">
                                         <div className="relative">
                                             <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-lg dark:border-gray-800 dark:bg-gray-700 min-[480px]:h-32 min-[480px]:w-32">
@@ -2433,55 +2511,65 @@ export default function ProfilePage() {
                     {activeSection === "status" && (
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
                             {/* Verified Status */}
-                            <div className={`flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 ${
-                                profileData.verified 
-                                    ? "border-green-500 bg-green-50 dark:bg-green-900/20" 
-                                    : "border-gray-300 dark:border-gray-600"
-                            }`}>
-                                <div className={`w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                    profileData.verified ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
-                                }`}>
-                                    <CheckCircle size={24} className={`max-[770px]:w-5 max-[770px]:h-5 text-white`} />
-                                </div>
-                                <div className={`flex-1 min-w-0`}>
-                                    <h3 className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.verified")}</h3>
-                                    <p className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400`}>
-                                        {profileData.verified 
-                                            ? t("profile.verifiedTrue") 
-                                            : t("profile.verifiedFalse")
-                                        }
-                                    </p>
+                            <div
+                                className={`flex flex-col gap-3 rounded-xl border-2 p-6 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4 ${
+                                    profileData.verified
+                                        ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                                        : "border-gray-300 dark:border-gray-600"
+                                }`}
+                            >
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <div
+                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full max-[770px]:h-10 max-[770px]:w-10 ${
+                                            profileData.verified ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+                                        }`}
+                                    >
+                                        <CheckCircle size={24} className={`max-[770px]:h-5 max-[770px]:w-5 text-white`} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className={`text-lg font-bold max-[770px]:text-base`}>{t("profile.verified")}</h3>
+                                        <p className={`text-sm text-gray-600 dark:text-gray-400 max-[770px]:text-xs`}>
+                                            {profileData.verified ? t("profile.verifiedTrue") : t("profile.verifiedFalse")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleToggleVerified}
                                     disabled={isTogglingVerified}
-                                    className={`px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                                    className={`w-full rounded-lg px-6 py-3 text-base font-semibold transition-all duration-300 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap ${
                                         profileData.verified
                                             ? "bg-green-500 text-white hover:bg-green-600"
                                             : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                    } disabled:cursor-not-allowed disabled:opacity-60`}
                                 >
                                     {profileData.verified ? t("profile.verified") : t("profile.verify")}
                                 </button>
                             </div>
 
                             {/* Looking for Housing */}
-                            <div className={`flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-[#C505EB] bg-[#C505EB]/10`}>
-                                <Icon icon="mdi:home-search" width="48" height="48" className={`max-[770px]:w-10 max-[770px]:h-10 flex-shrink-0`} style={{color: `#C505EB`}} />
-                                <div className={`flex-1 min-w-0`}>
-                                    <h3 className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.lookingForHousing")}</h3>
-                                    <p className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400`}>
-                                        {profileData.lookingForHousing 
-                                            ? t("profile.lookingForHousingTrue") 
-                                            : t("profile.lookingForHousingFalse")
-                                        }
-                                    </p>
+                            <div className="flex flex-col gap-3 rounded-xl border-2 border-[#C505EB] bg-[#C505EB]/10 p-6 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4">
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <Icon
+                                        icon="mdi:home-search"
+                                        width="48"
+                                        height="48"
+                                        className="h-12 w-12 shrink-0 max-[770px]:h-10 max-[770px]:w-10"
+                                        style={{ color: `#C505EB` }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className={`text-lg font-bold max-[770px]:text-base`}>{t("profile.lookingForHousing")}</h3>
+                                        <p className={`text-sm text-gray-600 dark:text-gray-400 max-[770px]:text-xs`}>
+                                            {profileData.lookingForHousing
+                                                ? t("profile.lookingForHousingTrue")
+                                                : t("profile.lookingForHousingFalse")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setProfileData(prev => ({ ...prev, lookingForHousing: !prev.lookingForHousing }))}
-                                    className={`px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                                    onClick={() => setProfileData((prev) => ({ ...prev, lookingForHousing: !prev.lookingForHousing }))}
+                                    className={`w-full rounded-lg px-6 py-3 text-base font-semibold transition-all duration-300 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap ${
                                         profileData.lookingForHousing
                                             ? "bg-[#C505EB] text-white hover:bg-[#BA00F8]"
                                             : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -2491,20 +2579,22 @@ export default function ProfilePage() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
-                                <div className="w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-500">
-                                    <Crown size={24} className="max-[770px]:w-5 max-[770px]:h-5 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg max-[770px]:text-base font-bold">{t("profile.monetizationTitle")}</h3>
-                                    <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300">
-                                        {t("profile.monetizationSubtitle")}
-                                    </p>
+                            <div className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-6 dark:bg-amber-900/20 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4">
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500 max-[770px]:h-10 max-[770px]:w-10">
+                                        <Crown size={24} className="max-[770px]:h-5 max-[770px]:w-5 text-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-lg font-bold max-[770px]:text-base">{t("profile.monetizationTitle")}</h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 max-[770px]:text-xs">
+                                            {t("profile.monetizationSubtitle")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => navigate("/profile/plans")}
-                                    className="px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 bg-amber-500 text-white hover:bg-amber-600"
+                                    className="w-full rounded-lg bg-amber-500 px-6 py-3 text-base font-semibold text-white transition-all duration-300 hover:bg-amber-600 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap"
                                 >
                                     {t("profile.openPlans")}
                                 </button>
@@ -2631,12 +2721,12 @@ export default function ProfilePage() {
                             )}
                             {!myListingsLoading && myListings.length > 0 && (
                                 <>
-                                    <div className="mb-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)]">
+                                    <div className="mb-6 grid w-full grid-cols-2 justify-items-stretch gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
                                         {myListings.map((listing) => (
                                             <div
                                                 key={listing.id}
                                                 onClick={handleMyListingsCardClick}
-                                                className={`w-full max-[770px]:max-w-none min-[771px]:w-[256px] min-[480px]:min-[771px]:w-[272px] lg:min-[771px]:w-[288px] xl:min-[771px]:w-[300px] ${
+                                                className={`w-full min-w-0 ${
                                                     listing.is_active === false ? "rounded-xl p-1 bg-gray-200/80 dark:bg-gray-700/80" : ""
                                                 }`}
                                             >
@@ -2728,30 +2818,19 @@ export default function ProfilePage() {
 
                             {!myHomeLoading && myHomeData?.listing && (
                                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate(getMyHomeListingUrl(myHomeData.listing))}
-                                        className="w-full mb-5 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-[#C505EB] transition-all duration-300 text-left"
-                                    >
-                                        <div className="w-full max-w-[320px] aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden mx-auto">
-                                            <img
-                                                src={getImageUrl(myHomeData.listing.image)}
-                                                alt={myHomeData.listing.title}
-                                                className="w-full h-full object-cover"
+                                    <div className="mb-6 flex flex-col items-start gap-2">
+                                        <div className="w-full max-[770px]:max-w-none min-[771px]:w-[256px] min-[480px]:min-[771px]:w-[272px] lg:min-[771px]:w-[288px] xl:min-[771px]:w-[300px]">
+                                            <SaleCard
+                                                {...convertMyHomeListingToSaleCard(myHomeData.listing)}
+                                                compactGrid
+                                                linkState={{ profileTab: "myHome" }}
                                             />
                                         </div>
-                                        <div className="p-4 bg-white dark:bg-gray-800">
-                                            <div className="text-xl font-bold text-[#C505EB] hover:text-[#BA00F8] underline underline-offset-4">
-                                                {myHomeData.listing.title}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                {myHomeData.listing.address || myHomeData.listing.region}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                                                {t("profile.residents")}: {myHomeData.listing.residentsCount} / {myHomeData.listing.maxResidents}
-                                            </div>
-                                        </div>
-                                    </button>
+                                        <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                                            {t("profile.residents")}: {myHomeData.listing.residentsCount} /{" "}
+                                            {myHomeData.listing.maxResidents}
+                                        </p>
+                                    </div>
 
                                     <div className="mb-6">
                                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -2850,6 +2929,13 @@ export default function ProfilePage() {
                             </button>
                         </div>
                     )}
+                </div>
+                    </div>
+                    <aside className="hidden min-[771px]:block w-full min-w-0 self-stretch min-h-0">
+                        <div className="sticky top-[132px] z-10 max-h-[calc(100vh-8.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+                            {renderProfileCompletion("sidebar")}
+                        </div>
+                    </aside>
                 </div>
             </div>
             {avatarCropOpen && (

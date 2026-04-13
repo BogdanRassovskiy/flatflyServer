@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Union
 from django.contrib.auth import get_user_model
 
 from chats.models import Chat, Message, ModerationMessage, RejectedImageModerationLog, ImageModerationRule
-from chats.support_profile import get_or_create_flatfly_support_user, get_profile_locale
 from users.models import Profile
 
 
@@ -407,7 +406,14 @@ def apply_moderation_strike_and_notify(
         user.save(update_fields=["is_active"])
         banned = True
 
-    support_user = get_or_create_flatfly_support_user()
+    support_user, _ = User.objects.get_or_create(
+        username="support",
+        defaults={
+            "email": "support@flatfly.local",
+            "is_staff": True,
+            "is_active": True,
+        },
+    )
     chat = (
         Chat.objects
         .filter(participants=support_user)
@@ -419,25 +425,11 @@ def apply_moderation_strike_and_notify(
         chat.participants.add(support_user, user)
 
     reasons_text = ", ".join(reasons) if reasons else "policy_violation"
-    locale = get_profile_locale(user)
-    if locale == "ru":
-        text = (
-            "Ваше изображение отклонено автоматической модерацией. "
-            f"Причина: {reasons_text}. Источник: {source}. "
-            "Зафиксирован 1 страйк. При 3 страйках аккаунт блокируется."
-        )
-    elif locale == "cs":
-        text = (
-            "Váš obrázek byl zamítnut automatickou moderací. "
-            f"Důvod: {reasons_text}. Zdroj: {source}. "
-            "Byl udělen 1 strike. Po 3 strikách je účet zablokován."
-        )
-    else:
-        text = (
-            "Your image was rejected by automatic moderation. "
-            f"Reason: {reasons_text}. Source: {source}. "
-            "1 strike was applied. The account is blocked after 3 strikes."
-        )
+    text = (
+        "Ваше изображение отклонено автоматической модерацией. "
+        f"Причина: {reasons_text}. Источник: {source}. "
+        "Зафиксирован 1 страйк. При 3 страйках аккаунт блокируется."
+    )
     msg = Message.objects.create(chat=chat, sender=support_user, text=text)
     ModerationMessage.objects.create(
         target_user=user,

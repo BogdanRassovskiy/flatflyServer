@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useState, useRef, useEffect } from "react";
+import TeamSection from "../../components/TeamSection/TeamSection";
 
 const TEXTAREA_MIN_PX = 76;
 const TEXTAREA_MAX_PX = 220;
@@ -97,6 +98,8 @@ export default function ContactPage() {
                                 </span>
                             </div>
                         </div>
+
+                        <TeamSection showHeading className="mt-4 w-full min-[900px]:mt-8" />
                     </section>
 
                     {/* Форма — справа */}

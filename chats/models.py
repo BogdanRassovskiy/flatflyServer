@@ -1,24 +1,84 @@
 from django.db import models
 from django.conf import settings
+import uuid
 
 
 class Chat(models.Model):
+    CHAT_TYPE_DIRECT = "direct"
+    CHAT_TYPE_HOUSING_GROUP = "housing_group"
+    CHAT_TYPE_CHOICES = [
+        (CHAT_TYPE_DIRECT, "Direct"),
+        (CHAT_TYPE_HOUSING_GROUP, "Housing group search"),
+    ]
+
     chatid = models.AutoField(primary_key=True)
     participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='chats')
     created_at = models.DateTimeField(auto_now_add=True)
+    chat_type = models.CharField(max_length=32, choices=CHAT_TYPE_CHOICES, default=CHAT_TYPE_DIRECT, db_index=True)
+    invite_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
 
     def __str__(self):
         return f"Chat {self.chatid}"
 
+    def save(self, *args, **kwargs):
+        if self.chat_type == self.CHAT_TYPE_HOUSING_GROUP and not self.invite_token:
+            self.invite_token = uuid.uuid4()
+        super().save(*args, **kwargs)
+
+
 class Message(models.Model):
+    KIND_TEXT = "text"
+    KIND_LISTING = "listing"
+    KIND_CHOICES = [
+        (KIND_TEXT, "Text"),
+        (KIND_LISTING, "Listing card"),
+    ]
+
     chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='messages', on_delete=models.CASCADE)
-    text = models.TextField()
+    text = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
+    message_kind = models.CharField(max_length=32, choices=KIND_CHOICES, default=KIND_TEXT, db_index=True)
+    listing = models.ForeignKey(
+        "listings.Listing",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="chat_messages",
+    )
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+    )
+    listing_preview = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"Message {self.id} in Chat {self.chat.chatid}"
+
+
+class ListingCardReaction(models.Model):
+    """Like/dislike on a listing card message in group chat (one vote per user per message)."""
+
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="listing_reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listing_card_reactions")
+    is_like = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["message", "user"],
+                name="uniq_listing_reaction_message_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"ListingReaction {self.message_id} user={self.user_id} like={self.is_like}"
 
 
 class ChatBlock(models.Model):

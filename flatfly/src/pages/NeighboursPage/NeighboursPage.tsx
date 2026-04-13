@@ -237,7 +237,7 @@ export default function NeighboursPage() {
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont">
       <div className="flex w-full max-w-[1440px] flex-col items-center px-3 min-[771px]:px-6 sm:px-8 lg:px-12 xl:px-16">
-        <div className="flex w-full max-[770px]:mb-10 max-[770px]:mt-[calc(50px+10px)] min-[771px]:my-[120px] flex-col items-start">
+        <div className="flex w-full max-[770px]:mb-10 max-[770px]:mt-[112px] min-[771px]:my-[120px] flex-col items-start">
 
           <NeighboursFilterPanel
             filters={filters}
@@ -271,14 +271,13 @@ export default function NeighboursPage() {
                 ))}
               </div>
 
-              <div className="hidden min-[771px]:mt-6 min-[771px]:grid w-full justify-center justify-items-center gap-4 lg:gap-5 [grid-template-columns:repeat(auto-fill,220px)] lg:[grid-template-columns:repeat(auto-fill,228px)] xl:[grid-template-columns:repeat(auto-fill,236px)]">
+              <div className="hidden min-[771px]:mt-6 min-[771px]:grid w-full min-[771px]:mx-auto min-[771px]:max-w-[1120px] min-[771px]:grid-cols-4 justify-items-stretch gap-4 lg:gap-5">
                 {neighbours.map((n) => {
                   const badges = buildNeighbourBadges(n, t);
                   return (
                     <SaleCard
                       key={n.id}
                       compactGrid
-                      denseNeighbourDesktop
                       id={String(n.id)}
                       name={n.name}
                       age={n.age}

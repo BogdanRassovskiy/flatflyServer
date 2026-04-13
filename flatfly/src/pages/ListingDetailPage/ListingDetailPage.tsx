@@ -1,5 +1,5 @@
 import {useState, useEffect, useMemo, useRef, type ReactNode} from "react";
-import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X, Layers, CheckCircle2} from "lucide-react";
+import {ChevronLeft, ChevronRight, Heart, Share2, MapPin, Bed, Square, MessageCircle, X, Layers, CheckCircle2, Users} from "lucide-react";
 import {Icon} from "@iconify/react";
 import {useNavigate, useParams, useLocation, Link} from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -714,7 +714,134 @@ export default function ListingDetailPage() {
             console.error("Error toggling favorite:", err);
         }
     };
-    
+
+    const shareListingToHousingChat = async (chatId: number) => {
+        const listingId = Number(id);
+        if (!Number.isFinite(listingId) || listingId <= 0) {
+            throw new Error("bad listing");
+        }
+        const res = await fetch(`/api/chats/${chatId}/share-listing/`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken(),
+            },
+            body: JSON.stringify({ listing_id: listingId }),
+        });
+        if (!res.ok) {
+            throw new Error("share failed");
+        }
+    };
+
+    const handleSendListingToGroup = async () => {
+        if (!isAuthenticated) {
+            router("/auth");
+            return;
+        }
+        if (type === "NEIGHBOUR" || !id) {
+            return;
+        }
+        try {
+            const res = await fetch("/api/chats/", { credentials: "include" });
+            if (!res.ok) {
+                throw new Error("chats");
+            }
+            const list = (await res.json()) as Array<{ chatid: number; chat_type?: string }>;
+            const group = list.find((c) => c.chat_type === "housing_group");
+            if (group) {
+                await shareListingToHousingChat(group.chatid);
+                showToast(t("listing.sendToGroupSuccess"), "success");
+                return;
+            }
+            setSendToGroupModalOpen(true);
+        } catch {
+            showToast(t("listing.sendToGroupFailed"), "error");
+        }
+    };
+
+    const confirmCreateHousingGroupAndSend = async () => {
+        if (!id || sendToGroupSubmitting) {
+            return;
+        }
+        setSendToGroupSubmitting(true);
+        try {
+            const listingId = Number(id);
+            const res = await fetch("/api/chats/create-housing-group/", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken(),
+                },
+                body: JSON.stringify({ listing_id: listingId }),
+            });
+            const data = (await res.json().catch(() => ({}))) as { code?: string; chat?: { chatid: number } };
+            if (res.status === 409 && data.chat?.chatid) {
+                await shareListingToHousingChat(data.chat.chatid);
+                setSendToGroupModalOpen(false);
+                showToast(t("listing.sendToGroupSuccess"), "success");
+                return;
+            }
+            if (!res.ok) {
+                throw new Error("create");
+            }
+            setSendToGroupModalOpen(false);
+            showToast(t("listing.sendToGroupSuccess"), "success");
+        } catch {
+            showToast(t("listing.sendToGroupFailed"), "error");
+        } finally {
+            setSendToGroupSubmitting(false);
+        }
+    };
+
+    const handleShareListing = async () => {
+        const url = `${window.location.origin}${location.pathname}${location.search}`;
+        const shareTitle = String(listingData.title || listingData.name || "FlatFly").trim().slice(0, 200);
+
+        const copyToClipboard = async () => {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(url);
+                return;
+            }
+            const ta = document.createElement("textarea");
+            ta.value = url;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand("copy");
+            document.body.removeChild(ta);
+            if (!ok) {
+                throw new Error(t("listing.shareFailed"));
+            }
+        };
+
+        try {
+            if (typeof navigator.share === "function") {
+                const data: ShareData = { url, title: shareTitle || undefined };
+                const can =
+                    typeof navigator.canShare !== "function" || navigator.canShare(data);
+                if (can) {
+                    try {
+                        await navigator.share(data);
+                        return;
+                    } catch (e) {
+                        if (e instanceof DOMException && e.name === "AbortError") {
+                            return;
+                        }
+                        // e.g. desktop without handler — fall back to clipboard
+                    }
+                }
+            }
+            await copyToClipboard();
+            showToast(t("listing.linkCopied"), "success");
+        } catch (e) {
+            showToast(e instanceof Error ? e.message : t("listing.shareFailed"), "error");
+        }
+    };
+
     const {
         price,
         address,
@@ -805,6 +932,8 @@ export default function ListingDetailPage() {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [messageStartLoading, setMessageStartLoading] = useState(false);
+    const [sendToGroupModalOpen, setSendToGroupModalOpen] = useState(false);
+    const [sendToGroupSubmitting, setSendToGroupSubmitting] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [isInviteQrModalOpen, setIsInviteQrModalOpen] = useState(false);
     const [inviteQrLink, setInviteQrLink] = useState("");
@@ -1652,6 +1781,7 @@ out center;`;
                                             </button>
                                             <button
                                                 type="button"
+                                                onClick={() => void handleShareListing()}
                                                 className="rounded-full bg-white/90 p-2 shadow-md backdrop-blur-sm transition-colors hover:bg-white dark:bg-zinc-800/90 dark:hover:bg-zinc-800"
                                                 aria-label={t("listing.share")}
                                             >
@@ -1781,11 +1911,23 @@ out center;`;
                                 </button>
                                 <button
                                         type="button"
+                                        onClick={() => void handleShareListing()}
                                         className="rounded-full bg-white/85 p-2 shadow-lg transition-colors duration-300 hover:bg-white dark:bg-gray-800/85 dark:hover:bg-gray-800 dark:shadow-gray-900/50"
                                     aria-label={t("listing.share")}
                                 >
                                     <Share2 size={24} color="#C505EB" />
                                 </button>
+                                {isAuthenticated ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleSendListingToGroup()}
+                                        className="rounded-full border-2 border-[#C505EB] bg-white/95 p-2 shadow-lg transition-colors duration-300 hover:bg-[#C505EB]/10 dark:bg-gray-900/90 dark:hover:bg-[#C505EB]/20"
+                                        aria-label={t("listing.sendToGroup")}
+                                        title={t("listing.sendToGroup")}
+                                    >
+                                        <Users size={24} color="#C505EB" />
+                                    </button>
+                                ) : null}
                                 </div>
                             </>
                         )}
@@ -2495,6 +2637,17 @@ out center;`;
                     >
                         <div className={`sticky top-[120px] flex flex-col gap-4 p-6 rounded-2xl border border-[#E5E5E5] dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50`}>
                             <h3 className={`text-[24px] max-[770px]:text-[20px] font-bold text-[#333333] dark:text-white`}>{t("listing.contact")}</h3>
+
+                            {isAuthenticated ? (
+                                <button
+                                    type="button"
+                                    onClick={() => void handleSendListingToGroup()}
+                                    className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C505EB] bg-gradient-to-r from-[#C505EB]/10 to-[#08D3E2]/10 py-3.5 text-base font-bold text-[#5b0d8a] shadow-sm transition hover:from-[#C505EB]/18 hover:to-[#08D3E2]/18 dark:from-[#C505EB]/15 dark:to-[#08D3E2]/15 dark:text-[#f5e1ff]`}
+                                >
+                                    <Users size={22} color="#C505EB" />
+                                    {t("listing.sendToGroup")}
+                                </button>
+                            ) : null}
                             
                             {!isAuthenticated ? (
                                 <>
@@ -2731,6 +2884,44 @@ out center;`;
 
             </div>
 
+            {sendToGroupModalOpen && (
+                <div
+                    className="fixed inset-0 z-[1285] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                    onClick={() => {
+                        if (!sendToGroupSubmitting) {
+                            setSendToGroupModalOpen(false);
+                        }
+                    }}
+                >
+                    <div
+                        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 className="mb-2 text-xl font-bold text-[#333333] dark:text-white">{t("listing.sendToGroupCreateTitle")}</h3>
+                        <p className="mb-6 text-sm text-[#666666] dark:text-gray-300">{t("listing.sendToGroupCreateBody")}</p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                disabled={sendToGroupSubmitting}
+                                onClick={() => setSendToGroupModalOpen(false)}
+                            >
+                                {t("messenger.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                                disabled={sendToGroupSubmitting}
+                                onClick={() => {
+                                    void confirmCreateHousingGroupAndSend();
+                                }}
+                            >
+                                {sendToGroupSubmitting ? t("loading") : t("listing.sendToGroupConfirm")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {confirmAction && (
                 <div className="fixed inset-0 z-[1290] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setConfirmAction(null)}>
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>

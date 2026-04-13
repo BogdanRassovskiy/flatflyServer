@@ -1,17 +1,33 @@
+import uuid
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Chat, Message, ChatBlock, ChatReport
+from .models import Chat, Message, ChatBlock, ChatReport, ListingCardReaction
 from .serializers import ChatSerializer, MessageSerializer, UserSerializer
+from .utils import listing_to_preview_dict
 from django.contrib.auth import get_user_model
-from rest_framework.views import APIView
 from rest_framework.generics import get_object_or_404
-from django.db.models import Count, Max
-from rest_framework.exceptions import ValidationError
+from django.db.models import Count, Max, Prefetch
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from users.models import Profile
+from listings.models import Listing
 
 User = get_user_model()
 MESSAGES_PAGE_SIZE = 10
+HOUSING_GROUP_MAX_MEMBERS = 6
+
+
+def _share_listing_message(chat, user, listing, request):
+    preview = listing_to_preview_dict(listing, request)
+    return Message.objects.create(
+        chat=chat,
+        sender=user,
+        text="",
+        message_kind=Message.KIND_LISTING,
+        listing=listing,
+        listing_preview=preview,
+    )
 
 
 def _parse_positive_int(raw_value, default_value):
@@ -22,10 +38,52 @@ def _parse_positive_int(raw_value, default_value):
 
     return parsed if parsed >= 0 else default_value
 
+
+LISTING_RATING_UI_SLOTS = 6
+
+
+def _delete_listing_card_reactions_for_chat(chat_pk: int) -> None:
+    ListingCardReaction.objects.filter(message__chat_id=chat_pk).delete()
+
+
+def _leave_or_delete_housing_group_for_user(user, old_chat: Chat) -> None:
+    """Leave housing group or delete it if user was the only member."""
+    if old_chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+        return
+    if user not in old_chat.participants.all():
+        return
+    if old_chat.participants.count() <= 1:
+        _delete_listing_card_reactions_for_chat(old_chat.pk)
+        Message.objects.filter(chat=old_chat).update(reply_to=None)
+        old_chat.delete()
+    else:
+        old_chat.participants.remove(user)
+
+
 class ChatViewSet(viewsets.ModelViewSet):
     queryset = Chat.objects.all().prefetch_related('participants__profile')
     serializer_class = ChatSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def destroy(self, request, *args, **kwargs):
+        chat = self.get_object()
+        if request.user not in chat.participants.all():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if chat.chat_type == Chat.CHAT_TYPE_HOUSING_GROUP:
+            if chat.participants.count() != 1:
+                return Response(
+                    {
+                        "detail": "A housing group can be deleted only when you are the last member.",
+                        "code": "housing_group_delete_requires_solo",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        _delete_listing_card_reactions_for_chat(instance.pk)
+        Message.objects.filter(chat=instance).update(reply_to=None)
+        super().perform_destroy(instance)
 
     def get_queryset(self):
         blocked_by_current_user = ChatBlock.objects.filter(
@@ -62,18 +120,71 @@ class ChatViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         chat = self.get_object()
+        is_housing_group = chat.chat_type == Chat.CHAT_TYPE_HOUSING_GROUP
         other_participant = self._get_other_participant(chat, request.user.id)
-        if other_participant and self._is_blocked_between_users(request.user.id, other_participant.id):
-            return Response({'detail': 'Chat is blocked'}, status=status.HTTP_403_FORBIDDEN)
+        if not is_housing_group:
+            if other_participant and self._is_blocked_between_users(request.user.id, other_participant.id):
+                return Response({'detail': 'Chat is blocked'}, status=status.HTTP_403_FORBIDDEN)
         participant_ids = list(chat.participants.values_list('id', flat=True))
         other_participant_ids = [uid for uid in participant_ids if uid != request.user.id]
-        has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
-        my_messages_count = chat.messages.filter(sender=request.user).count()
-        can_send_message = has_reply_from_other or my_messages_count == 0
-        awaiting_reply = not has_reply_from_other and my_messages_count > 0
+        if is_housing_group:
+            can_send_message = True
+            awaiting_reply = False
+        else:
+            has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
+            my_messages_count = chat.messages.filter(sender=request.user).count()
+            can_send_message = has_reply_from_other or my_messages_count == 0
+            awaiting_reply = not has_reply_from_other and my_messages_count > 0
 
         chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
-        base_queryset = chat.messages.select_related('sender__profile')
+        base_queryset = chat.messages.select_related(
+            'sender__profile',
+            'listing',
+            'reply_to__sender__profile',
+        )
+
+        if is_housing_group:
+            liked_by = request.query_params.get('housing_filter_liked_by')
+            unanimous_raw = (request.query_params.get('housing_filter_unanimous') or '').lower()
+            if liked_by and str(liked_by).strip():
+                try:
+                    uid = int(liked_by)
+                except (TypeError, ValueError):
+                    return Response({'detail': 'Invalid housing_filter_liked_by'}, status=status.HTTP_400_BAD_REQUEST)
+                if uid not in participant_ids:
+                    return Response({'detail': 'User is not a group participant'}, status=status.HTTP_400_BAD_REQUEST)
+                liked_ids = ListingCardReaction.objects.filter(
+                    message__chat=chat,
+                    message__message_kind=Message.KIND_LISTING,
+                    user_id=uid,
+                    is_like=True,
+                ).values_list('message_id', flat=True)
+                base_queryset = base_queryset.filter(id__in=liked_ids)
+            elif unanimous_raw in ('1', 'true', 'yes'):
+                pset = set(participant_ids)
+                n = len(pset)
+                listing_ids = list(
+                    base_queryset.filter(message_kind=Message.KIND_LISTING).values_list('id', flat=True)
+                )
+                keep_ids = []
+                for mid in listing_ids:
+                    likers = set(
+                        ListingCardReaction.objects.filter(
+                            message_id=mid,
+                            is_like=True,
+                        ).values_list('user_id', flat=True)
+                    )
+                    if likers == pset and len(likers) == n and n > 0:
+                        keep_ids.append(mid)
+                base_queryset = base_queryset.filter(id__in=keep_ids)
+
+            base_queryset = base_queryset.prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+
         after_id = _parse_positive_int(request.query_params.get('after_id'), 0)
 
         if after_id > 0:
@@ -106,6 +217,45 @@ class ChatViewSet(viewsets.ModelViewSet):
             'can_send_message': can_send_message,
             'awaiting_reply': awaiting_reply,
         })
+
+    @action(detail=True, methods=['get'], url_path='listing-reactions-sync')
+    def listing_reactions_sync(self, request, pk=None):
+        """
+        Возвращает актуальные listing_ratings для карточек объявлений по id сообщений.
+        Нужен для опроса: голоса других участников не создают новых сообщений.
+        """
+        chat = self.get_object()
+        if chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'updates': []})
+
+        raw = (request.query_params.get('message_ids') or '').strip()
+        if not raw:
+            return Response({'updates': []})
+
+        try:
+            ids = [int(x.strip()) for x in raw.split(',') if x.strip()]
+        except ValueError:
+            return Response({'detail': 'Invalid message_ids'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ids = [i for i in ids if i > 0][:120]
+        if not ids:
+            return Response({'updates': []})
+
+        msgs = (
+            chat.messages.filter(id__in=ids, message_kind=Message.KIND_LISTING)
+            .prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+        )
+        serializer = MessageSerializer(msgs, many=True, context={'request': request})
+        updates = [
+            {'id': row['id'], 'listing_ratings': row['listing_ratings']}
+            for row in serializer.data
+        ]
+        return Response({'updates': updates})
 
     @action(detail=False, methods=['post'])
     def start(self, request):
@@ -192,6 +342,8 @@ class ChatViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def report(self, request, pk=None):
         chat = self.get_object()
+        if chat.chat_type == Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'error': 'Reporting is not available for group chats'}, status=400)
         other_participant = self._get_other_participant(chat, request.user.id)
         if not other_participant:
             return Response({'error': 'No target user found'}, status=400)
@@ -223,14 +375,143 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         return Response({'status': 'reported', 'report_id': report.id, 'blocked': blocked})
 
+    @action(detail=False, methods=['post'], url_path='create-housing-group')
+    def create_housing_group(self, request):
+        existing = (
+            Chat.objects.filter(chat_type=Chat.CHAT_TYPE_HOUSING_GROUP, participants=request.user)
+            .prefetch_related('participants__profile')
+            .first()
+        )
+        if existing:
+            return Response(
+                {
+                    "code": "already_in_group",
+                    "chat": ChatSerializer(existing, context={'request': request}).data,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        chat = Chat.objects.create(chat_type=Chat.CHAT_TYPE_HOUSING_GROUP)
+        chat.participants.add(request.user)
+
+        listing_id = request.data.get('listing_id')
+        if listing_id is not None and listing_id != '':
+            try:
+                lid = int(listing_id)
+            except (TypeError, ValueError):
+                return Response({'detail': 'Invalid listing_id'}, status=status.HTTP_400_BAD_REQUEST)
+            listing = get_object_or_404(Listing, pk=lid, is_active=True)
+            _share_listing_message(chat, request.user, listing, request)
+
+        chat = (
+            Chat.objects.filter(pk=chat.pk)
+            .prefetch_related('participants__profile')
+            .first()
+        )
+        return Response(ChatSerializer(chat, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='join-housing-group')
+    def join_housing_group(self, request):
+        raw_token = request.data.get('invite_token')
+        if not raw_token:
+            return Response({'detail': 'invite_token is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            token = uuid.UUID(str(raw_token))
+        except (ValueError, TypeError, AttributeError):
+            return Response({'detail': 'Invalid invite_token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        chat = (
+            Chat.objects.filter(chat_type=Chat.CHAT_TYPE_HOUSING_GROUP, invite_token=token)
+            .prefetch_related('participants__profile')
+            .first()
+        )
+        if not chat:
+            return Response({'detail': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user in chat.participants.all():
+            return Response(ChatSerializer(chat, context={'request': request}).data)
+
+        if chat.participants.count() >= HOUSING_GROUP_MAX_MEMBERS:
+            return Response(
+                {'detail': 'This group is full (6 members).', 'code': 'group_full'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        other_group = (
+            Chat.objects.filter(chat_type=Chat.CHAT_TYPE_HOUSING_GROUP, participants=request.user)
+            .exclude(chatid=chat.chatid)
+            .first()
+        )
+        if other_group:
+            confirm = request.data.get('confirm_leave_previous')
+            confirm_ok = confirm is True or confirm == 'true' or confirm == '1' or confirm == 1
+            if not confirm_ok:
+                return Response(
+                    {
+                        'code': 'already_in_group',
+                        'chatid': other_group.chatid,
+                        'detail': 'Leave your current group before joining another.',
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            _leave_or_delete_housing_group_for_user(request.user, other_group)
+
+        chat.participants.add(request.user)
+        chat = Chat.objects.filter(pk=chat.pk).prefetch_related('participants__profile').first()
+        return Response(ChatSerializer(chat, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='leave-housing-group')
+    def leave_housing_group(self, request, pk=None):
+        chat = self.get_object()
+        if chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'detail': 'Not a housing group chat'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user not in chat.participants.all():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if chat.participants.count() <= 1:
+            return Response(
+                {
+                    'detail': 'The last member cannot leave; delete the group instead.',
+                    'code': 'last_member_cannot_leave',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        chat.participants.remove(request.user)
+        return Response({'status': 'left'})
+
+    @action(detail=True, methods=['post'], url_path='share-listing')
+    def share_listing(self, request, pk=None):
+        chat = self.get_object()
+        if chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'detail': 'Not a housing group chat'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user not in chat.participants.all():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        listing_id = request.data.get('listing_id')
+        try:
+            lid = int(listing_id)
+        except (TypeError, ValueError):
+            return Response({'detail': 'listing_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        listing = get_object_or_404(Listing, pk=lid, is_active=True)
+        msg = _share_listing_message(chat, request.user, listing, request)
+        return Response(MessageSerializer(msg, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
 class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all().select_related('sender__profile', 'chat')
+    queryset = Message.objects.all().select_related(
+        'sender__profile',
+        'chat',
+        'reply_to__sender__profile',
+    )
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         chat_id = self.request.query_params.get('chatid')
-        qs = Message.objects.filter(chat__participants=self.request.user)
+        qs = Message.objects.filter(chat__participants=self.request.user).select_related(
+            'sender__profile',
+            'chat',
+            'reply_to__sender__profile',
+        )
         if chat_id:
             qs = qs.filter(chat_id=chat_id)
         return qs.order_by('created_at')
@@ -238,23 +519,82 @@ class MessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         chat = get_object_or_404(Chat, pk=self.request.data.get('chat'))
         if self.request.user not in chat.participants.all():
-            raise PermissionError('Not a participant of this chat')
-        other_participant = chat.participants.exclude(id=self.request.user.id).first()
-        if other_participant and ChatViewSet._is_blocked_between_users(self.request.user.id, other_participant.id):
+            raise PermissionDenied('Not a participant of this chat')
+
+        is_housing_group = chat.chat_type == Chat.CHAT_TYPE_HOUSING_GROUP
+        if not is_housing_group:
+            other_participant = chat.participants.exclude(id=self.request.user.id).first()
+            if other_participant and ChatViewSet._is_blocked_between_users(self.request.user.id, other_participant.id):
+                raise ValidationError({
+                    'code': 'blocked',
+                    'detail': 'You cannot send messages in this chat.',
+                })
+
+        if not is_housing_group:
+            participant_ids = list(chat.participants.values_list('id', flat=True))
+            other_participant_ids = [uid for uid in participant_ids if uid != self.request.user.id]
+            has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
+            my_messages_count = chat.messages.filter(sender=self.request.user).count()
+
+            if not has_reply_from_other and my_messages_count >= 1:
+                raise ValidationError({
+                    'code': 'awaiting_reply',
+                    'detail': 'You can send only one message until the other participant replies.',
+                })
+
+        text = (serializer.validated_data.get('text') or '').strip()
+        if not text:
             raise ValidationError({
-                'code': 'blocked',
-                'detail': 'You cannot send messages in this chat.',
+                'detail': 'Message text cannot be empty.',
+                'text': ['This field may not be blank.'],
             })
 
-        participant_ids = list(chat.participants.values_list('id', flat=True))
-        other_participant_ids = [uid for uid in participant_ids if uid != self.request.user.id]
-        has_reply_from_other = chat.messages.filter(sender_id__in=other_participant_ids).exists() if other_participant_ids else False
-        my_messages_count = chat.messages.filter(sender=self.request.user).count()
+        raw_reply = self.request.data.get('reply_to')
+        reply_to = None
+        if raw_reply is not None and raw_reply != '':
+            try:
+                rid = int(raw_reply)
+            except (TypeError, ValueError):
+                raise ValidationError({'reply_to': ['Invalid reply_to']})
+            reply_to = Message.objects.filter(pk=rid, chat=chat).first()
+            if not reply_to:
+                raise ValidationError({'reply_to': ['Reply target not found in this chat']})
 
-        if not has_reply_from_other and my_messages_count >= 1:
-            raise ValidationError({
-                'code': 'awaiting_reply',
-                'detail': 'You can send only one message until the other participant replies.',
-            })
+        serializer.save(
+            sender=self.request.user,
+            chat=chat,
+            message_kind=Message.KIND_TEXT,
+            reply_to=reply_to,
+        )
 
-        serializer.save(sender=self.request.user, chat=chat)
+    @action(detail=True, methods=['post'], url_path='listing-reaction')
+    def listing_reaction(self, request, pk=None):
+        message = self.get_object()
+        if message.message_kind != Message.KIND_LISTING:
+            return Response({'detail': 'Not a listing message'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user not in message.chat.participants.all():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if message.chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'detail': 'Listing reactions are only for housing group chats'}, status=400)
+
+        raw = request.data.get('is_like')
+        if raw not in (True, False):
+            return Response({'detail': 'is_like must be a boolean'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ListingCardReaction.objects.update_or_create(
+            message=message,
+            user=request.user,
+            defaults={'is_like': raw},
+        )
+        message = (
+            Message.objects.filter(pk=message.pk)
+            .select_related('sender__profile', 'listing', 'chat', 'reply_to__sender__profile')
+            .prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+            .first()
+        )
+        return Response(MessageSerializer(message, context={'request': request}).data)

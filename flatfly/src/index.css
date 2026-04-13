@@ -26,6 +26,11 @@ html.dark {
   color-scheme: dark;
 }
 
+/* Подсказка движку: тёмное нативное меню select (где поддерживается) */
+html.dark select {
+  color-scheme: dark;
+}
+
 html:not(.dark) {
   color-scheme: light;
 }

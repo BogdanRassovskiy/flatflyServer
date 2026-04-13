@@ -182,8 +182,8 @@ export default function RoomsPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
-      <div className="flex w-full max-w-[1440px] flex-col items-center px-3 min-[771px]:px-6 sm:px-8 lg:px-12 xl:px-16">
-        <div className="flex w-full flex-col items-start max-[770px]:my-[60px] min-[771px]:my-[150px]">
+      <div className="flex w-full max-w-[1920px] flex-col items-center px-3 min-[771px]:px-5 lg:px-8">
+        <div className="flex w-full flex-col items-start max-[770px]:mb-[60px] max-[770px]:mt-[112px] min-[771px]:my-[150px]">
 
           <FilterPanel
             filters={filters}
@@ -191,7 +191,7 @@ export default function RoomsPage() {
             priceHistogram={priceHistogram}
           />
 
-          <div className="w-full mt-3 text-sm font-semibold text-[#666666] dark:text-gray-300">
+          <div className="mt-4 w-full text-sm font-semibold text-[#666666] dark:text-gray-300 min-[771px]:mt-3">
             {t("filter.foundListingsCount")}: {totalCount}
           </div>
 
@@ -203,7 +203,7 @@ export default function RoomsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mt-8 min-[771px]:[grid-template-columns:repeat(auto-fill,256px)] min-[771px]:justify-center min-[771px]:justify-items-center min-[771px]:gap-5 sm:min-[771px]:mt-12 lg:min-[771px]:gap-7 min-[480px]:min-[771px]:[grid-template-columns:repeat(auto-fill,272px)] lg:min-[771px]:[grid-template-columns:repeat(auto-fill,288px)] xl:min-[771px]:[grid-template-columns:repeat(auto-fill,300px)] md:min-[771px]:mt-[50px]">
+            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mx-auto min-[771px]:mt-8 min-[771px]:max-w-[1120px] min-[771px]:grid-cols-4 min-[771px]:justify-items-stretch min-[771px]:gap-4 sm:min-[771px]:mt-12 lg:min-[771px]:gap-5 md:min-[771px]:mt-[50px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}

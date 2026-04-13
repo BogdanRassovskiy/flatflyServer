@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Heart, Menu, Moon, Sun, X, MessageCircle, Plus } from "lucide-react";
+import { CircleUser, Globe, Heart, Moon, Sun, User, X, MessageCircle, Plus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -234,7 +234,7 @@ export default function Header() {
 
     return(
         <div
-            className={`fixed left-0 top-0 z-50 flex h-[50px] min-[771px]:h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
+            className={`fixed left-0 top-0 z-50 flex h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
                 desktopSolidBar
                     ? "min-[771px]:bg-white min-[771px]:shadow-sm min-[771px]:dark:bg-gray-900"
                     : "min-[771px]:bg-transparent"
@@ -247,9 +247,9 @@ export default function Header() {
 
             
 
-            <div className="grid h-[50px] min-[771px]:h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
+            <div className="grid h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
                 <Link to="/" className="flex shrink-0 items-center justify-center">
-                    <span className="max-[770px]:text-[22px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
+                    <span className="max-[770px]:text-[32px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
                         FlatFly
                     </span>
                 </Link>
@@ -274,7 +274,7 @@ export default function Header() {
                             className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#9E04C2] to-[#06A8B8] px-4 py-2 text-[16px] font-extrabold text-white shadow-md duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.99] min-[1100px]:px-5 min-[1100px]:text-[18px]"
                         >
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 duration-300 group-hover:bg-white/30">
-                                <Plus size={16} />
+                                <User size={16} strokeWidth={2.25} aria-hidden />
                             </span>
                             <span className="whitespace-nowrap">{t("header.findNeighbor")}</span>
                         </Link>
@@ -357,17 +357,34 @@ export default function Header() {
                     )}
 
                     <div className="relative" ref={menuRef}>
-                        <button 
+                        <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`flex cursor-pointer items-center gap-0.5 rounded-full border-2 border-[#DDDDDD] px-1.5 py-0.5 duration-300 hover:border-[#C505EB] dark:border-gray-600 min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
+                            className={`inline-flex h-8 min-[771px]:h-10 cursor-pointer items-center gap-1.5 rounded-full border border-gray-300 bg-white px-2 shadow-sm transition-colors duration-300 hover:border-[#C505EB] hover:shadow dark:border-gray-600 dark:bg-gray-800 min-[771px]:gap-2 min-[771px]:px-2.5 ${isMenuOpen ? "border-[#C505EB] ring-1 ring-[#C505EB]/30" : ""}`}
                             aria-label={t("header.openMenu")}
                         >
-                            <Menu className="h-4 w-4 shrink-0 text-[#08E2BE] min-[771px]:h-6 min-[771px]:w-6" />
-                            <CircleUser className="h-4 w-4 shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
+                            <span className="flex shrink-0 flex-col justify-center gap-[3px]" aria-hidden="true">
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
+                                <span className="block h-[1.5px] w-[14px] rounded-full bg-zinc-600 dark:bg-zinc-300 min-[771px]:w-4" />
+                            </span>
+                            <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-700 min-[771px]:h-8 min-[771px]:w-8">
+                                {isAuthenticated && user?.avatar && !menuAvatarFailed ? (
+                                    <img
+                                        src={getImageUrl(user.avatar)}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                        onError={() => setMenuAvatarFailed(true)}
+                                    />
+                                ) : (
+                                    <span className="flex h-full w-full items-center justify-center">
+                                        <User className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-300 min-[771px]:h-4 min-[771px]:w-4" strokeWidth={2} aria-hidden />
+                                    </span>
+                                )}
+                            </span>
                         </button>
                         
                         {/* Десктопное выпадающее меню — вертикальные блоки */}
@@ -484,7 +501,7 @@ export default function Header() {
                 <>
                     {/* Overlay для затемнения фона */}
                     <div 
-                        className={`hidden max-[770px]:block fixed inset-0 z-[99] top-[50px] bg-black bg-opacity-50`}
+                        className={`hidden max-[770px]:block fixed inset-0 bg-black bg-opacity-50 z-[99] top-[100px]`}
                         onClick={() => setIsMenuOpen(false)}
                         onTouchStart={(e) => {
                             if (e.target === e.currentTarget) {
@@ -499,7 +516,7 @@ export default function Header() {
                     {/* Мобильное меню — компактная колонка по центру */}
                     <div 
                         ref={mobileMenuRef}
-                        className={`hidden max-[770px]:flex fixed left-0 top-[50px] z-[100] h-[calc(100vh-50px)] w-full flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm transition-all duration-300 dark:bg-gray-900/95`}
+                        className={`hidden max-[770px]:flex fixed top-[100px] left-0 w-full h-[calc(100vh-100px)] flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm dark:bg-gray-900/95 z-[100] transition-all duration-300`}
                         onClick={(e) => {
                             e.stopPropagation();
                         }}
@@ -588,7 +605,7 @@ export default function Header() {
                                     }, 100);
                                 }}
                             >
-                                <Plus size={16} strokeWidth={2.5} />
+                                <User size={16} strokeWidth={2.5} aria-hidden />
                                 {t("header.findNeighbor")}
                             </Link>
                             
