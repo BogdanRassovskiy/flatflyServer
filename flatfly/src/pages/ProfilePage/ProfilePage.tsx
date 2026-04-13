@@ -1614,7 +1614,7 @@ export default function ProfilePage() {
 
                 <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
-                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-start min-[771px]:justify-between min-[771px]:gap-6">
+                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-stretch min-[771px]:justify-between min-[771px]:gap-6">
                     <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,640px)] min-[771px]:flex-none">
                 {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
                 <div className="mb-6 hidden min-[771px]:block">
@@ -2919,8 +2919,10 @@ export default function ProfilePage() {
                     )}
                 </div>
                     </div>
-                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-start sticky top-[112px] z-10 max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-                        {renderProfileCompletion("sidebar")}
+                    <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-stretch min-h-0">
+                        <div className="sticky top-[112px] z-10 max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+                            {renderProfileCompletion("sidebar")}
+                        </div>
                     </aside>
                 </div>
             </div>

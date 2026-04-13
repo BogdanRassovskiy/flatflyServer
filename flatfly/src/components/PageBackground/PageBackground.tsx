@@ -14,7 +14,7 @@ export default function PageBackground({
 	return (
 		<div
 			className={[
-				"relative w-full min-h-screen overflow-hidden text-slate-950 dark:text-white",
+				"relative w-full min-h-screen text-slate-950 dark:text-white",
 				"bg-[linear-gradient(135deg,#faf7ff_0%,#f2fbff_55%,#ffffff_100%)]",
 				"dark:bg-[linear-gradient(135deg,#2d1b4e_0%,#1a0d2e_50%,#0f0a1a_100%)]",
 				className ?? "",
