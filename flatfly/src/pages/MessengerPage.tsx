@@ -13,6 +13,8 @@ import {
   MoreVertical,
   Send,
   Square,
+  ThumbsDown,
+  ThumbsUp,
   Users,
   XCircle,
 } from "lucide-react";
@@ -22,6 +24,7 @@ const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
 const MESSAGE_CACHE_KEY = "flatfly.messageCache.v1";
 const MESSAGES_PAGE_SIZE = 10;
 const FLATFLY_SUPPORT_EMAIL = "support@flatfly.local";
+const LISTING_RATING_UI_SLOTS = 6;
 
 interface User {
   id: number;
@@ -50,6 +53,20 @@ interface ListingPreview {
   path?: string;
 }
 
+interface ListingRatingVoter {
+  user_id: number;
+  is_like: boolean;
+  avatar?: string | null;
+  display_name?: string;
+}
+
+interface ListingRatingsPayload {
+  my_vote: boolean | null;
+  voters: ListingRatingVoter[];
+  like_count: number;
+  dislike_count: number;
+}
+
 interface Message {
   id: number;
   chat: number;
@@ -61,6 +78,7 @@ interface Message {
   listing_id?: number | null;
   listing_preview?: ListingPreview | Record<string, unknown>;
   display_text?: string;
+  listing_ratings?: ListingRatingsPayload | null;
 }
 
 interface Chat {
@@ -297,6 +315,8 @@ type MessengerChatListingCardProps = {
   t: (key: string) => string;
   getParticipantName: (participant: User | null) => string;
   onOpenListing: (path: string) => void;
+  onVote?: (messageId: number, isLike: boolean) => void;
+  voteBusy?: boolean;
 };
 
 function MessengerChatListingCard({
@@ -306,6 +326,8 @@ function MessengerChatListingCard({
   t,
   getParticipantName,
   onOpenListing,
+  onVote,
+  voteBusy,
 }: MessengerChatListingCardProps) {
   const [imgIndex, setImgIndex] = useState(0);
 
@@ -386,6 +408,7 @@ function MessengerChatListingCard({
               onOpenListing(listingPath);
             }
           }}
+          aria-label={listingTitle}
         >
           <div className="flex min-h-[140px] flex-col sm:flex-row">
             <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-gray-100 sm:h-[140px] sm:w-[168px] dark:bg-gray-900">
@@ -469,6 +492,67 @@ function MessengerChatListingCard({
             </div>
           </div>
         </button>
+        {onVote ? (
+          <div className="mt-2 space-y-2 px-1">
+            <div className="flex items-center gap-1.5" aria-label={t("messenger.housingGroup.listingVotesRowLabel")}>
+              {Array.from({ length: LISTING_RATING_UI_SLOTS }, (_, i) => {
+                const voter = message.listing_ratings?.voters[i];
+                const borderClass = voter
+                  ? voter.is_like
+                    ? "ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
+                    : "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900"
+                  : "border border-dashed border-gray-300 dark:border-gray-600";
+                const src = voter?.avatar ? getImageUrl(String(voter.avatar)) : null;
+                const initial = voter?.display_name?.trim()?.charAt(0)?.toUpperCase() || "?";
+                return (
+                  <div
+                    key={i}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200 ${borderClass}`}
+                    title={voter?.display_name || undefined}
+                  >
+                    {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : voter ? initial : ""}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={voteBusy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVote(message.id, true);
+                }}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+                  message.listing_ratings?.my_vote === true
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                }`}
+                aria-pressed={message.listing_ratings?.my_vote === true}
+              >
+                <ThumbsUp size={14} aria-hidden />
+                {t("messenger.housingGroup.listingLike")}
+              </button>
+              <button
+                type="button"
+                disabled={voteBusy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVote(message.id, false);
+                }}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+                  message.listing_ratings?.my_vote === false
+                    ? "border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                }`}
+                aria-pressed={message.listing_ratings?.my_vote === false}
+              >
+                <ThumbsDown size={14} aria-hidden />
+                {t("messenger.housingGroup.listingDislike")}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-1 flex items-center gap-1 px-1">
           {message.sender.id === currentUserId && (
             <span className="text-[10px] text-gray-400">
@@ -517,13 +601,19 @@ export default function MessengerPage() {
   const [housingMessageFilter, setHousingMessageFilter] = useState<"all" | "listings">("all");
   const [isHousingParticipantsOpen, setIsHousingParticipantsOpen] = useState(false);
   const [isHousingInviteOpen, setIsHousingInviteOpen] = useState(false);
+  const [isHousingPitchOpen, setIsHousingPitchOpen] = useState(false);
+  const [isHousingCompactInviteOpen, setIsHousingCompactInviteOpen] = useState(false);
+  const [housingListingVoteFilter, setHousingListingVoteFilter] = useState<number | "unanimous" | null>(null);
   const [isHousingCreateBusy, setIsHousingCreateBusy] = useState(false);
+  const [listingVoteBusyId, setListingVoteBusyId] = useState<number | null>(null);
   const [pendingJoinToken, setPendingJoinToken] = useState<string | null>(null);
   const [joinConflictChatId, setJoinConflictChatId] = useState<number | null>(null);
   const [isJoinBusy, setIsJoinBusy] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoOpenAttemptedRef = useRef(false);
+  const dismissedHousingCompactInviteChatIdRef = useRef<number | null>(null);
+  const housingFetchFilterByChatRef = useRef<Record<number, { likedBy?: number; unanimous?: boolean } | null>>({});
   const longPressTimeoutRef = useRef<number | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -631,6 +721,27 @@ export default function MessengerPage() {
     || (!isHousingGroupChat && isAwaitingReply)
     || (Boolean(selectedChat) && !canSendInCurrentChat);
 
+  const housingGroupChat = useMemo(
+    () => chats.find((c) => c.chat_type === "housing_group") ?? null,
+    [chats],
+  );
+
+  const buildHousingListFilter = useCallback(
+    (chatId: number): { likedBy?: number; unanimous?: boolean } | undefined => {
+      if (chatId !== selectedChatId || !isHousingGroupChat || housingMessageFilter !== "listings") {
+        return undefined;
+      }
+      if (housingListingVoteFilter === "unanimous") {
+        return { unanimous: true };
+      }
+      if (typeof housingListingVoteFilter === "number") {
+        return { likedBy: housingListingVoteFilter };
+      }
+      return undefined;
+    },
+    [selectedChatId, isHousingGroupChat, housingMessageFilter, housingListingVoteFilter],
+  );
+
   const updateMessageCacheEntry = (
     chatId: number,
     updater: (previous: ChatMessagesCacheEntry | undefined) => ChatMessagesCacheEntry,
@@ -691,7 +802,12 @@ export default function MessengerPage() {
 
   const fetchMessagesPage = async (
     chatId: number,
-    options: { offset?: number; afterId?: number; mode: "initial" | "older" | "poll" },
+    options: {
+      offset?: number;
+      afterId?: number;
+      mode: "initial" | "older" | "poll";
+      housingListFilter?: { likedBy?: number; unanimous?: boolean };
+    },
   ) => {
     const query = new URLSearchParams();
     if (typeof options.afterId === "number" && options.afterId > 0) {
@@ -700,6 +816,14 @@ export default function MessengerPage() {
       query.set("limit", String(MESSAGES_PAGE_SIZE));
       query.set("offset", String(options.offset ?? 0));
     }
+
+    const hf = options.housingListFilter ?? buildHousingListFilter(chatId);
+    if (hf?.unanimous) {
+      query.set("housing_filter_unanimous", "1");
+    } else if (typeof hf?.likedBy === "number") {
+      query.set("housing_filter_liked_by", String(hf.likedBy));
+    }
+    housingFetchFilterByChatRef.current[chatId] = hf ?? null;
 
     if (options.mode === "initial") {
       setIsMessagesLoading(true);
@@ -803,6 +927,7 @@ export default function MessengerPage() {
     await fetchMessagesPage(selectedChatId, {
       mode: "older",
       offset: cacheEntry.nextOffset,
+      housingListFilter: housingFetchFilterByChatRef.current[selectedChatId] ?? buildHousingListFilter(selectedChatId),
     });
   };
 
@@ -816,6 +941,7 @@ export default function MessengerPage() {
     await fetchMessagesPage(chatId, {
       mode: "poll",
       afterId: lastMessageId,
+      housingListFilter: housingFetchFilterByChatRef.current[chatId] ?? undefined,
     });
   };
 
@@ -824,24 +950,18 @@ export default function MessengerPage() {
     setDraftConversation({ userId, participant });
   };
 
+  const nonHousingChats = useMemo(
+    () => chats.filter((chat) => chat.chat_type !== "housing_group"),
+    [chats],
+  );
+
   const filteredChats = useMemo(() => {
     const normalizedQuery = chatSearch.trim().toLowerCase();
-    if (!normalizedQuery) return chats;
+    if (!normalizedQuery) {
+      return nonHousingChats;
+    }
 
-    return chats.filter((chat) => {
-      if (chat.chat_type === "housing_group") {
-        const title = t("messenger.housingGroup.chatTitle").toLowerCase();
-        if (title.includes(normalizedQuery)) {
-          return true;
-        }
-        return chat.participants.some((participant) => {
-          const display = (participant.display_name || "").toLowerCase();
-          const first = (participant.first_name || "").toLowerCase();
-          const last = (participant.last_name || "").toLowerCase();
-          const full = `${first} ${last}`.trim();
-          return display.includes(normalizedQuery) || first.includes(normalizedQuery) || last.includes(normalizedQuery) || full.includes(normalizedQuery);
-        });
-      }
+    return nonHousingChats.filter((chat) => {
       const participant = getOtherParticipant(chat);
       if (!participant) return false;
       const display = (participant.display_name || "").toLowerCase();
@@ -850,7 +970,7 @@ export default function MessengerPage() {
       const full = `${first} ${last}`.trim();
       return display.includes(normalizedQuery) || first.includes(normalizedQuery) || last.includes(normalizedQuery) || full.includes(normalizedQuery);
     });
-  }, [chatSearch, chats, currentUserId, t]);
+  }, [chatSearch, nonHousingChats, currentUserId, t]);
 
   const clearLongPressTimeout = () => {
     if (longPressTimeoutRef.current !== null) {
@@ -888,6 +1008,23 @@ export default function MessengerPage() {
     navigate(qs ? `/messenger?${qs}` : "/messenger", { replace: true });
   }, [navigate, searchParams]);
 
+  const toggleHousingListingsFilter = useCallback(() => {
+    setHousingMessageFilter((prev) => {
+      const next = prev === "all" ? "listings" : "all";
+      if (next === "all") {
+        setHousingListingVoteFilter(null);
+      }
+      return next;
+    });
+  }, []);
+
+  const closeHousingCompactInvite = () => {
+    if (selectedChatId) {
+      dismissedHousingCompactInviteChatIdRef.current = selectedChatId;
+    }
+    setIsHousingCompactInviteOpen(false);
+  };
+
   const createHousingGroup = async () => {
     if (isHousingCreateBusy) {
       return;
@@ -905,6 +1042,7 @@ export default function MessengerPage() {
       });
       const data = (await response.json().catch(() => ({}))) as { code?: string; chat?: Chat };
       if (response.status === 409 && data.chat) {
+        dismissedHousingCompactInviteChatIdRef.current = null;
         setChats((previous) => {
           const rest = previous.filter((chat) => chat.chatid !== data.chat!.chatid);
           return sortChatsByActivity([data.chat!, ...rest]);
@@ -912,6 +1050,9 @@ export default function MessengerPage() {
         setSelectedChat(data.chat);
         setDraftConversation(null);
         replaceMessengerUrlChat(data.chat.chatid);
+        setIsHousingPitchOpen(false);
+        const solo = (data.chat.participant_count ?? data.chat.participants?.length ?? 0) <= 1;
+        setIsHousingCompactInviteOpen(solo);
         showToast(t("messenger.housingGroup.alreadyHaveGroupOpened"), "success");
         return;
       }
@@ -920,6 +1061,7 @@ export default function MessengerPage() {
         return;
       }
       const chat = data as Chat;
+      dismissedHousingCompactInviteChatIdRef.current = null;
       setChats((previous) => {
         const rest = previous.filter((c) => c.chatid !== chat.chatid);
         return sortChatsByActivity([chat, ...rest]);
@@ -927,11 +1069,56 @@ export default function MessengerPage() {
       setSelectedChat(chat);
       setDraftConversation(null);
       replaceMessengerUrlChat(chat.chatid);
+      setIsHousingPitchOpen(false);
+      setIsHousingCompactInviteOpen(true);
       showToast(t("messenger.housingGroup.groupCreated"), "success");
     } catch {
       showToast(t("messenger.housingGroup.createGroupError"), "error");
     } finally {
       setIsHousingCreateBusy(false);
+    }
+  };
+
+  const submitListingReaction = async (messageId: number, isLike: boolean) => {
+    if (!selectedChatId || listingVoteBusyId !== null) {
+      return;
+    }
+    setListingVoteBusyId(messageId);
+    try {
+      const response = await fetch(`/api/messages/${messageId}/listing-reaction/`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({ is_like: isLike }),
+      });
+      if (!response.ok) {
+        showToast(t("messenger.housingGroup.listingVoteError"), "error");
+        return;
+      }
+      const updated = (await response.json()) as Message;
+      updateMessageCacheEntry(selectedChatId, (previous) => {
+        const list = previous?.messages ?? [];
+        const idx = list.findIndex((m) => m.id === messageId);
+        if (idx < 0) {
+          return previous ?? buildCacheEntry(list, undefined, {});
+        }
+        const prevMsg = list[idx];
+        const next = [...list];
+        next[idx] = {
+          ...prevMsg,
+          ...updated,
+          listing_preview: prevMsg.listing_preview,
+          listing_ratings: updated.listing_ratings ?? prevMsg.listing_ratings,
+        };
+        return buildCacheEntry(next, previous, {});
+      });
+    } catch {
+      showToast(t("messenger.housingGroup.listingVoteError"), "error");
+    } finally {
+      setListingVoteBusyId(null);
     }
   };
 
@@ -964,7 +1151,11 @@ export default function MessengerPage() {
     }
   };
 
-  const runJoinHousingGroup = async (token: string) => {
+  const runJoinHousingGroup = async (token: string, opts?: { confirmLeavePrevious?: boolean }) => {
+    const body: Record<string, unknown> = { invite_token: token };
+    if (opts?.confirmLeavePrevious) {
+      body.confirm_leave_previous = true;
+    }
     const response = await fetch("/api/chats/join-housing-group/", {
       method: "POST",
       credentials: "include",
@@ -972,7 +1163,7 @@ export default function MessengerPage() {
         "Content-Type": "application/json",
         "X-CSRFToken": getCsrfToken(),
       },
-      body: JSON.stringify({ invite_token: token }),
+      body: JSON.stringify(body),
     });
     const data = (await response.json().catch(() => ({}))) as {
       code?: string;
@@ -982,15 +1173,18 @@ export default function MessengerPage() {
     return { response, data };
   };
 
-  const submitJoinHousingGroup = async () => {
+  const submitJoinHousingGroup = async (confirmLeavePrevious = false) => {
     if (!pendingJoinToken || isJoinBusy) {
       return;
     }
+    const leavingChatId = confirmLeavePrevious ? joinConflictChatId : null;
     setIsJoinBusy(true);
-    setJoinConflictChatId(null);
+    if (!confirmLeavePrevious) {
+      setJoinConflictChatId(null);
+    }
     try {
-      const { response, data } = await runJoinHousingGroup(pendingJoinToken);
-      if (response.status === 409 && data.code === "already_in_group") {
+      const { response, data } = await runJoinHousingGroup(pendingJoinToken, { confirmLeavePrevious });
+      if (response.status === 409 && data.code === "already_in_group" && !confirmLeavePrevious) {
         setJoinConflictChatId(typeof data.chatid === "number" ? data.chatid : null);
         return;
       }
@@ -1002,63 +1196,16 @@ export default function MessengerPage() {
         }
         return;
       }
-      const chat = data as unknown as Chat;
-      setChats((previous) => {
-        const rest = previous.filter((c) => c.chatid !== chat.chatid);
-        return sortChatsByActivity([chat, ...rest]);
-      });
-      setSelectedChat(chat);
-      setDraftConversation(null);
-      replaceMessengerUrlChat(chat.chatid);
-      setPendingJoinToken(null);
-      clearJoinGroupQuery();
-      showToast(t("messenger.housingGroup.joinedSuccess"), "success");
-    } catch {
-      showToast(t("messenger.housingGroup.joinError"), "error");
-    } finally {
-      setIsJoinBusy(false);
-    }
-  };
-
-  const leaveCurrentGroupAndJoin = async () => {
-    if (!pendingJoinToken || !joinConflictChatId || isJoinBusy) {
-      return;
-    }
-    setIsJoinBusy(true);
-    try {
-      const leaveRes = await fetch(`/api/chats/${joinConflictChatId}/leave-housing-group/`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
-        },
-        body: JSON.stringify({}),
-      });
-      if (!leaveRes.ok) {
-        showToast(t("messenger.housingGroup.leaveFailed"), "error");
-        return;
-      }
-      setChats((previous) => previous.filter((chat) => chat.chatid !== joinConflictChatId));
-      removeMessageCacheEntry(joinConflictChatId);
-      if (selectedChat?.chatid === joinConflictChatId) {
-        replaceMessengerUrlChat(null);
-        setSelectedChat(null);
-      }
       setJoinConflictChatId(null);
-      const { response, data } = await runJoinHousingGroup(pendingJoinToken);
-      if (!response.ok) {
-        if (data.code === "group_full") {
-          showToast(t("messenger.housingGroup.groupFull"), "error");
-        } else {
-          showToast(t("messenger.housingGroup.joinError"), "error");
-        }
-        return;
+      if (leavingChatId !== null) {
+        removeMessageCacheEntry(leavingChatId);
       }
       const chat = data as unknown as Chat;
       setChats((previous) => {
-        const rest = previous.filter((c) => c.chatid !== chat.chatid);
-        return sortChatsByActivity([chat, ...rest]);
+        const withoutNew = previous.filter((c) => c.chatid !== chat.chatid);
+        const pruned =
+          leavingChatId !== null ? withoutNew.filter((c) => c.chatid !== leavingChatId) : withoutNew;
+        return sortChatsByActivity([chat, ...pruned]);
       });
       setSelectedChat(chat);
       setDraftConversation(null);
@@ -1374,15 +1521,19 @@ export default function MessengerPage() {
     shouldStickToBottomRef.current = true;
     initialScrollCompletedForChatRef.current = null;
 
-    const cachedEntry = messageCacheRef.current[selectedChatId];
-    if (!cachedEntry || cachedEntry.messages.length === 0) {
-      void fetchMessagesPage(selectedChatId, { mode: "initial", offset: 0 });
-      return;
+    const isHousingSelected = selectedChat?.chat_type === "housing_group" && selectedChat.chatid === selectedChatId;
+
+    if (!isHousingSelected) {
+      const cachedEntry = messageCacheRef.current[selectedChatId];
+      if (cachedEntry && cachedEntry.messages.length > 0) {
+        queueScrollToBottom("auto");
+        void pollLatestMessages(selectedChatId);
+        return;
+      }
     }
 
-    queueScrollToBottom("auto");
-    void pollLatestMessages(selectedChatId);
-  }, [selectedChatId]);
+    void fetchMessagesPage(selectedChatId, { mode: "initial", offset: 0 });
+  }, [selectedChatId, selectedChat?.chat_type, selectedChat?.chatid, housingMessageFilter, housingListingVoteFilter]);
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -1432,7 +1583,25 @@ export default function MessengerPage() {
     setHousingMessageFilter("all");
     setIsHousingParticipantsOpen(false);
     setIsHousingInviteOpen(false);
-  }, [selectedChatId]);
+    setHousingListingVoteFilter(null);
+    if (selectedChat?.chat_type !== "housing_group") {
+      setIsHousingCompactInviteOpen(false);
+    }
+  }, [selectedChatId, selectedChat?.chat_type]);
+
+  useEffect(() => {
+    if (!selectedChatId || selectedChat?.chat_type !== "housing_group") {
+      return;
+    }
+    if (housingParticipantCount !== 1 || activeMessages.length > 0) {
+      setIsHousingCompactInviteOpen(false);
+      return;
+    }
+    if (dismissedHousingCompactInviteChatIdRef.current === selectedChatId) {
+      return;
+    }
+    setIsHousingCompactInviteOpen(true);
+  }, [selectedChatId, selectedChat?.chat_type, housingParticipantCount, activeMessages.length]);
 
   useEffect(() => {
     if (!chatsLoaded) {
@@ -1722,16 +1891,6 @@ export default function MessengerPage() {
           <span className="text-lg font-bold text-black dark:text-white">{t("messenger.title")}</span>
           <button
             type="button"
-            disabled={isHousingCreateBusy}
-            className="rounded-lg border border-[#C505EB] bg-[#C505EB]/10 px-2 py-1 text-xs font-semibold text-[#7a0cb3] hover:bg-[#C505EB]/20 disabled:opacity-50 dark:text-[#e9d5ff] dark:hover:bg-[#C505EB]/25"
-            onClick={() => {
-              void createHousingGroup();
-            }}
-          >
-            {t("messenger.housingGroup.entryButton")}
-          </button>
-          <button
-            type="button"
             className="ml-auto rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
             onClick={() => setIsBlacklistOpen(true)}
           >
@@ -1745,9 +1904,53 @@ export default function MessengerPage() {
           placeholder={t("messenger.searchPlaceholder")}
           className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
         />
+        <div
+          className={`relative mb-3 cursor-pointer rounded-xl border p-3 transition-all duration-200 ${
+            housingGroupChat && selectedChatId === housingGroupChat.chatid
+              ? "border-[#C505EB] bg-[#C505EB]/10"
+              : "border-[#08D3E2]/35 bg-gradient-to-r from-[#C505EB]/8 to-[#08D3E2]/12 hover:border-[#C505EB]/45 dark:border-[#08D3E2]/25"
+          }`}
+          onClick={() => {
+            if (housingGroupChat) {
+              setDraftConversation(null);
+              setSelectedChat(housingGroupChat);
+              replaceMessengerUrlChat(housingGroupChat.chatid);
+            } else {
+              setIsHousingPitchOpen(true);
+            }
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C505EB] to-[#08D3E2] text-white shadow-sm">
+              <Users size={22} aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-black dark:text-white">{t("messenger.housingGroup.chatTitle")}</div>
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                {housingGroupChat ? (
+                  housingGroupChat.last_message?.message_kind === "listing" ? (
+                    housingGroupChat.last_message.display_text
+                      || (typeof housingGroupChat.last_message.listing_preview === "object"
+                        && housingGroupChat.last_message.listing_preview
+                        && "title" in housingGroupChat.last_message.listing_preview
+                        ? String((housingGroupChat.last_message.listing_preview as ListingPreview).title || "")
+                        : "")
+                      || t("messenger.housingGroup.listingsOnly")
+                  ) : (
+                    housingGroupChat.last_message?.text || t("messenger.noMessagesPreview")
+                  )
+                ) : (
+                  t("messenger.housingGroup.pinnedNoGroupSubtitle")
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
         {filteredChats.length === 0 && (
           <div className="text-sm text-gray-400">
-            {chats.length === 0 ? t("messenger.noDialogs") : t("messenger.noSearchResults")}
+            {chats.length === 0 || (nonHousingChats.length === 0 && !chatSearch.trim())
+              ? t("messenger.noDialogs")
+              : t("messenger.noSearchResults")}
           </div>
         )}
         {filteredChats.map((chat) => (
@@ -1918,7 +2121,7 @@ export default function MessengerPage() {
                           className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                           onClick={() => {
                             setIsMobileActionsOpen(false);
-                            setHousingMessageFilter((prev) => (prev === "all" ? "listings" : "all"));
+                            toggleHousingListingsFilter();
                           }}
                         >
                           {housingMessageFilter === "all"
@@ -2008,7 +2211,7 @@ export default function MessengerPage() {
                       type="button"
                       className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                       onClick={() => {
-                        setHousingMessageFilter((prev) => (prev === "all" ? "listings" : "all"));
+                        toggleHousingListingsFilter();
                       }}
                     >
                       {housingMessageFilter === "all"
@@ -2084,6 +2287,43 @@ export default function MessengerPage() {
                 )}
               </div>
             </div>
+            {isHousingGroupChat && housingMessageFilter === "listings" && selectedChat ? (
+              <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-gray-200 bg-gray-50/90 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/90">
+                <span className="sr-only">{t("messenger.housingGroup.listingFilterHint")}</span>
+                {selectedChat.participants.map((participant) => {
+                  const active = housingListingVoteFilter === participant.id;
+                  const src = participant.avatar ? getImageUrl(String(participant.avatar)) : null;
+                  const initial = getParticipantName(participant).charAt(0).toUpperCase() || "?";
+                  return (
+                    <button
+                      key={participant.id}
+                      type="button"
+                      title={t("messenger.housingGroup.filterByMemberLikes").replace("{{name}}", getParticipantName(participant))}
+                      onClick={() => {
+                        setHousingListingVoteFilter((prev) => (prev === participant.id ? null : participant.id));
+                      }}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-gray-200 text-xs font-bold text-gray-700 transition dark:bg-gray-700 dark:text-gray-200 ${
+                        active ? "border-[#C505EB] shadow-sm" : "border-transparent"
+                      }`}
+                    >
+                      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initial}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  title={t("messenger.housingGroup.filterUnanimousLikes")}
+                  onClick={() => {
+                    setHousingListingVoteFilter((prev) => (prev === "unanimous" ? null : "unanimous"));
+                  }}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[#C505EB]/20 to-[#08D3E2]/25 text-[#7a0cb3] transition dark:from-[#C505EB]/30 dark:to-[#08D3E2]/30 dark:text-[#e9d5ff] ${
+                    housingListingVoteFilter === "unanimous" ? "border-[#C505EB] shadow-sm" : "border-transparent"
+                  }`}
+                >
+                  <Users size={18} aria-hidden />
+                </button>
+              </div>
+            ) : null}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto bg-white p-6 dark:bg-gray-900"
@@ -2117,6 +2357,8 @@ export default function MessengerPage() {
                         t={t}
                         getParticipantName={getParticipantName}
                         onOpenListing={openExternalFromChat}
+                        onVote={isHousingGroupChat ? submitListingReaction : undefined}
+                        voteBusy={listingVoteBusyId === message.id}
                       />
                     );
                   }
@@ -2425,16 +2667,17 @@ export default function MessengerPage() {
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t("messenger.housingGroup.joinPromptBody")}</p>
             {joinConflictChatId !== null && (
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                <p className="mb-2">{t("messenger.housingGroup.mustLeaveFirst")}</p>
+                <p className="mb-2 font-semibold">{t("messenger.housingGroup.joinConflictTitle")}</p>
+                <p className="mb-3">{t("messenger.housingGroup.joinConflictBody")}</p>
                 <button
                   type="button"
                   className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
                   disabled={isJoinBusy}
                   onClick={() => {
-                    void leaveCurrentGroupAndJoin();
+                    void submitJoinHousingGroup(true);
                   }}
                 >
-                  {t("messenger.housingGroup.leaveCurrentJoinNew")}
+                  {t("messenger.housingGroup.joinConflictConfirm")}
                 </button>
               </div>
             )}
@@ -2456,10 +2699,115 @@ export default function MessengerPage() {
                 className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#BA00F8] disabled:opacity-60"
                 disabled={isJoinBusy || joinConflictChatId !== null}
                 onClick={() => {
-                  void submitJoinHousingGroup();
+                  void submitJoinHousingGroup(false);
                 }}
               >
                 {isJoinBusy ? t("loading") : t("messenger.housingGroup.joinConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isHousingPitchOpen && (
+        <div
+          className="fixed inset-0 z-[211] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+          onClick={() => setIsHousingPitchOpen(false)}
+        >
+          <div
+            className="flex max-h-[min(92vh,620px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="min-h-0 flex-1 space-y-2 overflow-hidden px-4 py-4 text-xs leading-snug text-gray-700 dark:text-gray-200 sm:space-y-2.5 sm:px-6 sm:py-5 sm:text-sm sm:leading-snug">
+              {t("messenger.housingGroup.pitchBody")
+                .split("\n\n")
+                .map((para, idx) => (
+                  <p key={idx} className="whitespace-pre-line">
+                    {para}
+                  </p>
+                ))}
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700 sm:flex-row sm:justify-end sm:gap-3">
+              <button
+                type="button"
+                className="order-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 sm:order-1"
+                onClick={() => setIsHousingPitchOpen(false)}
+              >
+                {t("messenger.housingGroup.pitchLater")}
+              </button>
+              <button
+                type="button"
+                disabled={isHousingCreateBusy}
+                className="order-1 rounded-lg bg-[#C505EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#BA00F8] disabled:opacity-50 sm:order-2"
+                onClick={() => {
+                  void createHousingGroup();
+                }}
+              >
+                {isHousingCreateBusy ? t("loading") : t("messenger.housingGroup.pitchCreateInvite")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isHousingCompactInviteOpen && selectedChat?.invite_token && selectedChat.chat_type === "housing_group" && (
+        <div
+          className="fixed inset-0 z-[212] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+          onClick={closeHousingCompactInvite}
+        >
+          <div
+            className="flex w-full max-w-[min(100%,400px)] flex-col rounded-2xl bg-white p-4 shadow-2xl dark:bg-gray-800 sm:max-w-md sm:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-1 text-base font-bold text-black dark:text-white sm:text-lg">
+              {t("messenger.housingGroup.compactInviteTitle")}
+            </div>
+            <p className="mb-3 text-xs text-gray-600 dark:text-gray-300 sm:text-sm">{t("messenger.housingGroup.compactInviteHint")}</p>
+            <div className="mx-auto flex aspect-square w-[min(72vw,200px)] max-w-[200px] shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white p-1.5 dark:border-gray-600 sm:w-44 sm:max-w-none sm:p-2">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/messenger?join_group=${selectedChat.invite_token}`)}`}
+                alt=""
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <button
+              type="button"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700"
+              onClick={async () => {
+                const link = `${window.location.origin}/messenger?join_group=${selectedChat.invite_token}`;
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(link);
+                  } else {
+                    throw new Error("no clipboard");
+                  }
+                  showToast(t("messenger.housingGroup.linkCopied"), "success");
+                } catch {
+                  showToast(t("messenger.housingGroup.joinError"), "error");
+                }
+              }}
+            >
+              <Copy size={16} />
+              {t("messenger.housingGroup.copyLinkHidden")}
+            </button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => {
+                  if (selectedChatId) {
+                    dismissedHousingCompactInviteChatIdRef.current = selectedChatId;
+                  }
+                  setIsHousingCompactInviteOpen(false);
+                  setIsHousingInviteOpen(true);
+                }}
+              >
+                {t("messenger.housingGroup.compactFullInvite")}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#BA00F8]"
+                onClick={closeHousingCompactInvite}
+              >
+                {t("messenger.housingGroup.compactDone")}
               </button>
             </div>
           </div>

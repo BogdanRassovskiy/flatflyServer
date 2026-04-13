@@ -113,7 +113,26 @@
       "deleteConfirmBody": "Skupina a všechny zprávy v ní budou nenávratně smazány. Ostatní členové ztratí přístup k tomuto chatu.",
       "destructiveDataWarning": "Upozornění: akci nelze vrátit zpět. Data ze skupiny budou nenávratně ztracena.",
       "confirmLeaveButton": "Opustit skupinu",
-      "confirmDeleteButton": "Smazat natrvalo"
+      "confirmDeleteButton": "Smazat natrvalo",
+      "pinnedNoGroupSubtitle": "Vytvořte skupinu a pozvěte další lidi",
+      "pitchBody": "Hledáte bydlení spolu?\n\nTak proč to řešit v chaotickém chatu, kde se odkazy ztrácí mezi zprávami?\n\nVytvořte si společnou skupinu a mějte všechny nabídky na jednom místě.\nKaždý může přidávat byty, hodnotit je a rovnou o nich diskutovat — bez zmatku a ztracených odkazů.\n\nUž žádné „pošli to ještě jednou“.\nVšechno přehledně, společně a na jednom místě.",
+      "pitchLater": "Teď ne",
+      "pitchCreateInvite": "Vytvořit skupinu a pozvat",
+      "compactInviteTitle": "Pozvěte ostatní",
+      "compactInviteHint": "Naskenujte QR kód nebo zkopírujte odkaz tlačítkem níže — adresu v chatu neukazujeme, aby zůstal přehledný.",
+      "copyLinkHidden": "Kopírovat odkaz",
+      "compactFullInvite": "Zobrazit odkaz a detaily",
+      "compactDone": "Hotovo",
+      "joinConflictTitle": "Nelze být ve dvou skupinách",
+      "joinConflictBody": "Ve funkci „Hledáme společně“ můžete být jen v jedné skupině. Pokud vstoupíte do této nové skupiny, opustíte tu starou a ztratíte k ní přístup včetně dat. Byl-li jste ve staré skupině sám, bude smazána.",
+      "joinConflictConfirm": "Opustit starou skupinu a vstoupit",
+      "listingLike": "Líbí",
+      "listingDislike": "Nelíbí",
+      "listingVotesRowLabel": "Hodnocení členů skupiny",
+      "listingVoteError": "Hodnocení se nepodařilo uložit",
+      "listingFilterHint": "Filtrovat inzeráty podle toho, co se líbí členům",
+      "filterByMemberLikes": "Jen inzeráty, které se líbí uživateli {{name}}",
+      "filterUnanimousLikes": "Jen inzeráty, které se líbí všem v skupině"
     }
   },
   "neighbours": {

@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Chat, Message, ChatBlock
+from django.db.models import Count, Q
+
+from .models import Chat, Message, ChatBlock, ListingCardReaction
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -40,10 +42,14 @@ class UserSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(avatar_url) if request else avatar_url
 
 
+LISTING_RATING_UI_SLOTS = 6
+
+
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     display_text = serializers.SerializerMethodField()
     listing_id = serializers.SerializerMethodField()
+    listing_ratings = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -58,6 +64,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "listing_id",
             "listing_preview",
             "display_text",
+            "listing_ratings",
         )
 
     def get_listing_id(self, obj):
@@ -71,6 +78,47 @@ class MessageSerializer(serializers.ModelSerializer):
             if obj.listing_id:
                 return f"Listing #{obj.listing_id}"
         return obj.text or ""
+
+    def get_listing_ratings(self, obj):
+        if obj.message_kind != Message.KIND_LISTING:
+            return None
+        request = self.context.get("request")
+        stats = ListingCardReaction.objects.filter(message=obj).aggregate(
+            likes=Count("id", filter=Q(is_like=True)),
+            dislikes=Count("id", filter=Q(is_like=False)),
+        )
+        prefetched = getattr(obj, "_prefetched_objects_cache", None)
+        if prefetched and "listing_reactions" in prefetched:
+            reactions = sorted(obj.listing_reactions.all(), key=lambda r: r.updated_at, reverse=True)[
+                :LISTING_RATING_UI_SLOTS
+            ]
+        else:
+            reactions = list(
+                ListingCardReaction.objects.filter(message=obj)
+                .select_related("user__profile")
+                .order_by("-updated_at")[:LISTING_RATING_UI_SLOTS]
+            )
+        voters = []
+        for r in reactions:
+            voters.append(
+                {
+                    "user_id": r.user_id,
+                    "is_like": r.is_like,
+                    "avatar": UserSerializer(r.user, context=self.context).data.get("avatar"),
+                    "display_name": UserSerializer(r.user, context=self.context).data.get("display_name"),
+                }
+            )
+        my_vote = None
+        if request and request.user.is_authenticated:
+            row = ListingCardReaction.objects.filter(message=obj, user=request.user).first()
+            if row:
+                my_vote = row.is_like
+        return {
+            "my_vote": my_vote,
+            "voters": voters,
+            "like_count": stats["likes"] or 0,
+            "dislike_count": stats["dislikes"] or 0,
+        }
 
 
 class ChatSerializer(serializers.ModelSerializer):

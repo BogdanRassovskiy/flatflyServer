@@ -3,12 +3,12 @@ import uuid
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Chat, Message, ChatBlock, ChatReport
+from .models import Chat, Message, ChatBlock, ChatReport, ListingCardReaction
 from .serializers import ChatSerializer, MessageSerializer, UserSerializer
 from .utils import listing_to_preview_dict
 from django.contrib.auth import get_user_model
 from rest_framework.generics import get_object_or_404
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Prefetch
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from users.models import Profile
 from listings.models import Listing
@@ -39,19 +39,25 @@ def _parse_positive_int(raw_value, default_value):
     return parsed if parsed >= 0 else default_value
 
 
-def _delete_listing_card_reactions_for_chat(chat_pk: int) -> None:
-    """Listing card reactions FK to Message; table may exist before an in-repo migration."""
-    from django.db import connection
+LISTING_RATING_UI_SLOTS = 6
 
-    table = "chats_listingcardreaction"
-    if table not in connection.introspection.table_names():
+
+def _delete_listing_card_reactions_for_chat(chat_pk: int) -> None:
+    ListingCardReaction.objects.filter(message__chat_id=chat_pk).delete()
+
+
+def _leave_or_delete_housing_group_for_user(user, old_chat: Chat) -> None:
+    """Leave housing group or delete it if user was the only member."""
+    if old_chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
         return
-    qn = connection.ops.quote_name(table)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"DELETE FROM {qn} WHERE message_id IN (SELECT id FROM chats_message WHERE chat_id = %s)",
-            [chat_pk],
-        )
+    if user not in old_chat.participants.all():
+        return
+    if old_chat.participants.count() <= 1:
+        _delete_listing_card_reactions_for_chat(old_chat.pk)
+        Message.objects.filter(chat=old_chat).update(reply_to=None)
+        old_chat.delete()
+    else:
+        old_chat.participants.remove(user)
 
 
 class ChatViewSet(viewsets.ModelViewSet):
@@ -132,6 +138,49 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
         base_queryset = chat.messages.select_related('sender__profile', 'listing')
+
+        if is_housing_group:
+            liked_by = request.query_params.get('housing_filter_liked_by')
+            unanimous_raw = (request.query_params.get('housing_filter_unanimous') or '').lower()
+            if liked_by and str(liked_by).strip():
+                try:
+                    uid = int(liked_by)
+                except (TypeError, ValueError):
+                    return Response({'detail': 'Invalid housing_filter_liked_by'}, status=status.HTTP_400_BAD_REQUEST)
+                if uid not in participant_ids:
+                    return Response({'detail': 'User is not a group participant'}, status=status.HTTP_400_BAD_REQUEST)
+                liked_ids = ListingCardReaction.objects.filter(
+                    message__chat=chat,
+                    message__message_kind=Message.KIND_LISTING,
+                    user_id=uid,
+                    is_like=True,
+                ).values_list('message_id', flat=True)
+                base_queryset = base_queryset.filter(id__in=liked_ids)
+            elif unanimous_raw in ('1', 'true', 'yes'):
+                pset = set(participant_ids)
+                n = len(pset)
+                listing_ids = list(
+                    base_queryset.filter(message_kind=Message.KIND_LISTING).values_list('id', flat=True)
+                )
+                keep_ids = []
+                for mid in listing_ids:
+                    likers = set(
+                        ListingCardReaction.objects.filter(
+                            message_id=mid,
+                            is_like=True,
+                        ).values_list('user_id', flat=True)
+                    )
+                    if likers == pset and len(likers) == n and n > 0:
+                        keep_ids.append(mid)
+                base_queryset = base_queryset.filter(id__in=keep_ids)
+
+            base_queryset = base_queryset.prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+
         after_id = _parse_positive_int(request.query_params.get('after_id'), 0)
 
         if after_id > 0:
@@ -351,14 +400,18 @@ class ChatViewSet(viewsets.ModelViewSet):
             .first()
         )
         if other_group:
-            return Response(
-                {
-                    'code': 'already_in_group',
-                    'chatid': other_group.chatid,
-                    'detail': 'Leave your current group before joining another.',
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
+            confirm = request.data.get('confirm_leave_previous')
+            confirm_ok = confirm is True or confirm == 'true' or confirm == '1' or confirm == 1
+            if not confirm_ok:
+                return Response(
+                    {
+                        'code': 'already_in_group',
+                        'chatid': other_group.chatid,
+                        'detail': 'Leave your current group before joining another.',
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            _leave_or_delete_housing_group_for_user(request.user, other_group)
 
         chat.participants.add(request.user)
         chat = Chat.objects.filter(pk=chat.pk).prefetch_related('participants__profile').first()
@@ -446,3 +499,35 @@ class MessageViewSet(viewsets.ModelViewSet):
             })
 
         serializer.save(sender=self.request.user, chat=chat, message_kind=Message.KIND_TEXT)
+
+    @action(detail=True, methods=['post'], url_path='listing-reaction')
+    def listing_reaction(self, request, pk=None):
+        message = self.get_object()
+        if message.message_kind != Message.KIND_LISTING:
+            return Response({'detail': 'Not a listing message'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user not in message.chat.participants.all():
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if message.chat.chat_type != Chat.CHAT_TYPE_HOUSING_GROUP:
+            return Response({'detail': 'Listing reactions are only for housing group chats'}, status=400)
+
+        raw = request.data.get('is_like')
+        if raw not in (True, False):
+            return Response({'detail': 'is_like must be a boolean'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ListingCardReaction.objects.update_or_create(
+            message=message,
+            user=request.user,
+            defaults={'is_like': raw},
+        )
+        message = (
+            Message.objects.filter(pk=message.pk)
+            .select_related('sender__profile', 'listing', 'chat')
+            .prefetch_related(
+                Prefetch(
+                    'listing_reactions',
+                    queryset=ListingCardReaction.objects.select_related('user__profile').order_by('-updated_at'),
+                )
+            )
+            .first()
+        )
+        return Response(MessageSerializer(message, context={'request': request}).data)

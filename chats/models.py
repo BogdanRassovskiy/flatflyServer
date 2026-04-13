@@ -60,6 +60,27 @@ class Message(models.Model):
         return f"Message {self.id} in Chat {self.chat.chatid}"
 
 
+class ListingCardReaction(models.Model):
+    """Like/dislike on a listing card message in group chat (one vote per user per message)."""
+
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="listing_reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listing_card_reactions")
+    is_like = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["message", "user"],
+                name="uniq_listing_reaction_message_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"ListingReaction {self.message_id} user={self.user_id} like={self.is_like}"
+
+
 class ChatBlock(models.Model):
     blocker = models.ForeignKey(
         settings.AUTH_USER_MODEL,

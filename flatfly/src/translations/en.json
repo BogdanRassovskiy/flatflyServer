@@ -113,7 +113,26 @@
       "deleteConfirmBody": "The group and all of its messages will be permanently deleted. Other members will lose access to this chat.",
       "destructiveDataWarning": "Warning: this cannot be undone. Your data from this group will be lost.",
       "confirmLeaveButton": "Leave group",
-      "confirmDeleteButton": "Delete permanently"
+      "confirmDeleteButton": "Delete permanently",
+      "pinnedNoGroupSubtitle": "Create a group and invite people",
+      "pitchBody": "Looking for a place together?\n\nWhy juggle a messy chat where links vanish between messages?\n\nCreate a shared group and keep every listing in one place.\nEveryone can add flats, rate them, and discuss them right there — no chaos or lost links.\n\nNo more “send that again”.\nEverything clear, together, in one place.",
+      "pitchLater": "Not now",
+      "pitchCreateInvite": "Create group and invite",
+      "compactInviteTitle": "Invite your housemates",
+      "compactInviteHint": "Scan the QR code or copy the link with the button below — we keep the URL out of the main view so things stay tidy.",
+      "copyLinkHidden": "Copy link",
+      "compactFullInvite": "Show link and details",
+      "compactDone": "Done",
+      "joinConflictTitle": "You can’t be in two groups",
+      "joinConflictBody": "In “Search together” you can only be in one group at a time. If you join this new group, you will leave the old one and lose access to its data. If you were the only member there, that old group will be deleted.",
+      "joinConflictConfirm": "Leave old group and join",
+      "listingLike": "Like",
+      "listingDislike": "Dislike",
+      "listingVotesRowLabel": "Group member ratings",
+      "listingVoteError": "Could not save your rating",
+      "listingFilterHint": "Filter listings by who liked them",
+      "filterByMemberLikes": "Listings liked by {{name}}",
+      "filterUnanimousLikes": "Listings liked by everyone in the group"
     }
   },
   "neighbours": {
