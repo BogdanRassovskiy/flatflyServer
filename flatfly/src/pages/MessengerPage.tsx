@@ -502,10 +502,10 @@ function MessengerChatListingCard({
   return (
     <div
       id={`chat-message-${message.id}`}
-      className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
+      className={`mb-4 flex min-w-0 ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`touch-manipulation w-full max-w-[360px] shrink-0 ${
+        className={`touch-manipulation min-w-0 w-full max-w-[min(100%,360px)] shrink ${
           highlighted
             ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
             : ""
@@ -545,7 +545,7 @@ function MessengerChatListingCard({
         ) : null}
         <button
           type="button"
-          className="w-full max-w-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
+          className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
           onClick={() => {
             if (suppressListingOpenAfterReplyLongPressRef?.current) {
               suppressListingOpenAfterReplyLongPressRef.current = false;
@@ -557,14 +557,14 @@ function MessengerChatListingCard({
           }}
           aria-label={listingTitle}
         >
-          {/* Фиксированные ширина/высота: сетка 148px + остаток; фото — целиком в ячейке (object-contain), без clip */}
-          <div className="grid h-[148px] w-full grid-cols-[148px_minmax(0,1fr)] grid-rows-1">
-            <div className="relative box-border h-full w-[148px] min-w-[148px] max-w-[148px] bg-gray-100 dark:bg-gray-900">
+          {/* sm+: фиксированная сетка; до sm: колонка — фото на всю ширину, текст под ним (без сжатия в узкую колонку) */}
+          <div className="grid w-full min-w-0 max-sm:grid-cols-1 sm:h-[148px] sm:grid-cols-[148px_minmax(0,1fr)] sm:grid-rows-1">
+            <div className="relative box-border min-h-0 w-full overflow-hidden bg-gray-100 max-sm:h-[132px] sm:h-full sm:w-[148px] sm:min-w-[148px] sm:max-w-[148px] dark:bg-gray-900">
               {currentSrc ? (
                 <img
                   src={currentSrc}
                   alt=""
-                  className="box-border h-full w-full object-contain object-center"
+                  className="box-border h-full w-full object-cover object-center"
                   decoding="async"
                 />
               ) : (
@@ -601,7 +601,7 @@ function MessengerChatListingCard({
                 </>
               ) : null}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden border-l border-gray-100 px-2.5 py-2 dark:border-gray-700/80 sm:px-3">
+            <div className="flex min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden border-gray-100 px-3 py-2.5 dark:border-gray-700/80 max-sm:border-t max-sm:pt-2.5 sm:border-l sm:px-3 sm:py-2">
               <div className="line-clamp-2 text-left text-sm font-bold leading-snug text-gray-900 dark:text-white">
                 {listingTitle}
               </div>
@@ -2558,7 +2558,7 @@ export default function MessengerPage() {
             </div>
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto bg-white p-6 dark:bg-gray-900"
+              className="flex-1 overflow-y-auto bg-white px-3 py-4 sm:p-6 dark:bg-gray-900"
               onScroll={handleMessagesScroll}
             >
               {isLoadingOlderMessages && (
@@ -2689,7 +2689,7 @@ export default function MessengerPage() {
                 })
               )}
             </div>
-            <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-3 sm:p-4 dark:border-gray-700 dark:bg-gray-800">
               {replyDraft ? (
                 <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#C505EB]/35 bg-[#C505EB]/8 px-3 py-2 dark:border-[#C505EB]/45 dark:bg-[#C505EB]/15">
                   {replyDraft.listing_thumb ? (
