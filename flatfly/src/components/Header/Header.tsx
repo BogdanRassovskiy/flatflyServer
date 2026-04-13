@@ -37,8 +37,10 @@ export default function Header() {
     ];
 
     const menuItemsColumn2 = [
-        // Соседи: отдельный пункт не показываем — есть кнопка «Найти соседа».
+        //{ title: t("header.rooms"), path: "/rooms" },
+        { title: t("header.neighbours"), path: "/neighbours" },
         { title: t("header.apartments"), path: "/apartments" },
+
     ];
 
     // menuItems объединены из menuItemsColumn1 и menuItemsColumn2, используется в отдельных местах
@@ -232,7 +234,7 @@ export default function Header() {
 
     return(
         <div
-            className={`fixed left-0 top-0 z-50 flex h-[50px] min-[771px]:h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
+            className={`fixed left-0 top-0 z-50 flex h-[100px] w-full flex-col items-center border-b border-gray-300 transition-[background-color,box-shadow,backdrop-filter] duration-300 dark:border-gray-700 interFont ${
                 desktopSolidBar
                     ? "min-[771px]:bg-white min-[771px]:shadow-sm min-[771px]:dark:bg-gray-900"
                     : "min-[771px]:bg-transparent"
@@ -245,9 +247,9 @@ export default function Header() {
 
             
 
-            <div className="grid h-[50px] min-[771px]:h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
+            <div className="grid h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
                 <Link to="/" className="flex shrink-0 items-center justify-center">
-                    <span className="max-[770px]:text-[22px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
+                    <span className="max-[770px]:text-[32px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
                         FlatFly
                     </span>
                 </Link>
@@ -342,12 +344,12 @@ export default function Header() {
                     {isAuthenticated && (
                         <Link
                             to="/messenger"
-                            className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white duration-300 hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB] min-[771px]:h-10 min-[771px]:w-10"
+                            className="relative hidden min-[771px]:flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white duration-300 hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
                             aria-label={t("messenger.title")}
                         >
-                            <MessageCircle className="h-4 w-4 text-[#C505EB] min-[771px]:h-[22px] min-[771px]:w-[22px]" />
+                            <MessageCircle size={22} className="text-[#C505EB]" />
                             {unreadMessagesCount > 0 && (
-                                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C505EB] px-0.5 text-center text-[10px] font-bold leading-none text-white min-[771px]:h-5 min-[771px]:min-w-5 min-[771px]:px-1 min-[771px]:text-[11px]">
+                                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C505EB] px-1 text-center text-[11px] font-bold leading-none text-white">
                                     {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
                                 </span>
                             )}
@@ -361,24 +363,11 @@ export default function Header() {
                                 e.stopPropagation();
                                 setIsMenuOpen(!isMenuOpen);
                             }}
-                            className={`flex h-8 cursor-pointer items-center gap-1 rounded-full border-2 border-[#DDDDDD] px-1.5 duration-300 hover:border-[#C505EB] dark:border-gray-600 max-[770px]:gap-1 min-[771px]:h-auto min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
+                            className={`flex cursor-pointer items-center gap-0.5 rounded-full border-2 border-[#DDDDDD] px-2.5 py-1 duration-300 hover:border-[#C505EB] dark:border-gray-600 min-[771px]:gap-1 min-[771px]:border-[3px] min-[771px]:px-5 min-[771px]:py-2 ${isMenuOpen ? "border-[#C505EB]" : ""}`}
                             aria-label={t("header.openMenu")}
                         >
                             <Menu className="h-[18px] w-[18px] shrink-0 text-[#08E2BE] min-[771px]:h-6 min-[771px]:w-6" />
-                            {isAuthenticated && user?.avatar && !menuAvatarFailed ? (
-                                <img
-                                    src={getImageUrl(user.avatar)}
-                                    alt=""
-                                    width={28}
-                                    height={28}
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#C505EB]/25 min-[771px]:h-8 min-[771px]:w-8 min-[771px]:ring-2"
-                                    onError={() => setMenuAvatarFailed(true)}
-                                />
-                            ) : (
-                                <CircleUser className="h-7 w-7 shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
-                            )}
+                            <CircleUser className="h-[18px] w-[18px] shrink-0 text-[#C505EB] min-[771px]:h-6 min-[771px]:w-6" />
                         </button>
                         
                         {/* Десктопное выпадающее меню — вертикальные блоки */}
@@ -495,7 +484,7 @@ export default function Header() {
                 <>
                     {/* Overlay для затемнения фона */}
                     <div 
-                        className={`hidden max-[770px]:block fixed inset-0 z-[99] top-[50px] bg-black bg-opacity-50`}
+                        className={`hidden max-[770px]:block fixed inset-0 bg-black bg-opacity-50 z-[99] top-[100px]`}
                         onClick={() => setIsMenuOpen(false)}
                         onTouchStart={(e) => {
                             if (e.target === e.currentTarget) {
@@ -510,7 +499,7 @@ export default function Header() {
                     {/* Мобильное меню — компактная колонка по центру */}
                     <div 
                         ref={mobileMenuRef}
-                        className={`hidden max-[770px]:flex fixed left-0 top-[50px] z-[100] h-[calc(100vh-50px)] w-full flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm transition-all duration-300 dark:bg-gray-900/95`}
+                        className={`hidden max-[770px]:flex fixed top-[100px] left-0 w-full h-[calc(100vh-100px)] flex-col items-center overflow-y-auto bg-white/95 px-3 pb-8 pt-6 backdrop-blur-sm dark:bg-gray-900/95 z-[100] transition-all duration-300`}
                         onClick={(e) => {
                             e.stopPropagation();
                         }}
@@ -606,6 +595,26 @@ export default function Header() {
                             {/* Профиль для зарегистрированных пользователей */}
                             {isAuthenticated && (
                                 <Link
+                                    to="/messenger"
+                                    className={`w-full rounded-lg px-3 py-2 text-center text-[15px] font-semibold duration-300 touch-manipulation active:scale-[0.98] ${
+                                        pathname === "/messenger"
+                                            ? 'bg-[#C505EB] text-white shadow-sm'
+                                            : 'bg-gray-50 text-[#333333] hover:bg-gray-100 active:bg-gray-200/80 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 dark:active:bg-zinc-600'
+                                    }`}
+                                    onClick={() => {
+                                        setTimeout(() => {
+                                            setIsMenuOpen(false);
+                                        }, 100);
+                                    }}
+                                >
+                                    {t("messenger.title")}
+                                    {unreadMessagesCount > 0 ? ` (${unreadMessagesCount > 9 ? "9+" : unreadMessagesCount})` : ""}
+                                </Link>
+                            )}
+
+                            {/* Профиль для зарегистрированных пользователей */}
+                            {isAuthenticated && (
+                                <Link
                                     to="/profile"
                                     className={`w-full rounded-lg px-3 py-2 text-center text-[15px] font-semibold duration-300 touch-manipulation active:scale-[0.98] ${
                                         pathname === "/profile" 
@@ -653,6 +662,29 @@ export default function Header() {
                                 </Link>
                             )}
                             
+                            {/* Разделитель */}
+                            <div className="my-1 h-px w-full bg-gray-200 dark:bg-zinc-700" />
+                            
+                            {/* Кнопка темы - в мобильном меню */}
+                            {mounted && (
+                                <button
+                                    onClick={toggleTheme}
+                                    className={`flex w-full items-center justify-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-center text-[15px] font-semibold text-[#333333] duration-300 touch-manipulation active:scale-[0.98] hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700`}
+                                >
+                                    {isDark ? (
+                                        <>
+                                            <Sun size={18} className="shrink-0 text-yellow-400" />
+                                            <span>{t("header.lightTheme")}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Moon size={18} className="shrink-0 text-gray-700 dark:text-gray-300" />
+                                            <span>{t("header.darkTheme")}</span>
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                            
                             {/* Выбор языка в выезжающем меню — на всех страницах */}
                             <div className="flex w-full items-stretch justify-center gap-1.5">
                                 {languages.map((lang) => (
@@ -662,13 +694,15 @@ export default function Header() {
                                         onClick={() => {
                                             setLanguage(lang.code);
                                         }}
-                                        className={`flex flex-1 items-center justify-center rounded-lg px-2 py-2 text-[15px] font-bold tracking-wide leading-none duration-300 touch-manipulation active:scale-[0.98] ${
+                                        className={`flex flex-1 items-center justify-center rounded-lg px-2 py-2 text-xl leading-none duration-300 touch-manipulation active:scale-[0.98] ${
                                             language === lang.code
                                                 ? "bg-[#C505EB] text-white shadow-sm ring-1 ring-[#C505EB]/40"
-                                                : "bg-gray-50 text-[#333333] hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
+                                                : "bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                                         }`}
                                     >
-                                        {lang.code}
+                                        {lang.code === "cz" && "🇨🇿"}
+                                        {lang.code === "ru" && "🇷🇺"}
+                                        {lang.code === "en" && "🇬🇧"}
                                     </button>
                                 ))}
                             </div>
