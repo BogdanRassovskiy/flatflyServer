@@ -1615,10 +1615,10 @@ export default function ProfilePage() {
                 <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
                 <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-stretch min-[771px]:justify-between min-[771px]:gap-6">
-                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,640px)] min-[771px]:flex-none">
-                {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
+                    <div className="min-w-0 w-full min-[771px]:max-w-[min(100%,720px)] min-[771px]:flex-none">
+                {/* Section Tabs - Desktop (перенос строк, без горизонтального скролла; выравнивание вправо) */}
                 <div className="mb-6 hidden min-[771px]:block">
-                    <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                    <div className="flex flex-wrap items-stretch justify-end gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                         {sections.map((section) => {
                             const miss = sectionMissingCounts[section.key];
                             const active = activeSection === section.key;
@@ -1627,7 +1627,7 @@ export default function ProfilePage() {
                                     key={section.key}
                                     type="button"
                                     onClick={() => setActiveSection(section.key)}
-                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-semibold whitespace-nowrap transition-all duration-300 ${
+                                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold whitespace-nowrap transition-all duration-300 min-[900px]:px-3 min-[900px]:text-sm ${
                                         active
                                             ? "bg-[#C505EB] text-white shadow-md"
                                             : "text-gray-600 hover:text-[#C505EB] dark:text-gray-400 dark:hover:text-[#D946EF]"
@@ -2920,7 +2920,7 @@ export default function ProfilePage() {
                 </div>
                     </div>
                     <aside className="hidden min-[771px]:block w-[300px] min-[1100px]:w-[340px] shrink-0 self-stretch min-h-0">
-                        <div className="sticky top-[112px] z-10 max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+                        <div className="sticky top-[132px] z-10 max-h-[calc(100vh-8.5rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
                             {renderProfileCompletion("sidebar")}
                         </div>
                     </aside>
