@@ -555,7 +555,7 @@ export default function SaleCard({
             ? denseNeighbourDesktop
                 ? "h-[300px] w-[220px] max-w-full shrink-0 sm:h-[312px] sm:w-[220px] lg:h-[324px] lg:w-[228px] xl:h-[336px] xl:w-[236px] rounded-lg shadow-sm"
                 : "h-[312px] w-[256px] max-w-full shrink-0 sm:h-[326px] sm:w-[272px] lg:h-[340px] lg:w-[288px] xl:h-[352px] xl:w-[300px] rounded-lg shadow-sm"
-            : "h-[283px] w-[256px] max-w-full shrink-0 sm:h-[299px] sm:w-[272px] lg:h-[311px] lg:w-[288px] xl:h-[323px] xl:w-[300px] max-[770px]:h-auto max-[770px]:min-h-0 max-[770px]:w-full max-[770px]:max-w-none rounded-lg shadow-sm"
+            : "h-[283px] w-[256px] max-w-full shrink-0 rounded-lg shadow-sm max-[770px]:h-auto max-[770px]:min-h-0 max-[770px]:w-full max-[770px]:max-w-none min-[771px]:w-full min-[771px]:min-w-0 min-[771px]:h-[299px] min-[1024px]:h-[311px] min-[1280px]:h-[323px]"
         : "w-full max-w-[384px] min-h-[380px] max-[1220px]:min-h-[300px] max-[770px]:max-w-none rounded-xl shadow-md";
     const imgFrame = cg
         ? normalizedType === "NEIGHBOUR"

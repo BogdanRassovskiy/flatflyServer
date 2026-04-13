@@ -1599,42 +1599,44 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Section Tabs - Mobile (Carousel) */}
-                <div className={`max-[770px]:flex min-[771px]:hidden items-center gap-2 mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-1`}>
+                <div className="mb-4 flex max-[770px]:flex min-[771px]:hidden items-stretch gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                     <button
                         onClick={handlePrevious}
                         disabled={!canGoPrevious}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ${
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-lg transition-all duration-300 ${
                             canGoPrevious
-                                ? "bg-white dark:bg-gray-700 text-[#C505EB] hover:bg-[#C505EB] hover:text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                ? "bg-white text-[#C505EB] hover:bg-[#C505EB] hover:text-white dark:bg-gray-700"
+                                : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700"
                         }`}
                     >
                         <ChevronLeft size={20} />
                     </button>
-                    
-                    <div className="flex flex-1 items-center justify-center gap-2 px-2">
-                        <span className="text-base font-semibold text-[#C505EB]">
+
+                    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 px-1 py-1">
+                        <span className="line-clamp-2 text-center text-sm font-semibold leading-tight text-[#C505EB] min-[400px]:text-base">
                             {sections[currentSectionIndex].label}
                         </span>
-                        {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
-                            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
-                                {sectionMissingCounts[sections[currentSectionIndex].key] > 99
-                                    ? "99+"
-                                    : sectionMissingCounts[sections[currentSectionIndex].key]}
+                        <div className="flex shrink-0 items-center justify-center gap-2">
+                            {sectionMissingCounts[sections[currentSectionIndex].key] > 0 ? (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-bold text-white dark:bg-[#BA00F8]">
+                                    {sectionMissingCounts[sections[currentSectionIndex].key] > 99
+                                        ? "99+"
+                                        : sectionMissingCounts[sections[currentSectionIndex].key]}
+                                </span>
+                            ) : null}
+                            <span className="whitespace-nowrap text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                                ({currentSectionIndex + 1}/{sections.length})
                             </span>
-                        ) : null}
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                            ({currentSectionIndex + 1}/{sections.length})
-                        </span>
+                        </div>
                     </div>
-                    
+
                     <button
                         onClick={handleNext}
                         disabled={!canGoNext}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ${
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-lg transition-all duration-300 ${
                             canGoNext
-                                ? "bg-white dark:bg-gray-700 text-[#C505EB] hover:bg-[#C505EB] hover:text-white"
-                                : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                ? "bg-white text-[#C505EB] hover:bg-[#C505EB] hover:text-white dark:bg-gray-700"
+                                : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700"
                         }`}
                     >
                         <ChevronRight size={20} />
@@ -1658,17 +1660,17 @@ export default function ProfilePage() {
                                     <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/20" />
                                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-white/90 to-transparent dark:from-[#060b1d]" />
                                 </>
-                                <div
-                                    className="relative h-36 w-full min-[480px]:h-44"
-                                >
+                                <div className="relative h-36 w-full min-[480px]:h-44">
                                     <div className="absolute inset-0" />
                                     <button
                                         type="button"
                                         onClick={() => coverInputRef.current?.click()}
-                                        className="absolute bottom-2 right-2 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
+                                        className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white max-[770px]:text-[11px] min-[771px]:bottom-2 min-[771px]:left-auto min-[771px]:right-2 min-[771px]:top-auto min-[771px]:max-w-none min-[771px]:gap-2 min-[771px]:px-3 min-[771px]:text-sm dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
                                     >
-                                        <ImagePlus size={18} />
-                                        {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
+                                        <ImagePlus size={18} className="shrink-0 max-[770px]:h-4 max-[770px]:w-4" />
+                                        <span className="min-w-0 truncate sm:max-w-[14rem] min-[771px]:whitespace-nowrap min-[771px]:sm:max-w-none">
+                                            {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
+                                        </span>
                                     </button>
                                     <input
                                         ref={coverInputRef}
@@ -1678,7 +1680,7 @@ export default function ProfilePage() {
                                         onChange={handleCoverUpload}
                                     />
                                 </div>
-                                <div className="relative flex flex-col items-center px-4 pb-5 pt-0">
+                                <div className="relative z-20 flex flex-col items-center px-4 pb-5 pt-0">
                                     <div className="-mt-14 flex flex-col items-center">
                                         <div className="relative">
                                             <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-lg dark:border-gray-800 dark:bg-gray-700 min-[480px]:h-32 min-[480px]:w-32">
@@ -2433,55 +2435,65 @@ export default function ProfilePage() {
                     {activeSection === "status" && (
                         <div className={`flex flex-col gap-6 max-[770px]:gap-4`}>
                             {/* Verified Status */}
-                            <div className={`flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 ${
-                                profileData.verified 
-                                    ? "border-green-500 bg-green-50 dark:bg-green-900/20" 
-                                    : "border-gray-300 dark:border-gray-600"
-                            }`}>
-                                <div className={`w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                    profileData.verified ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
-                                }`}>
-                                    <CheckCircle size={24} className={`max-[770px]:w-5 max-[770px]:h-5 text-white`} />
-                                </div>
-                                <div className={`flex-1 min-w-0`}>
-                                    <h3 className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.verified")}</h3>
-                                    <p className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400`}>
-                                        {profileData.verified 
-                                            ? t("profile.verifiedTrue") 
-                                            : t("profile.verifiedFalse")
-                                        }
-                                    </p>
+                            <div
+                                className={`flex flex-col gap-3 rounded-xl border-2 p-6 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4 ${
+                                    profileData.verified
+                                        ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                                        : "border-gray-300 dark:border-gray-600"
+                                }`}
+                            >
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <div
+                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full max-[770px]:h-10 max-[770px]:w-10 ${
+                                            profileData.verified ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"
+                                        }`}
+                                    >
+                                        <CheckCircle size={24} className={`max-[770px]:h-5 max-[770px]:w-5 text-white`} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className={`text-lg font-bold max-[770px]:text-base`}>{t("profile.verified")}</h3>
+                                        <p className={`text-sm text-gray-600 dark:text-gray-400 max-[770px]:text-xs`}>
+                                            {profileData.verified ? t("profile.verifiedTrue") : t("profile.verifiedFalse")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleToggleVerified}
                                     disabled={isTogglingVerified}
-                                    className={`px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                                    className={`w-full rounded-lg px-6 py-3 text-base font-semibold transition-all duration-300 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap ${
                                         profileData.verified
                                             ? "bg-green-500 text-white hover:bg-green-600"
                                             : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                    } disabled:cursor-not-allowed disabled:opacity-60`}
                                 >
                                     {profileData.verified ? t("profile.verified") : t("profile.verify")}
                                 </button>
                             </div>
 
                             {/* Looking for Housing */}
-                            <div className={`flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-[#C505EB] bg-[#C505EB]/10`}>
-                                <Icon icon="mdi:home-search" width="48" height="48" className={`max-[770px]:w-10 max-[770px]:h-10 flex-shrink-0`} style={{color: `#C505EB`}} />
-                                <div className={`flex-1 min-w-0`}>
-                                    <h3 className={`text-lg max-[770px]:text-base font-bold`}>{t("profile.lookingForHousing")}</h3>
-                                    <p className={`text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-400`}>
-                                        {profileData.lookingForHousing 
-                                            ? t("profile.lookingForHousingTrue") 
-                                            : t("profile.lookingForHousingFalse")
-                                        }
-                                    </p>
+                            <div className="flex flex-col gap-3 rounded-xl border-2 border-[#C505EB] bg-[#C505EB]/10 p-6 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4">
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <Icon
+                                        icon="mdi:home-search"
+                                        width="48"
+                                        height="48"
+                                        className="h-12 w-12 shrink-0 max-[770px]:h-10 max-[770px]:w-10"
+                                        style={{ color: `#C505EB` }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className={`text-lg font-bold max-[770px]:text-base`}>{t("profile.lookingForHousing")}</h3>
+                                        <p className={`text-sm text-gray-600 dark:text-gray-400 max-[770px]:text-xs`}>
+                                            {profileData.lookingForHousing
+                                                ? t("profile.lookingForHousingTrue")
+                                                : t("profile.lookingForHousingFalse")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setProfileData(prev => ({ ...prev, lookingForHousing: !prev.lookingForHousing }))}
-                                    className={`px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                                    onClick={() => setProfileData((prev) => ({ ...prev, lookingForHousing: !prev.lookingForHousing }))}
+                                    className={`w-full rounded-lg px-6 py-3 text-base font-semibold transition-all duration-300 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap ${
                                         profileData.lookingForHousing
                                             ? "bg-[#C505EB] text-white hover:bg-[#BA00F8]"
                                             : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -2491,20 +2503,22 @@ export default function ProfilePage() {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4 max-[770px]:gap-3 p-6 max-[770px]:p-4 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
-                                <div className="w-12 h-12 max-[770px]:w-10 max-[770px]:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-500">
-                                    <Crown size={24} className="max-[770px]:w-5 max-[770px]:h-5 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg max-[770px]:text-base font-bold">{t("profile.monetizationTitle")}</h3>
-                                    <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300">
-                                        {t("profile.monetizationSubtitle")}
-                                    </p>
+                            <div className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-6 dark:bg-amber-900/20 max-[770px]:gap-3 max-[770px]:p-4 min-[771px]:flex-row min-[771px]:items-center min-[771px]:gap-4">
+                                <div className="flex min-w-0 flex-1 flex-row items-center gap-3 min-[771px]:gap-4">
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500 max-[770px]:h-10 max-[770px]:w-10">
+                                        <Crown size={24} className="max-[770px]:h-5 max-[770px]:w-5 text-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-lg font-bold max-[770px]:text-base">{t("profile.monetizationTitle")}</h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 max-[770px]:text-xs">
+                                            {t("profile.monetizationSubtitle")}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => navigate("/profile/plans")}
-                                    className="px-6 max-[770px]:px-4 py-3 max-[770px]:py-2 rounded-lg font-semibold text-base max-[770px]:text-sm transition-all duration-300 whitespace-nowrap flex-shrink-0 bg-amber-500 text-white hover:bg-amber-600"
+                                    className="w-full rounded-lg bg-amber-500 px-6 py-3 text-base font-semibold text-white transition-all duration-300 hover:bg-amber-600 max-[770px]:px-4 max-[770px]:py-2 max-[770px]:text-sm min-[771px]:w-auto min-[771px]:shrink-0 min-[771px]:whitespace-nowrap"
                                 >
                                     {t("profile.openPlans")}
                                 </button>

@@ -1,7 +1,17 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCsrfToken } from "../utils/csrf";
+import { getImageUrl } from "../utils/defaultImage";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, ChevronLeft, MessageCircle, MoreVertical, Send, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  Copy,
+  MessageCircle,
+  MoreVertical,
+  Send,
+  Users,
+  XCircle,
+} from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
@@ -19,6 +29,18 @@ interface User {
   avatar?: string | null;
 }
 
+interface ListingPreview {
+  id: number;
+  type?: string;
+  title?: string;
+  price?: string;
+  currency?: string;
+  city?: string;
+  region?: string;
+  image?: string | null;
+  path?: string;
+}
+
 interface Message {
   id: number;
   chat: number;
@@ -26,10 +48,17 @@ interface Message {
   text: string;
   created_at: string;
   is_read: boolean;
+  message_kind?: string;
+  listing_id?: number | null;
+  listing_preview?: ListingPreview | Record<string, unknown>;
+  display_text?: string;
 }
 
 interface Chat {
   chatid: number;
+  chat_type?: string;
+  invite_token?: string | null;
+  participant_count?: number;
   participants: User[];
   created_at: string;
   last_message: Message | null;
@@ -245,6 +274,13 @@ export default function MessengerPage() {
   const [isReportConsentOpen, setIsReportConsentOpen] = useState(false);
   const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
+  const [housingMessageFilter, setHousingMessageFilter] = useState<"all" | "listings">("all");
+  const [isHousingParticipantsOpen, setIsHousingParticipantsOpen] = useState(false);
+  const [isHousingInviteOpen, setIsHousingInviteOpen] = useState(false);
+  const [isHousingCreateBusy, setIsHousingCreateBusy] = useState(false);
+  const [pendingJoinToken, setPendingJoinToken] = useState<string | null>(null);
+  const [joinConflictChatId, setJoinConflictChatId] = useState<number | null>(null);
+  const [isJoinBusy, setIsJoinBusy] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoOpenAttemptedRef = useRef(false);
@@ -264,6 +300,13 @@ export default function MessengerPage() {
   const activeChatCache = selectedChatId ? messageCache[selectedChatId] ?? null : null;
   const selectedChatPermission = selectedChatId ? chatSendPermissions[selectedChatId] ?? null : null;
   const activeMessages = activeChatCache?.messages ?? [];
+  const visibleMessages = useMemo(() => {
+    const housing = selectedChat?.chat_type === "housing_group";
+    if (!housing || housingMessageFilter === "all") {
+      return activeMessages;
+    }
+    return activeMessages.filter((m) => m.message_kind === "listing");
+  }, [activeMessages, housingMessageFilter, selectedChat?.chat_type]);
   const isInitialMessagesLoading = Boolean(selectedChatId) && isMessagesLoading && activeMessages.length === 0;
   const isDraftConversationActive = Boolean(draftConversation);
   const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
@@ -286,6 +329,9 @@ export default function MessengerPage() {
   };
 
   const getOtherParticipantDisplay = (chat: Chat): string => {
+    if (chat.chat_type === "housing_group") {
+      return t("messenger.housingGroup.chatTitle");
+    }
     const participant = getOtherParticipant(chat);
     return getParticipantName(participant);
   };
@@ -303,16 +349,26 @@ export default function MessengerPage() {
   };
 
   const activeParticipant = getActiveParticipant();
-  const activeParticipantName = getParticipantName(activeParticipant);
-  const activeParticipantAvatar = getParticipantAvatar(activeParticipant);
+  const isHousingGroupChat = selectedChat?.chat_type === "housing_group";
+  const housingParticipantCount = selectedChat?.participant_count ?? selectedChat?.participants?.length ?? 0;
+  const activeParticipantName = isHousingGroupChat
+    ? t("messenger.housingGroup.chatTitle")
+    : getParticipantName(activeParticipant);
+  const activeParticipantAvatar = isHousingGroupChat ? null : getParticipantAvatar(activeParticipant);
   const isFlatFlySupportParticipant = activeParticipant?.email === FLATFLY_SUPPORT_EMAIL;
-  const canInteractWithParticipant = !isFlatFlySupportParticipant;
-  const canOpenParticipantProfile = isFlatFlySupportParticipant || typeof activeParticipant?.profile_id === "number";
+  const canOpenParticipantProfile =
+    !isHousingGroupChat && (isFlatFlySupportParticipant || typeof activeParticipant?.profile_id === "number");
   const canShareContacts = Boolean(currentUserContacts.email || currentUserContacts.phone);
   const selectedChatIsBlocked = Boolean(selectedChat?.is_blocked);
   const selectedChatBlockedByMe = Boolean(selectedChat?.blocked_by_me);
   const isMobileChatOpen = Boolean(selectedChat || draftConversation);
-  const isSendLocked = !canInteractWithParticipant || Boolean(selectedChat?.is_blocked) || isAwaitingReply || (Boolean(selectedChat) && !canSendInCurrentChat);
+  const canInteractWithDirectParticipant = !isFlatFlySupportParticipant && !isHousingGroupChat;
+  const canInteractWithParticipant = canInteractWithDirectParticipant;
+  const isSendLocked =
+    !canInteractWithDirectParticipant
+    || Boolean(selectedChat?.is_blocked)
+    || (!isHousingGroupChat && isAwaitingReply)
+    || (Boolean(selectedChat) && !canSendInCurrentChat);
 
   const updateMessageCacheEntry = (
     chatId: number,
@@ -512,6 +568,19 @@ export default function MessengerPage() {
     if (!normalizedQuery) return chats;
 
     return chats.filter((chat) => {
+      if (chat.chat_type === "housing_group") {
+        const title = t("messenger.housingGroup.chatTitle").toLowerCase();
+        if (title.includes(normalizedQuery)) {
+          return true;
+        }
+        return chat.participants.some((participant) => {
+          const display = (participant.display_name || "").toLowerCase();
+          const first = (participant.first_name || "").toLowerCase();
+          const last = (participant.last_name || "").toLowerCase();
+          const full = `${first} ${last}`.trim();
+          return display.includes(normalizedQuery) || first.includes(normalizedQuery) || last.includes(normalizedQuery) || full.includes(normalizedQuery);
+        });
+      }
       const participant = getOtherParticipant(chat);
       if (!participant) return false;
       const display = (participant.display_name || "").toLowerCase();
@@ -520,7 +589,7 @@ export default function MessengerPage() {
       const full = `${first} ${last}`.trim();
       return display.includes(normalizedQuery) || first.includes(normalizedQuery) || last.includes(normalizedQuery) || full.includes(normalizedQuery);
     });
-  }, [chatSearch, chats, currentUserId]);
+  }, [chatSearch, chats, currentUserId, t]);
 
   const clearLongPressTimeout = () => {
     if (longPressTimeoutRef.current !== null) {
@@ -551,6 +620,190 @@ export default function MessengerPage() {
     }, 2600);
   };
 
+  const clearJoinGroupQuery = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("join_group");
+    const qs = next.toString();
+    navigate(qs ? `/messenger?${qs}` : "/messenger", { replace: true });
+  }, [navigate, searchParams]);
+
+  const createHousingGroup = async () => {
+    if (isHousingCreateBusy) {
+      return;
+    }
+    setIsHousingCreateBusy(true);
+    try {
+      const response = await fetch("/api/chats/create-housing-group/", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({}),
+      });
+      const data = (await response.json().catch(() => ({}))) as { code?: string; chat?: Chat };
+      if (response.status === 409 && data.chat) {
+        setChats((previous) => {
+          const rest = previous.filter((chat) => chat.chatid !== data.chat!.chatid);
+          return sortChatsByActivity([data.chat!, ...rest]);
+        });
+        setSelectedChat(data.chat);
+        setDraftConversation(null);
+        showToast(t("messenger.housingGroup.alreadyHaveGroupOpened"), "success");
+        return;
+      }
+      if (!response.ok) {
+        showToast(t("messenger.housingGroup.createGroupError"), "error");
+        return;
+      }
+      const chat = data as Chat;
+      setChats((previous) => {
+        const rest = previous.filter((c) => c.chatid !== chat.chatid);
+        return sortChatsByActivity([chat, ...rest]);
+      });
+      setSelectedChat(chat);
+      setDraftConversation(null);
+      showToast(t("messenger.housingGroup.groupCreated"), "success");
+    } catch {
+      showToast(t("messenger.housingGroup.createGroupError"), "error");
+    } finally {
+      setIsHousingCreateBusy(false);
+    }
+  };
+
+  const leaveHousingGroup = async (chatId: number) => {
+    try {
+      const response = await fetch(`/api/chats/${chatId}/leave-housing-group/`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        showToast(t("messenger.housingGroup.leaveFailed"), "error");
+        return;
+      }
+      setChats((previous) => previous.filter((chat) => chat.chatid !== chatId));
+      removeMessageCacheEntry(chatId);
+      if (selectedChat?.chatid === chatId) {
+        setSelectedChat(null);
+      }
+      showToast(t("messenger.housingGroup.leftGroupSuccess"), "success");
+    } catch {
+      showToast(t("messenger.housingGroup.leaveFailed"), "error");
+    }
+  };
+
+  const runJoinHousingGroup = async (token: string) => {
+    const response = await fetch("/api/chats/join-housing-group/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ invite_token: token }),
+    });
+    const data = (await response.json().catch(() => ({}))) as {
+      code?: string;
+      chatid?: number;
+      detail?: string;
+    };
+    return { response, data };
+  };
+
+  const submitJoinHousingGroup = async () => {
+    if (!pendingJoinToken || isJoinBusy) {
+      return;
+    }
+    setIsJoinBusy(true);
+    setJoinConflictChatId(null);
+    try {
+      const { response, data } = await runJoinHousingGroup(pendingJoinToken);
+      if (response.status === 409 && data.code === "already_in_group") {
+        setJoinConflictChatId(typeof data.chatid === "number" ? data.chatid : null);
+        return;
+      }
+      if (!response.ok) {
+        if (data.code === "group_full") {
+          showToast(t("messenger.housingGroup.groupFull"), "error");
+        } else {
+          showToast(t("messenger.housingGroup.joinError"), "error");
+        }
+        return;
+      }
+      const chat = data as unknown as Chat;
+      setChats((previous) => {
+        const rest = previous.filter((c) => c.chatid !== chat.chatid);
+        return sortChatsByActivity([chat, ...rest]);
+      });
+      setSelectedChat(chat);
+      setDraftConversation(null);
+      setPendingJoinToken(null);
+      clearJoinGroupQuery();
+      showToast(t("messenger.housingGroup.joinedSuccess"), "success");
+    } catch {
+      showToast(t("messenger.housingGroup.joinError"), "error");
+    } finally {
+      setIsJoinBusy(false);
+    }
+  };
+
+  const leaveCurrentGroupAndJoin = async () => {
+    if (!pendingJoinToken || !joinConflictChatId || isJoinBusy) {
+      return;
+    }
+    setIsJoinBusy(true);
+    try {
+      const leaveRes = await fetch(`/api/chats/${joinConflictChatId}/leave-housing-group/`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        body: JSON.stringify({}),
+      });
+      if (!leaveRes.ok) {
+        showToast(t("messenger.housingGroup.leaveFailed"), "error");
+        return;
+      }
+      setChats((previous) => previous.filter((chat) => chat.chatid !== joinConflictChatId));
+      removeMessageCacheEntry(joinConflictChatId);
+      if (selectedChat?.chatid === joinConflictChatId) {
+        setSelectedChat(null);
+      }
+      setJoinConflictChatId(null);
+      const { response, data } = await runJoinHousingGroup(pendingJoinToken);
+      if (!response.ok) {
+        if (data.code === "group_full") {
+          showToast(t("messenger.housingGroup.groupFull"), "error");
+        } else {
+          showToast(t("messenger.housingGroup.joinError"), "error");
+        }
+        return;
+      }
+      const chat = data as unknown as Chat;
+      setChats((previous) => {
+        const rest = previous.filter((c) => c.chatid !== chat.chatid);
+        return sortChatsByActivity([chat, ...rest]);
+      });
+      setSelectedChat(chat);
+      setDraftConversation(null);
+      setPendingJoinToken(null);
+      clearJoinGroupQuery();
+      showToast(t("messenger.housingGroup.joinedSuccess"), "success");
+    } catch {
+      showToast(t("messenger.housingGroup.joinError"), "error");
+    } finally {
+      setIsJoinBusy(false);
+    }
+  };
+
   const executeDeleteChat = async (chatId: number) => {
     const isDeletingSelectedChat = selectedChat?.chatid === chatId;
     try {
@@ -563,7 +816,13 @@ export default function MessengerPage() {
       });
 
       if (!response.ok && response.status !== 204) {
-        throw new Error("Failed to delete chat");
+        const payload = (await response.json().catch(() => ({}))) as { code?: string };
+        if (payload.code === "housing_group_delete_requires_solo") {
+          showToast(t("messenger.housingGroup.deleteRequiresSolo"), "error");
+        } else {
+          showToast(t("messenger.deleteError"), "error");
+        }
+        return;
       }
 
       setChats((previous) => previous.filter((chat) => chat.chatid !== chatId));
@@ -828,7 +1087,7 @@ export default function MessengerPage() {
     });
     initialScrollCompletedForChatRef.current = selectedChatId;
     shouldStickToBottomRef.current = true;
-  }, [selectedChatId, activeMessages.length, isMessagesLoading]);
+  }, [selectedChatId, activeMessages.length, visibleMessages.length, isMessagesLoading]);
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -847,6 +1106,20 @@ export default function MessengerPage() {
   useEffect(() => {
     setSendError(null);
   }, [selectedChatId, draftConversation?.userId]);
+
+  useEffect(() => {
+    setHousingMessageFilter("all");
+    setIsHousingParticipantsOpen(false);
+    setIsHousingInviteOpen(false);
+  }, [selectedChatId]);
+
+  useEffect(() => {
+    if (!chatsLoaded) {
+      return;
+    }
+    const token = searchParams.get("join_group")?.trim();
+    setPendingJoinToken(token || null);
+  }, [searchParams, chatsLoaded]);
 
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
@@ -871,7 +1144,7 @@ export default function MessengerPage() {
     }
 
     pendingScrollAdjustmentRef.current = { mode: "none" };
-  }, [activeMessages.length, selectedChatId]);
+  }, [visibleMessages.length, selectedChatId]);
 
   const sendMessage = async (rawText: string) => {
     const sentText = rawText.trim();
@@ -1113,9 +1386,19 @@ export default function MessengerPage() {
   return (
     <div className="mt-[50px] flex h-[calc(100vh-50px)] w-full bg-white dark:bg-gray-900 min-[771px]:mt-[100px] min-[771px]:h-[calc(100vh-100px)]">
       <div className={`${isMobileChatOpen ? "hidden md:block" : "block"} w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:min-w-[200px] md:max-w-[280px] md:w-[240px]`}>
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <MessageCircle className="text-[#C505EB]" size={24} />
           <span className="text-lg font-bold text-black dark:text-white">{t("messenger.title")}</span>
+          <button
+            type="button"
+            disabled={isHousingCreateBusy}
+            className="rounded-lg border border-[#C505EB] bg-[#C505EB]/10 px-2 py-1 text-xs font-semibold text-[#7a0cb3] hover:bg-[#C505EB]/20 disabled:opacity-50 dark:text-[#e9d5ff] dark:hover:bg-[#C505EB]/25"
+            onClick={() => {
+              void createHousingGroup();
+            }}
+          >
+            {t("messenger.housingGroup.entryButton")}
+          </button>
           <button
             type="button"
             className="ml-auto rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -1163,19 +1446,59 @@ export default function MessengerPage() {
                 </span>
               )}
             </div>
-            <div className="truncate text-xs text-gray-500">{chat.last_message?.text || t("messenger.noMessagesPreview")}</div>
+            <div className="truncate text-xs text-gray-500">
+              {chat.last_message?.message_kind === "listing"
+                ? (chat.last_message.display_text
+                    || (typeof chat.last_message.listing_preview === "object"
+                      && chat.last_message.listing_preview
+                      && "title" in chat.last_message.listing_preview
+                      ? String((chat.last_message.listing_preview as ListingPreview).title || "")
+                      : "")
+                    || t("messenger.housingGroup.listingsOnly"))
+                : (chat.last_message?.text || t("messenger.noMessagesPreview"))}
+            </div>
             {actionMenuChatId === chat.chatid && (
               <div className="absolute right-2 top-2 z-20 min-w-[170px] rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800">
-                <button
-                  type="button"
-                  className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void handleDeleteChat(chat.chatid);
-                  }}
-                >
-                  {t("messenger.deleteChatForBoth")}
-                </button>
+                {chat.chat_type === "housing_group" ? (
+                  <>
+                    {(chat.participant_count ?? chat.participants.length) > 1 && (
+                      <button
+                        type="button"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void leaveHousingGroup(chat.chatid);
+                          setActionMenuChatId(null);
+                        }}
+                      >
+                        {t("messenger.housingGroup.leaveGroup")}
+                      </button>
+                    )}
+                    {(chat.participant_count ?? chat.participants.length) === 1 && (
+                      <button
+                        type="button"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDeleteChat(chat.chatid);
+                        }}
+                      >
+                        {t("messenger.housingGroup.deleteGroup")}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleDeleteChat(chat.chatid);
+                    }}
+                  >
+                    {t("messenger.deleteChatForBoth")}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -1211,11 +1534,21 @@ export default function MessengerPage() {
                 <button
                   type="button"
                   className="flex min-w-0 items-center gap-3 text-left"
-                  onClick={handleOpenParticipantProfile}
-                  disabled={!canOpenParticipantProfile}
+                  onClick={() => {
+                    if (isHousingGroupChat) {
+                      setIsHousingParticipantsOpen(true);
+                      return;
+                    }
+                    handleOpenParticipantProfile();
+                  }}
+                  disabled={!isHousingGroupChat && !canOpenParticipantProfile}
                 >
                   <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    {activeParticipantAvatar ? (
+                    {isHousingGroupChat ? (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#C505EB] to-[#08D3E2] text-white">
+                        <Users size={22} aria-hidden />
+                      </div>
+                    ) : activeParticipantAvatar ? (
                       <img src={activeParticipantAvatar} alt={activeParticipantName} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-200">
@@ -1225,11 +1558,16 @@ export default function MessengerPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-black dark:text-white">{activeParticipantName}</div>
+                    {isHousingGroupChat && (
+                      <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                        {t("messenger.housingGroup.memberCount").replace("{{count}}", String(housingParticipantCount))}
+                      </div>
+                    )}
                   </div>
                 </button>
               </div>
               <div className="relative flex items-center justify-end gap-2">
-                {canInteractWithParticipant && (
+                {(canInteractWithParticipant || isHousingGroupChat) && (
                   <button
                     type="button"
                     className="md:hidden rounded-lg border border-gray-300 p-2 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -1239,47 +1577,145 @@ export default function MessengerPage() {
                     <MoreVertical size={18} />
                   </button>
                 )}
-                {isMobileActionsOpen && canInteractWithParticipant && (
+                {isMobileActionsOpen && (canInteractWithParticipant || isHousingGroupChat) && (
                   <div className="absolute right-0 top-11 z-30 min-w-[210px] rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800 md:hidden">
-                    <button
-                      type="button"
-                      className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700"
-                      onClick={() => {
-                        setIsMobileActionsOpen(false);
-                        void handleShareContacts();
-                      }}
-                      disabled={isSending || !canShareContacts}
-                    >
-                      {t("messenger.shareContacts")}
-                    </button>
-                    {selectedChat && !selectedChatBlockedByMe && (
-                      <button
-                        type="button"
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
-                        onClick={() => {
-                          setIsMobileActionsOpen(false);
-                          void handleBlockParticipant();
-                        }}
-                      >
-                        {t("messenger.blockUser")}
-                      </button>
+                    {isHousingGroupChat && selectedChat && (
+                      <>
+                        <button
+                          type="button"
+                          className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setIsMobileActionsOpen(false);
+                            setHousingMessageFilter((prev) => (prev === "all" ? "listings" : "all"));
+                          }}
+                        >
+                          {housingMessageFilter === "all"
+                            ? t("messenger.housingGroup.listingsOnly")
+                            : t("messenger.housingGroup.allMessages")}
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setIsMobileActionsOpen(false);
+                            setIsHousingInviteOpen(true);
+                          }}
+                        >
+                          {t("messenger.housingGroup.invite")}
+                        </button>
+                        {housingParticipantCount > 1 && (
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                            onClick={() => {
+                              setIsMobileActionsOpen(false);
+                              void leaveHousingGroup(selectedChat.chatid);
+                            }}
+                          >
+                            {t("messenger.housingGroup.leaveGroup")}
+                          </button>
+                        )}
+                        {housingParticipantCount === 1 && (
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
+                            onClick={() => {
+                              setIsMobileActionsOpen(false);
+                              void handleDeleteChat(selectedChat.chatid);
+                            }}
+                          >
+                            {t("messenger.housingGroup.deleteGroup")}
+                          </button>
+                        )}
+                      </>
                     )}
-                    {selectedChat && (
-                      <button
-                        type="button"
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                        onClick={() => {
-                          setIsMobileActionsOpen(false);
-                          setIsReportingOpen(true);
-                        }}
-                      >
-                        {t("messenger.reportUser")}
-                      </button>
+                    {canInteractWithParticipant && (
+                      <>
+                        <button
+                          type="button"
+                          className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                          onClick={() => {
+                            setIsMobileActionsOpen(false);
+                            void handleShareContacts();
+                          }}
+                          disabled={isSending || !canShareContacts}
+                        >
+                          {t("messenger.shareContacts")}
+                        </button>
+                        {selectedChat && !selectedChatBlockedByMe && (
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
+                            onClick={() => {
+                              setIsMobileActionsOpen(false);
+                              void handleBlockParticipant();
+                            }}
+                          >
+                            {t("messenger.blockUser")}
+                          </button>
+                        )}
+                        {selectedChat && (
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                            onClick={() => {
+                              setIsMobileActionsOpen(false);
+                              setIsReportingOpen(true);
+                            }}
+                          >
+                            {t("messenger.reportUser")}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
               </div>
               <div className="hidden md:flex flex-wrap items-center justify-end gap-2">
+                {isHousingGroupChat && selectedChat && (
+                  <>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        setHousingMessageFilter((prev) => (prev === "all" ? "listings" : "all"));
+                      }}
+                    >
+                      {housingMessageFilter === "all"
+                        ? t("messenger.housingGroup.listingsOnly")
+                        : t("messenger.housingGroup.allMessages")}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-[#C505EB] px-3 py-2 text-sm font-medium text-[#7a0cb3] transition-colors hover:bg-[#C505EB]/10 dark:text-[#e9d5ff] dark:hover:bg-[#C505EB]/20"
+                      onClick={() => setIsHousingInviteOpen(true)}
+                    >
+                      {t("messenger.housingGroup.invite")}
+                    </button>
+                    {housingParticipantCount > 1 && (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => {
+                          void leaveHousingGroup(selectedChat.chatid);
+                        }}
+                      >
+                        {t("messenger.housingGroup.leaveGroup")}
+                      </button>
+                    )}
+                    {housingParticipantCount === 1 && (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                        onClick={() => {
+                          void handleDeleteChat(selectedChat.chatid);
+                        }}
+                      >
+                        {t("messenger.housingGroup.deleteGroup")}
+                      </button>
+                    )}
+                  </>
+                )}
                 {canInteractWithParticipant && (
                   <>
                     <button
@@ -1330,25 +1766,93 @@ export default function MessengerPage() {
                 <div className="text-gray-400">{t("loading")}</div>
               ) : activeMessages.length === 0 ? (
                 <div className="text-gray-400">{t("messenger.noMessages")}</div>
+              ) : visibleMessages.length === 0 ? (
+                <div className="text-gray-400">
+                  {isHousingGroupChat && housingMessageFilter === "listings"
+                    ? t("messenger.housingGroup.noListingMessages")
+                    : t("messenger.noMessages")}
+                </div>
               ) : (
-                activeMessages.map((message) => (
-                  <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender.id === currentUserId ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"}`}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs font-semibold">{getParticipantName(message.sender)}</span>
-                        <span className="ml-2 text-[10px] text-gray-300">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                visibleMessages.map((message) => {
+                  const isListing = message.message_kind === "listing";
+                  const preview = message.listing_preview as ListingPreview | undefined;
+                  const listingPath = preview?.path ? preview.path : null;
+                  const listingImage = preview?.image ? getImageUrl(preview.image) : null;
+                  const listingTitle = preview?.title || message.display_text || "";
+                  const priceLine = preview?.price
+                    ? `${preview.price}${preview.currency ? ` ${preview.currency}` : ""}`
+                    : "";
+                  const locLine = [preview?.city, preview?.region].filter(Boolean).join(", ");
+
+                  if (isListing && preview) {
+                    return (
+                      <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
+                        <div className="max-w-[92%] md:max-w-[70%]">
+                          <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{getParticipantName(message.sender)}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
+                            onClick={() => {
+                              if (listingPath) {
+                                navigate(listingPath);
+                              }
+                            }}
+                          >
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative h-40 w-full shrink-0 bg-gray-100 sm:h-auto sm:w-36 sm:min-h-[140px] dark:bg-gray-900">
+                                {listingImage ? (
+                                  <img src={listingImage} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full min-h-[140px] w-full items-center justify-center text-gray-400">
+                                    <Users className="opacity-40" size={40} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex min-w-0 flex-1 flex-col gap-1 p-4">
+                                <div className="line-clamp-2 text-sm font-bold text-gray-900 dark:text-white">{listingTitle}</div>
+                                {priceLine ? (
+                                  <div className="text-sm font-semibold text-[#C505EB]">{priceLine}</div>
+                                ) : null}
+                                {locLine ? (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">{locLine}</div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </button>
+                          <div className="mt-1 flex items-center gap-1 px-1">
+                            {message.sender.id === currentUserId && (
+                              <span className="text-[10px] text-gray-400">
+                                {message.is_read ? t("messenger.read") : t("messenger.sent")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div>{message.text}</div>
-                      <div className="mt-1 flex items-center gap-1">
-                        {message.sender.id === currentUserId && (
-                          <span className="text-[10px] text-gray-400">
-                            {message.is_read ? t("messenger.read") : t("messenger.sent")}
-                          </span>
-                        )}
+                    );
+                  }
+
+                  return (
+                    <div key={message.id} className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender.id === currentUserId ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"}`}>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-xs font-semibold">{getParticipantName(message.sender)}</span>
+                          <span className="ml-2 text-[10px] text-gray-300">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                        <div>{message.text}</div>
+                        <div className="mt-1 flex items-center gap-1">
+                          {message.sender.id === currentUserId && (
+                            <span className="text-[10px] text-gray-400">
+                              {message.is_read ? t("messenger.read") : t("messenger.sent")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -1555,6 +2059,155 @@ export default function MessengerPage() {
                 }}
               >
                 {t("messenger.reportConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingJoinToken && (
+        <div
+          className="fixed inset-0 z-[206] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => {
+            setPendingJoinToken(null);
+            setJoinConflictChatId(null);
+            clearJoinGroupQuery();
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2 text-lg font-bold text-black dark:text-white">{t("messenger.housingGroup.joinPromptTitle")}</div>
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t("messenger.housingGroup.joinPromptBody")}</p>
+            {joinConflictChatId !== null && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                <p className="mb-2">{t("messenger.housingGroup.mustLeaveFirst")}</p>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                  disabled={isJoinBusy}
+                  onClick={() => {
+                    void leaveCurrentGroupAndJoin();
+                  }}
+                >
+                  {t("messenger.housingGroup.leaveCurrentJoinNew")}
+                </button>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                disabled={isJoinBusy}
+                onClick={() => {
+                  setPendingJoinToken(null);
+                  setJoinConflictChatId(null);
+                  clearJoinGroupQuery();
+                }}
+              >
+                {t("messenger.cancel")}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-[#C505EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#BA00F8] disabled:opacity-60"
+                disabled={isJoinBusy || joinConflictChatId !== null}
+                onClick={() => {
+                  void submitJoinHousingGroup();
+                }}
+              >
+                {isJoinBusy ? t("loading") : t("messenger.housingGroup.joinConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isHousingInviteOpen && selectedChat?.invite_token && (
+        <div
+          className="fixed inset-0 z-[207] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setIsHousingInviteOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2 text-lg font-bold text-black dark:text-white">{t("messenger.housingGroup.invite")}</div>
+            <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">{t("messenger.housingGroup.inviteLinkTitle")}</p>
+            <div className="mb-4 break-all rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
+              {`${window.location.origin}/messenger?join_group=${selectedChat.invite_token}`}
+            </div>
+            <button
+              type="button"
+              className="mb-6 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700"
+              onClick={async () => {
+                const link = `${window.location.origin}/messenger?join_group=${selectedChat.invite_token}`;
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(link);
+                  } else {
+                    throw new Error("no clipboard");
+                  }
+                  showToast(t("messenger.housingGroup.linkCopied"), "success");
+                } catch {
+                  showToast(t("messenger.housingGroup.joinError"), "error");
+                }
+              }}
+            >
+              <Copy size={16} />
+              {t("messenger.housingGroup.copyLink")}
+            </button>
+            <p className="mb-2 text-center text-xs text-gray-500 dark:text-gray-400">{t("messenger.housingGroup.qrHint")}</p>
+            <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-600">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/messenger?join_group=${selectedChat.invite_token}`)}`}
+                alt=""
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setIsHousingInviteOpen(false)}
+              >
+                {t("messenger.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isHousingParticipantsOpen && selectedChat && (
+        <div
+          className="fixed inset-0 z-[208] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setIsHousingParticipantsOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 text-lg font-bold text-black dark:text-white">{t("messenger.housingGroup.participants")}</div>
+            <ul className="max-h-72 space-y-3 overflow-y-auto">
+              {selectedChat.participants.map((participant) => (
+                <li key={participant.id} className="flex items-center gap-3">
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    {participant.avatar ? (
+                      <img src={participant.avatar} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-200">
+                        {getParticipantName(participant).charAt(0).toUpperCase() || "?"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 text-sm font-medium text-black dark:text-white">{getParticipantName(participant)}</div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setIsHousingParticipantsOpen(false)}
+              >
+                {t("messenger.cancel")}
               </button>
             </div>
           </div>
