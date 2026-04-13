@@ -498,7 +498,8 @@
     "serverError": "Chyba serveru",
     "sending": "Odesílání...",
     "phone": "Telefon",
-    "website": "Web"
+    "website": "Web",
+    "teamHeading": "Náš tým"
   },
   "add": {
     "title": "Nový inzerát",

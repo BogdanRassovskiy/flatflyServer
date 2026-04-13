@@ -499,7 +499,8 @@
     "serverError": "Server error",
     "sending": "Sending...",
     "phone": "Phone",
-    "website": "Website"
+    "website": "Website",
+    "teamHeading": "Our team"
   },
   "add": {
     "title": "New listing",

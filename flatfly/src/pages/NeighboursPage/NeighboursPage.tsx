@@ -237,7 +237,7 @@ export default function NeighboursPage() {
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont">
       <div className="flex w-full max-w-[1440px] flex-col items-center px-3 min-[771px]:px-6 sm:px-8 lg:px-12 xl:px-16">
-        <div className="flex w-full max-[770px]:mb-10 max-[770px]:mt-[calc(50px+10px)] min-[771px]:my-[120px] flex-col items-start">
+        <div className="flex w-full max-[770px]:mb-10 max-[770px]:mt-[112px] min-[771px]:my-[120px] flex-col items-start">
 
           <NeighboursFilterPanel
             filters={filters}

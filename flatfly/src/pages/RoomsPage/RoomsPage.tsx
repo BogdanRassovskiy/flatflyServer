@@ -183,7 +183,7 @@ export default function RoomsPage() {
   return (
     <div className="w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent">
       <div className="flex w-full max-w-[1920px] flex-col items-center px-3 min-[771px]:px-5 lg:px-8">
-        <div className="flex w-full flex-col items-start max-[770px]:my-[60px] min-[771px]:my-[150px]">
+        <div className="flex w-full flex-col items-start max-[770px]:mb-[60px] max-[770px]:mt-[112px] min-[771px]:my-[150px]">
 
           <FilterPanel
             filters={filters}
@@ -191,7 +191,7 @@ export default function RoomsPage() {
             priceHistogram={priceHistogram}
           />
 
-          <div className="w-full mt-3 text-sm font-semibold text-[#666666] dark:text-gray-300">
+          <div className="mt-4 w-full text-sm font-semibold text-[#666666] dark:text-gray-300 min-[771px]:mt-3">
             {t("filter.foundListingsCount")}: {totalCount}
           </div>
 

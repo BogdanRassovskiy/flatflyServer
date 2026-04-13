@@ -1,46 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
 import HeroCard from "../../components/HeroCard/HeroCard";
+import TeamSection from "../../components/TeamSection/TeamSection";
 import logo from "../../assets/logo.png";
 import { useLanguage } from "../../contexts/LanguageContext";
 import furniture from "../../assets/furniture.jpg";
 import wall from "../../assets/wallpaint.jpg";
 import keys from "../../assets/holdingkeys.jpg";
 
-type TeamMemberRow = {
-  id: number;
-  name: string;
-  role: string;
-  photo_url: string | null;
-  email: string;
-  phone: string;
-  website: string;
-};
-
-function telHref(phone: string): string {
-  const cleaned = phone.replace(/[^\d+]/g, "");
-  if (!cleaned) return "#";
-  return `tel:${cleaned}`;
-}
-
-function websiteHref(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "#";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed.replace(/^\/+/, "")}`;
-}
-
-function websiteLabel(raw: string): string {
-  return raw.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "") || raw.trim();
-}
-
-const TEAM_FALLBACK_IMAGES = [keys, wall, furniture];
-
-const teamPillClass =
-  "block w-full rounded-xl border border-[#C505EB]/40 bg-white/80 px-3 py-2 text-left text-xs font-semibold text-[#333333] shadow-sm transition hover:bg-[#C505EB]/10 dark:bg-gray-800/80 dark:text-gray-200 sm:text-sm";
-
 export default function HomePage() {
-  const { t, language } = useLanguage();
-  const [teamFromApi, setTeamFromApi] = useState<TeamMemberRow[] | null>(null);
+  const { t } = useLanguage();
 
   const HeroCards = [
     {
@@ -62,55 +29,6 @@ export default function HomePage() {
       link: `/add`,
     },
   ];
-
-  const fallbackTeam = useMemo(
-    (): TeamMemberRow[] => [
-      {
-        id: -1,
-        name: "Michal Krechler",
-        role: t("home.team.founder"),
-        photo_url: null,
-        email: "info@flatfly.cz",
-        phone: "+420 777 123 456",
-        website: "https://flatfly.cz",
-      },
-      {
-        id: -2,
-        name: "Tomáš Hájek",
-        role: t("home.team.designer"),
-        photo_url: null,
-        email: "info@flatfly.cz",
-        phone: "+420 777 123 456",
-        website: "",
-      },
-      {
-        id: -3,
-        name: "Bogdan Rassovskiy",
-        role: t("home.team.it"),
-        photo_url: null,
-        email: "info@flatfly.cz",
-        phone: "+420 777 123 456",
-        website: "https://flatfly.cz",
-      },
-    ],
-    [t]
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/team-members/?lang=${encodeURIComponent(language)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { members?: TeamMemberRow[] } | null) => {
-        if (cancelled || !data?.members?.length) return;
-        setTeamFromApi(data.members);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [language]);
-
-  const teamRows = teamFromApi?.length ? teamFromApi : fallbackTeam;
 
   return (
     <div
@@ -198,49 +116,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mb-[120px] w-full max-[770px]:mb-[80px]">
-          <div className="flex w-full max-[770px]:flex-col max-[770px]:items-stretch max-[770px]:gap-8 max-[770px]:px-1 items-start justify-center gap-10 max-[1100px]:gap-8 min-[1100px]:gap-12">
-            {teamRows.map((member, index) => (
-              <div
-                key={member.id}
-                className="flex w-full min-[770px]:max-w-[280px] min-[770px]:flex-1 min-[770px]:basis-0 flex-col items-center text-center"
-              >
-                <img
-                  src={member.photo_url || TEAM_FALLBACK_IMAGES[index % TEAM_FALLBACK_IMAGES.length]}
-                  alt={member.role}
-                  className="h-[148px] w-[148px] rounded-full border-4 border-[#C505EB]/30 object-cover max-[770px]:h-[132px] max-[770px]:w-[132px]"
-                />
-                <span className="mt-3 text-[20px] font-bold text-black max-[770px]:text-[18px] dark:text-white">
-                  {member.role}
-                </span>
-                <span className="text-[15px] text-[#666666] dark:text-gray-400">{member.name}</span>
-
-                <div className="mt-4 flex w-full max-w-[280px] flex-col gap-2">
-                  {member.email ? (
-                    <a href={`mailto:${member.email}`} className={teamPillClass}>
-                      {t("contact.email")}: {member.email}
-                    </a>
-                  ) : null}
-                  {member.phone ? (
-                    <a href={telHref(member.phone)} className={teamPillClass}>
-                      {t("contact.phone")}: {member.phone}
-                    </a>
-                  ) : null}
-                  {member.website ? (
-                    <a
-                      href={websiteHref(member.website)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={teamPillClass}
-                    >
-                      {t("contact.website")}: {websiteLabel(member.website)}
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <TeamSection className="mb-[120px] w-full max-[770px]:mb-[80px]" />
       </div>
     </div>
   );
