@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type MutableRefObject,
+  type PointerEvent,
+} from "react";
 import { Icon } from "@iconify/react";
 import { getCsrfToken } from "../utils/csrf";
 import { getImageUrl } from "../utils/defaultImage";
@@ -391,6 +401,13 @@ const CHAT_LISTING_AMENITY_ICONS: Record<ChatListingAmenityKey, string> = {
   furnished: "mdi:sofa-outline",
 };
 
+type ReplyLongPressPointerProps = {
+  onPointerDown?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel?: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerLeave?: (e: PointerEvent<HTMLDivElement>) => void;
+};
+
 type MessengerChatListingCardProps = {
   message: Message;
   preview: ListingPreview;
@@ -403,6 +420,10 @@ type MessengerChatListingCardProps = {
   onReply?: () => void;
   onJumpToReplyTarget?: (messageId: number) => void;
   highlighted?: boolean;
+  /** Long-press (touch hold) на карточке — ответ, как у текстовых сообщений */
+  replyLongPress?: ReplyLongPressPointerProps;
+  /** После long-press ответа подавить следующий клик по телу карточки (открытие объявления) */
+  suppressListingOpenAfterReplyLongPressRef?: MutableRefObject<boolean>;
 };
 
 function MessengerChatListingCard({
@@ -417,6 +438,8 @@ function MessengerChatListingCard({
   onReply,
   onJumpToReplyTarget,
   highlighted,
+  replyLongPress,
+  suppressListingOpenAfterReplyLongPressRef,
 }: MessengerChatListingCardProps) {
   const [imgIndex, setImgIndex] = useState(0);
 
@@ -482,11 +505,12 @@ function MessengerChatListingCard({
       className={`mb-4 flex ${message.sender.id === currentUserId ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%] ${
+        className={`touch-manipulation max-[770px]:max-w-[min(100%,29rem)] max-w-[92%] md:max-w-[70%] ${
           highlighted
             ? "rounded-2xl ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white transition-shadow duration-300 dark:ring-offset-gray-900"
             : ""
         }`}
+        {...replyLongPress}
       >
         <div className="mb-1 flex items-center justify-between gap-2 px-1">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
@@ -523,6 +547,10 @@ function MessengerChatListingCard({
           type="button"
           className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-md transition hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
           onClick={() => {
+            if (suppressListingOpenAfterReplyLongPressRef?.current) {
+              suppressListingOpenAfterReplyLongPressRef.current = false;
+              return;
+            }
             if (listingPath) {
               onOpenListing(listingPath);
             }
@@ -745,6 +773,8 @@ export default function MessengerPage() {
   const dismissedHousingCompactInviteChatIdRef = useRef<number | null>(null);
   const housingFetchFilterByChatRef = useRef<Record<number, { likedBy?: number; unanimous?: boolean } | null>>({});
   const longPressTimeoutRef = useRef<number | null>(null);
+  const messageReplyLongPressTimeoutRef = useRef<number | null>(null);
+  const suppressListingOpenAfterReplyLongPressRef = useRef(false);
   const toastTimeoutRef = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const initialScrollCompletedForChatRef = useRef<number | null>(null);
@@ -1153,6 +1183,38 @@ export default function MessengerPage() {
     },
     [getParticipantName],
   );
+
+  const clearMessageReplyLongPress = useCallback(() => {
+    if (messageReplyLongPressTimeoutRef.current !== null) {
+      window.clearTimeout(messageReplyLongPressTimeoutRef.current);
+      messageReplyLongPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleMessageReplyPressEnd = useCallback(() => {
+    clearMessageReplyLongPress();
+  }, [clearMessageReplyLongPress]);
+
+  const handleMessageReplyPressStart = useCallback(
+    (message: Message, options?: { suppressListingOpenOnFire?: boolean }) => {
+      if (!selectedChat) return;
+      clearMessageReplyLongPress();
+      messageReplyLongPressTimeoutRef.current = window.setTimeout(() => {
+        messageReplyLongPressTimeoutRef.current = null;
+        if (options?.suppressListingOpenOnFire) {
+          suppressListingOpenAfterReplyLongPressRef.current = true;
+        }
+        startReplyTo(message);
+      }, 500);
+    },
+    [clearMessageReplyLongPress, selectedChat, startReplyTo],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearMessageReplyLongPress();
+    };
+  }, [clearMessageReplyLongPress, selectedChatId]);
 
   const clearJoinGroupQuery = useCallback(() => {
     const next = new URLSearchParams(searchParams);
@@ -2528,6 +2590,20 @@ export default function MessengerPage() {
                         highlighted={highlightedMessageId === message.id}
                         onReply={selectedChat ? () => startReplyTo(message) : undefined}
                         onJumpToReplyTarget={jumpToQuotedMessage}
+                        replyLongPress={
+                          selectedChat
+                            ? {
+                                onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+                                  if (e.button !== 0) return;
+                                  handleMessageReplyPressStart(message, { suppressListingOpenOnFire: true });
+                                },
+                                onPointerUp: handleMessageReplyPressEnd,
+                                onPointerCancel: handleMessageReplyPressEnd,
+                                onPointerLeave: handleMessageReplyPressEnd,
+                              }
+                            : undefined
+                        }
+                        suppressListingOpenAfterReplyLongPressRef={suppressListingOpenAfterReplyLongPressRef}
                       />
                     );
                   }
@@ -2540,13 +2616,24 @@ export default function MessengerPage() {
                       className={`mb-4 flex ${isOutgoingText ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 transition-shadow duration-300 ${
+                        className={`touch-manipulation max-w-[85%] md:max-w-[60%] rounded-2xl px-4 py-2 transition-shadow duration-300 ${
                           isOutgoingText ? "bg-[#C505EB] text-white" : "bg-gray-200 text-black dark:bg-gray-700 dark:text-white"
                         } ${
                           highlightedMessageId === message.id
                             ? "ring-[3px] ring-[#08D3E2] ring-offset-2 ring-offset-white dark:ring-offset-gray-900"
                             : ""
                         }`}
+                        {...(selectedChat
+                          ? {
+                              onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+                                if (e.button !== 0) return;
+                                handleMessageReplyPressStart(message);
+                              },
+                              onPointerUp: handleMessageReplyPressEnd,
+                              onPointerCancel: handleMessageReplyPressEnd,
+                              onPointerLeave: handleMessageReplyPressEnd,
+                            }
+                          : {})}
                       >
                         {message.reply_preview ? (
                           <MessageReplyQuote
