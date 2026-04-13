@@ -1,4 +1,4 @@
-import { CircleUser, Globe, Heart, Menu, Moon, Sun, X, MessageCircle, Plus } from "lucide-react";
+import { CircleUser, Globe, Heart, Menu, Moon, Sun, User, X, MessageCircle, Plus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {useLanguage} from "../../contexts/LanguageContext";
@@ -274,7 +274,7 @@ export default function Header() {
                             className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#9E04C2] to-[#06A8B8] px-4 py-2 text-[16px] font-extrabold text-white shadow-md duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.99] min-[1100px]:px-5 min-[1100px]:text-[18px]"
                         >
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 duration-300 group-hover:bg-white/30">
-                                <Plus size={16} />
+                                <User size={16} strokeWidth={2.25} aria-hidden />
                             </span>
                             <span className="whitespace-nowrap">{t("header.findNeighbor")}</span>
                         </Link>
@@ -588,7 +588,7 @@ export default function Header() {
                                     }, 100);
                                 }}
                             >
-                                <Plus size={16} strokeWidth={2.5} />
+                                <User size={16} strokeWidth={2.5} aria-hidden />
                                 {t("header.findNeighbor")}
                             </Link>
                             

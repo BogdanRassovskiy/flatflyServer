@@ -1489,6 +1489,109 @@ export default function ProfilePage() {
     const completionCircumference = 2 * Math.PI * completionRadius;
     const completionOffset = completionCircumference - (completionPercent / 100) * completionCircumference;
 
+    const renderProfileCompletion = (layout: "banner" | "sidebar") => {
+        const isSidebar = layout === "sidebar";
+        const gradientId =
+            layout === "banner" ? "profileCompletionGradientBanner" : "profileCompletionGradientSidebar";
+        return (
+            <div
+                className={`rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 ${
+                    isSidebar ? "p-4" : "p-5 max-[770px]:p-4"
+                }`}
+            >
+                <div
+                    className={
+                        isSidebar
+                            ? "flex flex-col items-center gap-4 text-center"
+                            : "flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start"
+                    }
+                >
+                    <div
+                        className={
+                            isSidebar
+                                ? "relative h-[112px] w-[112px] shrink-0"
+                                : "relative h-[140px] w-[140px] max-[770px]:h-[120px] max-[770px]:w-[120px] shrink-0"
+                        }
+                    >
+                        <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
+                            <defs>
+                                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#08D3E2" />
+                                    <stop offset="50%" stopColor="#08E2BE" />
+                                    <stop offset="100%" stopColor="#C505EB" />
+                                </linearGradient>
+                            </defs>
+                            <circle
+                                cx="70"
+                                cy="70"
+                                r={completionRadius}
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                fill="none"
+                                className="text-gray-200 dark:text-gray-700"
+                            />
+                            <circle
+                                cx="70"
+                                cy="70"
+                                r={completionRadius}
+                                stroke={`url(#${gradientId})`}
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                fill="none"
+                                strokeDasharray={completionCircumference}
+                                strokeDashoffset={completionOffset}
+                                className="transition-all duration-700 ease-out"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
+                            <span
+                                className={`font-extrabold leading-none text-[#C505EB] ${
+                                    isSidebar ? "text-[28px]" : "text-[34px] max-[770px]:text-[30px]"
+                                }`}
+                            >
+                                {completionPercent}%
+                            </span>
+                            <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
+                                {t("profile.completion")}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="min-w-0">
+                        <h2
+                            className={`font-bold text-[#C505EB] ${
+                                isSidebar ? "text-lg" : "text-2xl max-[770px]:text-xl"
+                            }`}
+                        >
+                            {t("profile.completionTitle")}
+                        </h2>
+                        <p
+                            className={`text-gray-600 dark:text-gray-300 mt-1 ${
+                                isSidebar ? "text-xs" : "text-sm max-[770px]:text-xs"
+                            }`}
+                        >
+                            {t("profile.completionSubtitle")}
+                        </p>
+                        <p className={`font-semibold text-[#08D3E2] mt-3 ${isSidebar ? "text-xs" : "text-sm"}`}>
+                            {t("profile.completionMissing")
+                                .replace("{{missing}}", String(profileCompletion.missingCount || 0))
+                                .replace("{{total}}", String(profileCompletion.totalFields || 0))}
+                        </p>
+                        {profileCompletion.missingCount === 0 ? (
+                            <p
+                                className={`mt-3 font-semibold text-green-600 dark:text-green-400 ${
+                                    isSidebar ? "text-xs" : "text-sm"
+                                }`}
+                            >
+                                {t("profile.completionNoMissing")}
+                            </p>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={`w-full min-h-screen flex flex-col items-center interFont text-black dark:text-white bg-transparent pt-[150px] max-[770px]:pt-[70px] pb-[90px] max-[770px]:pb-[60px]`}>
             <div className={`w-full max-w-[1200px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-4`}>
@@ -1503,66 +1606,10 @@ export default function ProfilePage() {
                     </p>
                 </div>
 
-                <div className="mb-6 max-[770px]:mb-4 rounded-2xl border border-[#08D3E2]/30 bg-gradient-to-r from-[#C505EB]/10 via-[#08D3E2]/10 to-[#08E2BE]/10 p-5 max-[770px]:p-4">
-                    <div className="flex items-center gap-5 max-[770px]:flex-col max-[770px]:items-start">
-                        <div className="relative w-[140px] h-[140px] max-[770px]:w-[120px] max-[770px]:h-[120px] shrink-0">
-                            <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-                                <defs>
-                                    <linearGradient id="profileCompletionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#08D3E2" />
-                                        <stop offset="50%" stopColor="#08E2BE" />
-                                        <stop offset="100%" stopColor="#C505EB" />
-                                    </linearGradient>
-                                </defs>
-                                <circle
-                                    cx="70"
-                                    cy="70"
-                                    r={completionRadius}
-                                    stroke="currentColor"
-                                    strokeWidth="12"
-                                    fill="none"
-                                    className="text-gray-200 dark:text-gray-700"
-                                />
-                                <circle
-                                    cx="70"
-                                    cy="70"
-                                    r={completionRadius}
-                                    stroke="url(#profileCompletionGradient)"
-                                    strokeWidth="12"
-                                    strokeLinecap="round"
-                                    fill="none"
-                                    strokeDasharray={completionCircumference}
-                                    strokeDashoffset={completionOffset}
-                                    className="transition-all duration-700 ease-out"
-                                />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
-                                <span className="text-[34px] max-[770px]:text-[30px] font-extrabold leading-none text-[#C505EB]">{completionPercent}%</span>
-                                <span className="text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-gray-500 dark:text-gray-400">
-                                    {t("profile.completion")}
-                                </span>
-                            </div>
-                        </div>
+                <div className="mb-6 max-[770px]:mb-4 min-[771px]:hidden">{renderProfileCompletion("banner")}</div>
 
-                        <div className="min-w-0">
-                            <h2 className="text-2xl max-[770px]:text-xl font-bold text-[#C505EB]">{t("profile.completionTitle")}</h2>
-                            <p className="text-sm max-[770px]:text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                {t("profile.completionSubtitle")}
-                            </p>
-                            <p className="text-sm font-semibold text-[#08D3E2] mt-3">
-                                {t("profile.completionMissing")
-                                    .replace("{{missing}}", String(profileCompletion.missingCount || 0))
-                                    .replace("{{total}}", String(profileCompletion.totalFields || 0))}
-                            </p>
-                            {profileCompletion.missingCount === 0 ? (
-                                <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
-                                    {t("profile.completionNoMissing")}
-                                </p>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-
+                <div className="flex flex-col min-[771px]:flex-row min-[771px]:items-start min-[771px]:justify-between min-[771px]:gap-6">
+                    <div className="min-w-0 w-full min-[771px]:max-w-[700px] min-[771px]:flex-none">
                 {/* Section Tabs - Desktop (один ряд, при нехватке места — горизонтальный скролл) */}
                 <div className="mb-6 hidden min-[771px]:block">
                     <div className="flex flex-nowrap items-stretch gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
@@ -2864,6 +2911,11 @@ export default function ProfilePage() {
                             </button>
                         </div>
                     )}
+                </div>
+                    </div>
+                    <aside className="hidden min-[771px]:block w-[272px] shrink-0 self-start sticky top-[116px] z-10">
+                        {renderProfileCompletion("sidebar")}
+                    </aside>
                 </div>
             </div>
             {avatarCropOpen && (

@@ -1,8 +1,10 @@
 import {Icon} from "@iconify/react";
-import {useState, useRef, useEffect} from "react";
-import {X} from "lucide-react";
-import {useLanguage} from "../../contexts/LanguageContext";
+import { useState, useRef, useEffect } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { ChevronDown, X } from "lucide-react";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { regionValueToLabel } from "../../utils/regions";
+import "./FilterPanel.css";
 import "./NeighboursFilterPanel.css";
 
 
@@ -30,10 +32,15 @@ interface Props {
   filters: NeighbourFilterState;
   onChange: (filters: NeighbourFilterState) => void;
 }
+
+type NeighbourPinnedKey = "region" | "age" | "alcohol" | "sleep";
+
 export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const { t } = useLanguage();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pinnedOpen, setPinnedOpen] = useState<NeighbourPinnedKey | null>(null);
     const modalRef = useRef<HTMLDivElement>(null);
+    const pinnedBarRef = useRef<HTMLDivElement>(null);
     const universityAutocompleteRef = useRef<HTMLDivElement>(null);
     const [universityInput, setUniversityInput] = useState(filters.universityName || "");
     const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
@@ -74,73 +81,6 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
         };
         return map[key.toLowerCase()] || key.toUpperCase();
     };
-
-const NeighboursCategories = [
-    filters.city && {
-        title: t("filter.location"),
-        subTitle: regionValueToLabel(filters.city),
-    },
-
-    filters.neighbourFrom && {
-        title: t("filter.neighbourFrom"),
-        subTitle: filters.neighbourFrom,
-    },
-
-    (filters.ageFrom || filters.ageTo) && {
-        title: t("filter.neighbourAge"),
-        subTitle: `${filters.ageFrom || "18"} - ${filters.ageTo || "100"}`,
-    },
-
-        Number(filters.ratingMin || "0") > 0 && {
-                title: t("filter.neighbourMinRating"),
-                subTitle: `${filters.ratingMin}+`,
-        },
-
-    filters.gender && {
-        title: t("filter.neighbourGender"),
-        subTitle: translateGender(filters.gender),
-    },
-
-    filters.smoking && {
-        title: t("filter.neighbourSmoking"),
-        subTitle: translateYesNo(filters.smoking, "filter.neighbourSmokingYes", "filter.neighbourSmokingNo"),
-    },
-
-    filters.alcohol && {
-        title: t("filter.neighbourAlcohol"),
-        subTitle: translateYesNo(filters.alcohol, "filter.neighbourAlcoholYes", "filter.neighbourAlcoholNo"),
-    },
-
-    filters.sleepSchedule && {
-        title: t("filter.neighbourSleepSchedule"),
-        subTitle: translateSleepSchedule(filters.sleepSchedule),
-    },
-
-        filters.universityName && {
-                title: t("filter.neighbourUniversity"),
-                subTitle: filters.universityName,
-    },
-
-        filters.excludeWithChildren && {
-                title: t("filter.neighbourExcludeWithChildren"),
-                subTitle: t("filter.active"),
-        },
-
-        filters.excludeWithDisability && {
-                title: t("filter.neighbourExcludeWithDisability"),
-                subTitle: t("filter.active"),
-        },
-
-    filters.workFromHome && {
-        title: t("filter.neighbourWorkFromHome"),
-        subTitle: translateYesNo(filters.workFromHome, "filter.neighbourWorkFromHomeYes", "filter.neighbourWorkFromHomeNo"),
-    },
-
-    filters.languages.length > 0 && {
-        title: t("filter.neighbourLanguages"),
-        subTitle: filters.languages.map(l => translateLanguage(l)).join(", "),
-    },
-].filter(Boolean) as { title: string; subTitle: string }[];
 
     const genderOptions = [
         {value: "male", label: t("filter.neighbourGenderMale")},
@@ -215,6 +155,23 @@ const NeighboursCategories = [
             document.body.style.overflow = '';
         };
     }, [isModalOpen]);
+
+    useEffect(() => {
+        if (!pinnedOpen) {
+            return;
+        }
+        const close = (event: MouseEvent | TouchEvent) => {
+            if (pinnedBarRef.current && !pinnedBarRef.current.contains(event.target as Node)) {
+                setPinnedOpen(null);
+            }
+        };
+        document.addEventListener("mousedown", close);
+        document.addEventListener("touchstart", close);
+        return () => {
+            document.removeEventListener("mousedown", close);
+            document.removeEventListener("touchstart", close);
+        };
+    }, [pinnedOpen]);
 
     useEffect(() => {
         const text = universityInput.trim();
@@ -334,42 +291,6 @@ const NeighboursCategories = [
       });
     };
 
-    const clearFilterByKey = (key: string, arrayKey?: string) => {
-        if (key === "languages" && arrayKey) {
-            onChange({
-                ...filters,
-                languages: filters.languages.filter(l => l !== arrayKey),
-            });
-        } else if (key === "city") {
-            onChange({ ...filters, city: "" });
-        } else if (key === "ageFrom") {
-            onChange({ ...filters, ageFrom: "", ageTo: "" });
-        } else if (key === "ageTo") {
-            onChange({ ...filters, ageTo: "" });
-        } else if (key === "ratingMin") {
-            onChange({ ...filters, ratingMin: "0" });
-        } else if (key === "gender") {
-            onChange({ ...filters, gender: "" });
-        } else if (key === "smoking") {
-            onChange({ ...filters, smoking: "" });
-        } else if (key === "alcohol") {
-            onChange({ ...filters, alcohol: "" });
-        } else if (key === "sleepSchedule") {
-            onChange({ ...filters, sleepSchedule: "" });
-        } else if (key === "universityName") {
-            setUniversityInput("");
-            onChange({ ...filters, universityId: "", universityName: "" });
-        } else if (key === "excludeWithChildren") {
-            onChange({ ...filters, excludeWithChildren: false });
-        } else if (key === "excludeWithDisability") {
-            onChange({ ...filters, excludeWithDisability: false });
-        } else if (key === "workFromHome") {
-            onChange({ ...filters, workFromHome: "" });
-        } else if (key === "neighbourFrom") {
-            onChange({ ...filters, neighbourFrom: "" });
-        }
-    };
-
     const handleReset = () => {
         setUniversityInput("");
         setUniversityDropdownOpen(false);
@@ -415,82 +336,371 @@ const NeighboursCategories = [
             setUniversityDropdownOpen(false);
         };
 
-    return(
-        <div className={`w-full flex flex-col interFont`}>
+    const openConfigureModal = () => {
+        setPinnedOpen(null);
+        setIsModalOpen(true);
+    };
 
-            {/* Мобильная кнопка: десктоп-бар целиком скрыт до 771px — без этого фильтр недоступен */}
-            <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="mb-2 flex min-[771px]:hidden w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#DDDDDD] bg-white px-4 py-3 shadow-md dark:border-gray-600 dark:bg-gray-800 dark:shadow-gray-900/40 active:scale-[0.99]"
+    const pinnedOrder: NeighbourPinnedKey[] = ["region", "age", "alcohol", "sleep"];
+
+    const pinnedTitle = (key: NeighbourPinnedKey) => {
+        if (key === "region") return t("filter.region");
+        if (key === "age") return t("filter.neighbourAge");
+        if (key === "alcohol") return t("filter.neighbourAlcohol");
+        return t("filter.neighbourSleepSchedule");
+    };
+
+    const pinnedSummary = (key: NeighbourPinnedKey) => {
+        if (key === "region") {
+            return filters.city ? regionValueToLabel(filters.city) : "—";
+        }
+        if (key === "age") {
+            if (!filters.ageFrom && !filters.ageTo) return "—";
+            return `${normalizedAgeFrom} – ${normalizedAgeTo}`;
+        }
+        if (key === "alcohol") {
+            return filters.alcohol
+                ? translateYesNo(filters.alcohol, "filter.neighbourAlcoholYes", "filter.neighbourAlcoholNo")
+                : "—";
+        }
+        return filters.sleepSchedule ? translateSleepSchedule(filters.sleepSchedule) : "—";
+    };
+
+    const pinnedHasValue = (key: NeighbourPinnedKey) => {
+        if (key === "region") return Boolean(filters.city);
+        if (key === "age") return Boolean(filters.ageFrom || filters.ageTo);
+        if (key === "alcohol") return Boolean(filters.alcohol);
+        return Boolean(filters.sleepSchedule);
+    };
+
+    const clearPinned = (key: NeighbourPinnedKey, e: ReactMouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (key === "region") {
+            onChange({ ...filters, city: "" });
+        } else if (key === "age") {
+            onChange({ ...filters, ageFrom: "", ageTo: "" });
+        } else if (key === "alcohol") {
+            onChange({ ...filters, alcohol: "" });
+        } else {
+            onChange({ ...filters, sleepSchedule: "" });
+        }
+    };
+
+    const togglePinned = (key: NeighbourPinnedKey) => {
+        setPinnedOpen((prev) => (prev === key ? null : key));
+    };
+
+    const selectClass =
+        "w-full rounded-xl border border-zinc-200/90 bg-white px-3 py-2.5 text-sm text-black outline-none transition-[border-color,box-shadow] duration-200 ease-out hover:border-[#C505EB]/35 focus:border-[#C505EB] focus:ring-2 focus:ring-[#C505EB]/15 dark:border-zinc-600 dark:bg-zinc-800/80 dark:text-white dark:hover:border-[#C505EB]/45 dark:focus:ring-[#C505EB]/25";
+
+    const renderPinnedDropdownBody = (key: NeighbourPinnedKey) => {
+        if (key === "region") {
+            return (
+                <select
+                    value={filters.city}
+                    onChange={(e) => handleFilterChange("city", e.target.value)}
+                    className={selectClass}
+                >
+                    <option value="">{t("-")}</option>
+                    {CZECH_REGIONS.map((region) => (
+                        <option key={region.value} value={region.value}>
+                            {region.label}
+                        </option>
+                    ))}
+                </select>
+            );
+        }
+        if (key === "age") {
+            return (
+                <div className="flex flex-col gap-3">
+                    <div className="text-center text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                        {normalizedAgeFrom} – {normalizedAgeTo}
+                    </div>
+                    <div className="relative h-9">
+                        <div className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-[#D4DAE0] dark:bg-gray-700">
+                            <div
+                                className="absolute h-full rounded-full bg-[#C505EB]"
+                                style={{
+                                    left: `${selectedAgeFromPercent}%`,
+                                    width: `${Math.max(2, selectedAgeToPercent - selectedAgeFromPercent)}%`,
+                                }}
+                            />
+                        </div>
+                        <input
+                            type="range"
+                            min={ageSliderMin}
+                            max={ageSliderMax}
+                            value={normalizedAgeFrom}
+                            onChange={(e) => applyAgeRange(Number(e.target.value), normalizedAgeTo)}
+                            className="age-range-input z-20"
+                        />
+                        <input
+                            type="range"
+                            min={ageSliderMin}
+                            max={ageSliderMax}
+                            value={normalizedAgeTo}
+                            onChange={(e) => applyAgeRange(normalizedAgeFrom, Number(e.target.value))}
+                            className="age-range-input z-30"
+                        />
+                    </div>
+                    <div className="flex justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                        <span>18</span>
+                        <span>100</span>
+                    </div>
+                </div>
+            );
+        }
+        if (key === "alcohol") {
+            return (
+                <select
+                    value={filters.alcohol}
+                    onChange={(e) => handleFilterChange("alcohol", e.target.value)}
+                    className={selectClass}
+                >
+                    <option value="">-</option>
+                    {alcoholOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            );
+        }
+        return (
+            <select
+                value={filters.sleepSchedule}
+                onChange={(e) => handleFilterChange("sleepSchedule", e.target.value)}
+                className={selectClass}
             >
-                <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
-                <span className="text-lg font-bold text-[#C505EB]">{t("filter.filters")}</span>
-            </button>
+                <option value="">-</option>
+                {sleepScheduleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+        );
+    };
 
-            {/* Десктопная версия */}
-            <div className="hidden min-[771px]:flex w-full h-[64px] items-center justify-between 
-                border border-[#DDDDDD] dark:border-gray-600 rounded-full 
-                shadow-md dark:shadow-gray-900/50 bg-white dark:bg-gray-800 overflow-hidden">
+    const renderPinnedCell = (key: NeighbourPinnedKey, pinIndex: number) => {
+        const isOpen = pinnedOpen === key;
+        const isFirstPin = pinIndex === 0;
 
-  <div
-    className="flex items-center h-full py-2 overflow-x-auto overflow-y-hidden scroll-smooth"
-  >
-    {NeighboursCategories.map((value, index) => {
-      let filterKey = "";
-      if (value.title === t("filter.location")) filterKey = "city";
-      else if (value.title === t("filter.neighbourFrom")) filterKey = "neighbourFrom";
-      else if (value.title === t("filter.neighbourAge")) filterKey = "ageFrom";
-      else if (value.title === t("filter.neighbourMinRating")) filterKey = "ratingMin";
-      else if (value.title === t("filter.neighbourGender")) filterKey = "gender";
-      else if (value.title === t("filter.neighbourSmoking")) filterKey = "smoking";
-      else if (value.title === t("filter.neighbourAlcohol")) filterKey = "alcohol";
-      else if (value.title === t("filter.neighbourSleepSchedule")) filterKey = "sleepSchedule";
-      else if (value.title === t("filter.neighbourUniversity")) filterKey = "universityName";
-      else if (value.title === t("filter.neighbourExcludeWithChildren")) filterKey = "excludeWithChildren";
-      else if (value.title === t("filter.neighbourExcludeWithDisability")) filterKey = "excludeWithDisability";
-      else if (value.title === t("filter.neighbourWorkFromHome")) filterKey = "workFromHome";
-      else if (value.title === t("filter.neighbourLanguages")) filterKey = "languages";
+        const segmentBg = "bg-white dark:bg-zinc-900";
+        const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
-      return (
-        <div
-          key={index}
-          onClick={() => clearFilterByKey(filterKey)}
-          className={`h-full flex-shrink-0 flex flex-col items-center justify-center px-6 gap-1 group
-            ${index + 1 === NeighboursCategories.length ? "" : "border-r border-[#E5E5E5] dark:border-gray-700"}
-            hover:bg-[#F5F5F5] dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200`}
-          title="Click to remove filter"
-        >
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col items-center">
-              <span className="font-bold text-[14px] text-black dark:text-white whitespace-nowrap">
-                {value.title}
-              </span>
-              <span className="font-semibold text-[11px] text-[#666666] dark:text-gray-400 whitespace-nowrap">
-                {value.subTitle}
-              </span>
+        const triggerClass = [
+            "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+            segmentBg,
+            isOpen
+                ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
+                : "hover:bg-zinc-50/90 dark:hover:bg-zinc-800/55",
+            triggerRing,
+            pinnedHasValue(key) ? "pr-14" : "pr-10",
+            isFirstPin ? "rounded-l-full" : "",
+        ].join(" ");
+
+        const shellClass = `relative min-h-[56px] min-w-0 flex-1 ${segmentBg} ${isFirstPin ? "rounded-l-full" : ""}`;
+
+        const dropdownWidth =
+            key === "age" ? "w-[min(calc(100vw-2rem),28rem)]" : "w-[min(calc(100vw-2rem),20rem)]";
+
+        return (
+            <div key={key} className={shellClass}>
+                <button type="button" onClick={() => togglePinned(key)} className={triggerClass}>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        {pinnedTitle(key)}
+                    </span>
+                    <span
+                        className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                            pinnedHasValue(key)
+                                ? "text-zinc-900 dark:text-zinc-100"
+                                : "text-zinc-400 dark:text-zinc-500"
+                        }`}
+                    >
+                        {pinnedSummary(key)}
+                    </span>
+                    <ChevronDown
+                        size={15}
+                        strokeWidth={2.25}
+                        className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-transform duration-200 ease-out dark:text-zinc-500 ${isOpen ? "rotate-180 text-[#C505EB]" : ""}`}
+                    />
+                </button>
+                {pinnedHasValue(key) ? (
+                    <button
+                        type="button"
+                        onClick={(e) => clearPinned(key, e)}
+                        className="absolute right-8 top-1/2 z-[1] -translate-y-1/2 rounded-full p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-200/80 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                        aria-label={t("filter.clearPinned")}
+                    >
+                        <X size={12} strokeWidth={2.5} />
+                    </button>
+                ) : null}
+                {isOpen ? (
+                    <div
+                        className={`filter-panel-dropdown absolute left-0 top-[calc(100%+8px)] z-[150] rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-zinc-900/[0.04] dark:border-zinc-600 dark:bg-zinc-900 dark:ring-white/[0.06] ${dropdownWidth}`}
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        {renderPinnedDropdownBody(key)}
+                    </div>
+                ) : null}
             </div>
-            <div className="p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all duration-200">
-              <X size={16} className="text-red-500" />
-            </div>
-          </div>
-        </div>
-      );
-    })}
-  </div>
+        );
+    };
 
-  <button
-    onClick={() => setIsModalOpen(true)}
-    className="h-full flex items-center justify-center px-8 flex-shrink-0 gap-2 
-               border-l border-[#E5E5E5] dark:border-gray-700 
-               cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-gray-700 duration-300"
-  >
-    <Icon icon="mage:filter" className="w-8 h-8" style={{ color: "#08E2BE" }} />
-    <span className="text-xl text-[#C505EB] font-bold">
-      {t("filter.filters")}
-    </span>
-  </button>
-</div>
+    const secondaryChips = [
+        filters.neighbourFrom && {
+            id: `neighbourFrom-${filters.neighbourFrom}`,
+            title: t("filter.neighbourFrom"),
+            subTitle: filters.neighbourFrom,
+            onRemove: () => onChange({ ...filters, neighbourFrom: "" }),
+        },
+        Number(filters.ratingMin || "0") > 0 && {
+            id: `rating-${filters.ratingMin}`,
+            title: t("filter.neighbourMinRating"),
+            subTitle: `${filters.ratingMin}+`,
+            onRemove: () => onChange({ ...filters, ratingMin: "0" }),
+        },
+        filters.gender && {
+            id: `gender-${filters.gender}`,
+            title: t("filter.neighbourGender"),
+            subTitle: translateGender(filters.gender),
+            onRemove: () => onChange({ ...filters, gender: "" }),
+        },
+        filters.smoking && {
+            id: `smoking-${filters.smoking}`,
+            title: t("filter.neighbourSmoking"),
+            subTitle: translateYesNo(filters.smoking, "filter.neighbourSmokingYes", "filter.neighbourSmokingNo"),
+            onRemove: () => onChange({ ...filters, smoking: "" }),
+        },
+        filters.universityName && {
+            id: `uni-${filters.universityId || filters.universityName}`,
+            title: t("filter.neighbourUniversity"),
+            subTitle: filters.universityName,
+            onRemove: () => {
+                setUniversityInput("");
+                onChange({ ...filters, universityId: "", universityName: "" });
+            },
+        },
+        filters.excludeWithChildren && {
+            id: "excludeChildren",
+            title: t("filter.neighbourExcludeWithChildren"),
+            subTitle: t("filter.active"),
+            onRemove: () => onChange({ ...filters, excludeWithChildren: false }),
+        },
+        filters.excludeWithDisability && {
+            id: "excludeDisability",
+            title: t("filter.neighbourExcludeWithDisability"),
+            subTitle: t("filter.active"),
+            onRemove: () => onChange({ ...filters, excludeWithDisability: false }),
+        },
+        filters.workFromHome && {
+            id: `wfh-${filters.workFromHome}`,
+            title: t("filter.neighbourWorkFromHome"),
+            subTitle: translateYesNo(
+                filters.workFromHome,
+                "filter.neighbourWorkFromHomeYes",
+                "filter.neighbourWorkFromHomeNo",
+            ),
+            onRemove: () => onChange({ ...filters, workFromHome: "" }),
+        },
+        ...filters.languages.map((lang) => ({
+            id: `lang-${lang}`,
+            title: t("filter.neighbourLanguages"),
+            subTitle: translateLanguage(lang),
+            onRemove: () =>
+                onChange({
+                    ...filters,
+                    languages: filters.languages.filter((l) => l !== lang),
+                }),
+        })),
+    ].filter(Boolean) as { id: string; title: string; subTitle: string; onRemove: () => void }[];
+
+    return (
+        <div ref={pinnedBarRef} className="interFont flex w-full flex-col gap-2.5">
+            <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
+                <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
+                    <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
+                        {pinnedOrder.map((k, i) => renderPinnedCell(k, i))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={openConfigureModal}
+                        className="flex min-h-[58px] shrink-0 items-center justify-center gap-2 rounded-r-full bg-white px-5 pl-4 text-[#C505EB] transition-[background-color,box-shadow,color] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.08] hover:to-[#08E2BE]/[0.06] hover:shadow-[inset_0_0_0_1px_rgba(197,5,235,0.15)] dark:bg-zinc-900 dark:hover:from-[#C505EB]/15 dark:hover:to-[#08E2BE]/10"
+                    >
+                        <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
+                        <span className="line-clamp-2 max-w-[min(220px,32vw)] text-left text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
+                            {t("filter.filters")}
+                        </span>
+                    </button>
+                </div>
+
+                {secondaryChips.length > 0 ? (
+                    <div className="flex h-[50px] w-full items-stretch gap-px overflow-x-auto overflow-y-hidden scroll-smooth rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.03] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
+                        {secondaryChips.map((value, index) => (
+                            <button
+                                key={value.id}
+                                type="button"
+                                onClick={value.onRemove}
+                                className={`filter-panel-chip flex h-full shrink-0 items-center justify-center gap-3 bg-white px-5 text-left dark:bg-zinc-900 ${
+                                    index === 0 ? "rounded-l-full pl-5" : ""
+                                } ${index === secondaryChips.length - 1 ? "rounded-r-full pr-5" : ""}`}
+                            >
+                                <div className="flex flex-col items-start">
+                                    <span className="whitespace-nowrap text-[13px] font-bold text-zinc-900 dark:text-zinc-100">
+                                        {value.title}
+                                    </span>
+                                    <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                                        {value.subTitle}
+                                    </span>
+                                </div>
+                                <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="flex min-[771px]:hidden w-full flex-col gap-2.5">
+                <button
+                    type="button"
+                    onClick={openConfigureModal}
+                    className="flex w-full touch-manipulation items-center justify-center gap-2.5 rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
+                >
+                    <span className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
+                        <Icon icon="mage:filter" className="h-6 w-6 shrink-0" style={{ color: "#08E2BE" }} />
+                        <span className="text-base font-bold tracking-tight">{t("filter.filters")}</span>
+                    </span>
+                </button>
+
+                {secondaryChips.length > 0 ? (
+                    <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
+                        <div className="flex flex-col gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
+                            {secondaryChips.map((value, index) => (
+                                <button
+                                    key={value.id}
+                                    type="button"
+                                    onClick={value.onRemove}
+                                    className={`filter-panel-chip flex w-full items-center justify-between bg-white px-4 py-3.5 text-left dark:bg-zinc-900 ${
+                                        index === 0 ? "rounded-t-2xl" : ""
+                                    } ${index === secondaryChips.length - 1 ? "rounded-b-2xl" : ""}`}
+                                >
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                            {value.title}
+                                        </span>
+                                        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                                            {value.subTitle}
+                                        </span>
+                                    </div>
+                                    <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
 
             {/* Модальное окно фильтров */}
             {isModalOpen && (
