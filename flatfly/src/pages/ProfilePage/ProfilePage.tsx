@@ -1741,10 +1741,10 @@ export default function ProfilePage() {
                                     <button
                                         type="button"
                                         onClick={() => coverInputRef.current?.click()}
-                                        className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white max-[770px]:text-[11px] min-[771px]:bottom-2 min-[771px]:left-auto min-[771px]:right-2 min-[771px]:top-auto min-[771px]:max-w-none min-[771px]:gap-2 min-[771px]:px-3 min-[771px]:text-sm dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
+                                        className="absolute right-2 top-2 z-10 inline-flex max-w-[min(70%,18rem)] items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#C505EB] shadow-md backdrop-blur-sm hover:bg-white min-[771px]:max-w-[min(52%,22rem)] min-[771px]:gap-2 min-[771px]:px-3 min-[771px]:text-xs dark:bg-zinc-800/90 dark:text-[#D946EF] dark:hover:bg-zinc-800"
                                     >
                                         <ImagePlus size={18} className="shrink-0 max-[770px]:h-4 max-[770px]:w-4" />
-                                        <span className="min-w-0 truncate sm:max-w-[14rem] min-[771px]:whitespace-nowrap min-[771px]:sm:max-w-none">
+                                        <span className="min-w-0 truncate">
                                             {profileData.coverPhoto ? t("profile.changeCover") : t("profile.uploadCover")}
                                         </span>
                                     </button>
