@@ -200,6 +200,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_lang": "Vyberte jazyk:",
         "back": "Zpět",
         "reply": "Odpovědět",
+        "open_chat_link": "Přejít do chatu",
         "cancel": "Zrušit",
         "logout_confirm": "Opravdu chcete zrušit propojení?",
         "yes": "Ano",
@@ -226,6 +227,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_lang": "Выберите язык:",
         "back": "Назад",
         "reply": "Ответить",
+        "open_chat_link": "Перейти в чат",
         "cancel": "Отмена",
         "logout_confirm": "Разорвать связь с аккаунтом на сайте?",
         "yes": "Да",
@@ -253,6 +255,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_lang": "Choose language:",
         "back": "Back",
         "reply": "Reply",
+        "open_chat_link": "Open chat",
         "cancel": "Cancel",
         "logout_confirm": "Disconnect from your site account?",
         "yes": "Yes",
@@ -279,6 +282,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_lang": "Оберіть мову:",
         "back": "Назад",
         "reply": "Відповісти",
+        "open_chat_link": "Перейти в чат",
         "cancel": "Скасувати",
         "logout_confirm": "Розірвати зв'язок з обліковим записом на сайті?",
         "yes": "Так",
@@ -737,8 +741,12 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
     # Всегда показываем последние сообщения чата целиком (входящие + исходящие),
     # иначе в некоторых групповых сценариях история визуально "пропадает".
     history_sorted = sorted(results, key=lambda m: (m.get("created_at") or "", m.get("id") or 0))
-    lines: list[str] = []
-    for m in history_sorted[-15:]:
+    max_history_messages = 15
+    max_history_chars = 3900
+    recent_messages = history_sorted[-max_history_messages:]
+    lines_rev: list[str] = []
+    used_chars = 0
+    for m in reversed(recent_messages):
         sender = m.get("sender") or {}
         who = _display_name(sender)
         text = (m.get("text") or "").strip()
@@ -752,13 +760,23 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
                 )
             else:
                 text = (m.get("display_text") or "").strip() or "—"
-        lines.append(f"{who}: {text}")
+        line = f"{who}: {text}"
+        add_chars = len(line) + (1 if lines_rev else 0)
+        if used_chars + add_chars > max_history_chars:
+            break
+        lines_rev.append(line)
+        used_chars += add_chars
+    lines = list(reversed(lines_rev))
     body = "\n".join(lines) if lines else "—"
+    web_chat_url = f"{FLATFLY_API_BASE}/messenger?chat={chat_id}"
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text=t(rec.lang, "reply"), callback_data=f"reply:{chat_id}"),
                 InlineKeyboardButton(text=t(rec.lang, "back"), callback_data="list:chats"),
+            ],
+            [
+                InlineKeyboardButton(text=t(rec.lang, "open_chat_link"), url=web_chat_url),
             ],
         ]
     )

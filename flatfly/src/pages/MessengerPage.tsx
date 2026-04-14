@@ -762,7 +762,7 @@ export default function MessengerPage() {
   const [isHousingConfirmBusy, setIsHousingConfirmBusy] = useState(false);
   const [blacklist, setBlacklist] = useState<User[]>([]);
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false);
-  const [isTelegramLinked, setIsTelegramLinked] = useState(false);
+  const [isTelegramLinked, setIsTelegramLinked] = useState<boolean | null>(null);
   const [isTelegramLinkBusy, setIsTelegramLinkBusy] = useState(false);
   const [isReportingOpen, setIsReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("insult");
@@ -2103,17 +2103,20 @@ export default function MessengerPage() {
     try {
       const response = await fetch("/api/chats/telegram-link-status/", { credentials: "include" });
       if (!response.ok) {
+        setIsTelegramLinked(false);
         return;
       }
       const payload = await response.json().catch(() => ({}));
       setIsTelegramLinked(Boolean(payload?.linked));
     } catch {
       // no-op: section remains available, status can be refreshed later
+      setIsTelegramLinked(false);
     }
   };
 
   const handleTelegramLinkToggle = async () => {
     if (isTelegramLinkBusy) return;
+    if (isTelegramLinked === null) return;
     if (isTelegramLinked) {
       const confirmed = window.confirm(t("messenger.telegramUnlinkConfirm"));
       if (!confirmed) return;
@@ -2274,12 +2277,16 @@ export default function MessengerPage() {
           onClick={() => {
             void handleTelegramLinkToggle();
           }}
-          disabled={isTelegramLinkBusy}
+          disabled={isTelegramLinkBusy || isTelegramLinked === null}
           className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#229ED9]/45 bg-[#229ED9]/10 px-3 py-2 text-sm font-semibold text-[#1D86BA] transition hover:bg-[#229ED9]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#229ED9]/40 dark:bg-[#229ED9]/15 dark:text-[#7fd9ff]"
         >
           <Icon icon="mdi:telegram" className="h-4 w-4 shrink-0" />
           <span>
-            {isTelegramLinked ? t("messenger.telegramUnlink") : t("messenger.telegramLink")}
+            {isTelegramLinked === null
+              ? "..."
+              : isTelegramLinked
+                ? t("messenger.telegramUnlink")
+                : t("messenger.telegramLink")}
           </span>
         </button>
         <div
