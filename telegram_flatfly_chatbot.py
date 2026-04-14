@@ -61,6 +61,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 import aiohttp
 from aiohttp import web
+from yarl import URL
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -394,7 +395,7 @@ class FlatFlyApi:
         # Установить переданные куки на хост API
         host = urlparse(self.base_url).netloc or urlparse(self.base_url).hostname or "localhost"
         for name, value in cookies.items():
-            session.cookie_jar.update_cookies({name: value}, response_url=self.base_url + "/")
+            session.cookie_jar.update_cookies({name: value}, response_url=URL(self.base_url + "/"))
         return session
 
     async def request(
@@ -409,7 +410,7 @@ class FlatFlyApi:
         jar = aiohttp.CookieJar(unsafe=True)
         async with aiohttp.ClientSession(cookie_jar=jar) as session:
             for name, value in cookies.items():
-                session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
+                session.cookie_jar.update_cookies({name: value}, response_url=URL(self._url("/")))
             headers: dict[str, str] = {}
             csrf = cookies.get("csrftoken")
             if csrf and method.upper() in ("POST", "PUT", "PATCH", "DELETE"):

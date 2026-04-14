@@ -1,181 +1,53 @@
 INFO:aiogram.dispatcher:Start polling
+ERROR:flatfly_tg_bot:notification_loop: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+Traceback (most recent call last):
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1115, in _wrap_create_connection
+    sock = await aiohappyeyeballs.start_connection(
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+    raise first_exception
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+    sock = await _connect_sock(
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+    await loop.sock_connect(sock, address)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/selector_events.py", line 502, in sock_connect
+    return await fut
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/selector_events.py", line 537, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 8000)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 869, in notification_loop
+    chats, new_c = await api_get_chats(rec.cookies)
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 447, in api_get_chats
+    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 420, in request
+    async with session.request(
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 1425, in __aenter__
+    self._resp: _RetType = await self._coro
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 703, in _request
+    conn = await self._connector.connect(
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 548, in connect
+    proto = await self._create_connection(req, traces, timeout)
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1056, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1406, in _create_direct_connection
+    raise last_exc
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1375, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1130, in _wrap_create_connection
+    raise client_error(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
 INFO:aiogram.dispatcher:Run polling for bot @flatflychatbot id=8653886650 - 'flatflychat'
-INFO:aiogram.event:Update id=890520953 is handled. Duration 252 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520954 is not handled. Duration 4 ms by bot id=8653886650
-ERROR:aiogram.event:Cause exception while process update id=890520954 by bot id=8653886650
-AttributeError: 'str' object has no attribute 'raw_host'
-Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
-    response = await self.feed_update(bot, update, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
-    response = await self.update.wrap_outer_middleware(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
-    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 174, in _propagate_event
-    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
-    response = await observer.trigger(event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 613, in chats_button
-    await show_chats_list(message, rec)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 620, in show_chats_list
-    chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 446, in api_get_chats
-    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 412, in request
-    session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/cookiejar.py", line 233, in update_cookies
-    hostname = response_url.raw_host
-AttributeError: 'str' object has no attribute 'raw_host'
-INFO:aiogram.event:Update id=890520955 is handled. Duration 155 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520956 is handled. Duration 233 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520957 is handled. Duration 136 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520958 is handled. Duration 215 ms by bot id=8653886650
-ERROR:flatfly_tg_bot:notification_loop: 'str' object has no attribute 'raw_host'
-Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 868, in notification_loop
-    chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 446, in api_get_chats
-    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 412, in request
-    session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/cookiejar.py", line 233, in update_cookies
-    hostname = response_url.raw_host
-AttributeError: 'str' object has no attribute 'raw_host'
-INFO:aiogram.event:Update id=890520959 is handled. Duration 167 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520960 is not handled. Duration 1 ms by bot id=8653886650
-ERROR:aiogram.event:Cause exception while process update id=890520960 by bot id=8653886650
-AttributeError: 'str' object has no attribute 'raw_host'
-Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
-    response = await self.feed_update(bot, update, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
-    response = await self.update.wrap_outer_middleware(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
-    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 174, in _propagate_event
-    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
-    response = await observer.trigger(event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 613, in chats_button
-    await show_chats_list(message, rec)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 620, in show_chats_list
-    chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 446, in api_get_chats
-    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 412, in request
-    session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/cookiejar.py", line 233, in update_cookies
-    hostname = response_url.raw_host
-AttributeError: 'str' object has no attribute 'raw_host'
 ERROR:aiogram.dispatcher:Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
 WARNING:aiogram.dispatcher:Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8653886650)
 ERROR:aiogram.dispatcher:Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
-WARNING:aiogram.dispatcher:Sleep for 1.279029 seconds and try again... (tryings = 1, bot id = 8653886650)
-INFO:aiogram.dispatcher:Connection established (tryings = 2, bot id = 8653886650)
-INFO:aiogram.event:Update id=890520961 is not handled. Duration 2 ms by bot id=8653886650
-ERROR:aiogram.event:Cause exception while process update id=890520961 by bot id=8653886650
-AttributeError: 'str' object has no attribute 'raw_host'
-Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
-    response = await self.feed_update(bot, update, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
-    response = await self.update.wrap_outer_middleware(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
-    return await handler(event, data)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
-    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 174, in _propagate_event
-    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-    return await self._propagate_event(
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
-    response = await observer.trigger(event, **kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-    return await wrapped_inner(event, kwargs)
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-    return await wrapped()
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 613, in chats_button
-    await show_chats_list(message, rec)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 620, in show_chats_list
-    chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 446, in api_get_chats
-    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 412, in request
-    session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/cookiejar.py", line 233, in update_cookies
-    hostname = response_url.raw_host
-AttributeError: 'str' object has no attribute 'raw_host'
-ERROR:flatfly_tg_bot:notification_loop: 'str' object has no attribute 'raw_host'
-Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 868, in notification_loop
-    chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 446, in api_get_chats
-    status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 412, in request
-    session.cookie_jar.update_cookies({name: value}, response_url=self._url("/"))
-  File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/cookiejar.py", line 233, in update_cookies
-    hostname = response_url.raw_host
-AttributeError: 'str' object has no attribute 'raw_host'
+WARNING:aiogram.dispatcher:Sleep for 1.467364 seconds and try again... (tryings = 1, bot id = 8653886650)
 ERROR:aiogram.dispatcher:Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
-WARNING:aiogram.dispatcher:Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8653886650)
+WARNING:aiogram.dispatcher:Sleep for 1.819272 seconds and try again... (tryings = 2, bot id = 8653886650)
+ERROR:aiogram.dispatcher:Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+WARNING:aiogram.dispatcher:Sleep for 2.375020 seconds and try again... (tryings = 3, bot id = 8653886650)
 WARNING:aiogram.dispatcher:Received SIGINT signal
 INFO:aiogram.dispatcher:Polling stopped for bot @flatflychatbot id=8653886650 - 'flatflychat'
 INFO:aiogram.dispatcher:Polling stopped
