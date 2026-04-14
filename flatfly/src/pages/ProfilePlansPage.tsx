@@ -31,7 +31,7 @@ export default function ProfilePlansPage() {
     const { t } = useLanguage();
 
     return (
-        <div className="mx-auto w-full min-h-[100vh] max-w-[1200px] px-5 pt-28 pb-10 max-[770px]:pt-24 max-[770px]:pb-8">
+        <div className="mx-auto w-full min-h-[100vh] max-w-[1200px] px-5 pt-28 pb-10 max-[770px]:pt-[112px] max-[770px]:pb-8">
             <div className="mb-8">
                 <h1 className="text-3xl max-[770px]:text-2xl font-extrabold text-gray-900 dark:text-white">
                     {t("profilePlans.title")}

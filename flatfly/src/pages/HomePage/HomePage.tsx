@@ -38,7 +38,7 @@ export default function HomePage() {
         className={`flex w-full max-w-[1440px] flex-col items-center max-[1440px]:px-10 max-[770px]:px-3 min-[1440px]:px-[110px]`}
       >
         {/*Hero title*/}
-        <div className={`mt-[132px] flex flex-col items-center max-[770px]:mt-[72px] `}>
+        <div className={`mt-[132px] flex flex-col items-center max-[770px]:mt-[112px] `}>
           <span
             className={`interFont text-center text-[52px] font-extrabold leading-[1.02] text-[#555555] max-[770px]:text-[32px] max-[770px]:leading-10 dark:text-gray-300`}
           >

@@ -66,7 +66,7 @@ export default function ContactPage() {
     return (
         <div className="interFont w-full min-h-screen bg-transparent pb-8 text-black dark:text-white flex flex-col items-center justify-center">
             <div className="mx-auto flex w-full max-w-[1440px] flex-col px-2 max-[770px]:px-2 max-[1440px]:px-5 min-[1440px]:px-[110px]">
-                <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-8 pt-[50px] min-[771px]:pt-[100px] min-[900px]:grid-cols-2 min-[900px]:items-start min-[900px]:gap-10 min-[900px]:pt-[108px]">
+                <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-8 pt-[112px] min-[771px]:pt-[100px] min-[900px]:grid-cols-2 min-[900px]:items-start min-[900px]:gap-10 min-[900px]:pt-[108px]">
                     {/* Контакты — слева (на мобильных сверху) */}
                     <section className="flex min-w-0 flex-col gap-5">
                         <h1 className="bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-3xl font-bold text-transparent min-[900px]:text-4xl">
