@@ -558,6 +558,14 @@ async def ensure_session_cookies(telegram_user_id: int, rec: UserRecord) -> User
     if rec.cookies.get("sessionid"):
         return rec
     token = (rec.link_token or "").strip()
+    # Backward-compatibility: old linked records may not have link_token saved.
+    # In that case mint a fresh token from stored site_user_id.
+    if not token and rec.site_user_id:
+        try:
+            token = sign_link_token(int(rec.site_user_id), rec.lang or "cz")
+            rec.link_token = token
+        except Exception:
+            token = ""
     if not token:
         return rec
     cookies = await api_exchange_start_token(token)
