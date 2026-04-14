@@ -114,6 +114,11 @@ FLATFLY_API_BASE = (
     or _env("LISTING_PUBLIC_BASE_URL", "")
     or "http://127.0.0.1:8000"
 ).rstrip("/")
+FLATFLY_WEB_BASE = (
+    _env("FLATFLY_WEB_BASE", "")
+    or _env("LISTING_PUBLIC_BASE_URL", "")
+    or FLATFLY_API_BASE
+).rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
 POLL_INTERVAL_SEC = float(_env("POLL_INTERVAL_SEC", "25") or "25")
 WEBHOOK_URL = (_env("WEBHOOK_URL", "") or "").strip()
@@ -821,7 +826,7 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
         used_chars += add_chars
     lines = list(reversed(lines_rev))
     body = "\n".join(lines) if lines else "—"
-    web_chat_url = f"{FLATFLY_API_BASE}/messenger?chat={chat_id}"
+    web_chat_url = f"{FLATFLY_WEB_BASE}/messenger?chat={chat_id}"
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -1156,7 +1161,7 @@ async def run_webhook_server() -> None:
 
 
 def main() -> int:
-    global BOT_TOKEN, LINK_SECRET_RAW, FLATFLY_API_BASE  # noqa: PLW0603
+    global BOT_TOKEN, LINK_SECRET_RAW, FLATFLY_API_BASE, FLATFLY_WEB_BASE  # noqa: PLW0603
 
     if len(sys.argv) >= 2 and sys.argv[1] == "--sign-link":
         LINK_SECRET_RAW = _require_env("LINK_SECRET")
@@ -1182,6 +1187,11 @@ def main() -> int:
     ).rstrip("/")
     FLATFLY_API_BASE = base
     api.base_url = base
+    FLATFLY_WEB_BASE = (
+        _env("FLATFLY_WEB_BASE", "")
+        or _env("LISTING_PUBLIC_BASE_URL", "")
+        or base
+    ).rstrip("/")
 
     if WEBHOOK_URL:
         asyncio.run(run_webhook_server())

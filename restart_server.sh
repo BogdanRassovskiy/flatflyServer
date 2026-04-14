@@ -3,6 +3,11 @@ set -e
 
 cd "$(dirname "$0")"
 
+# API for bot backend calls (local Django)
+export FLATFLY_API_BASE="${FLATFLY_API_BASE:-http://127.0.0.1:3003}"
+# Public URL for "Open chat" links in Telegram
+export FLATFLY_WEB_BASE="${FLATFLY_WEB_BASE:-${LISTING_PUBLIC_BASE_URL:-$FLATFLY_API_BASE}}"
+
 BOT_SCRIPT="telegram_flatfly_chatbot.py"
 BOT_PID_FILE=".telegram_bot.pid"
 BOT_LOG_FILE="telegram_bot.log"
