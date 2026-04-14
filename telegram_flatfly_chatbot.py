@@ -693,11 +693,24 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
         await message.answer(t(lang_hint, "link_invalid"))
         return
     site_uid, lang, _exp = parsed
-    existing = store.get(message.from_user.id)
-    notif_init = bool(existing.notif_initialized) if existing and existing.site_user_id == site_uid else False
+
+    # Fresh-link semantics: remove any old binding/state for this site user
+    # (and for this telegram user), so a new /start always starts from scratch.
+    stale_tg_ids = [
+        tg_uid
+        for tg_uid, payload in list(store.users.items())
+        if int((payload.site_user_id if payload else 0) or 0) == int(site_uid)
+    ]
+    stale_tg_ids.append(str(message.from_user.id))
+    changed = False
+    for tg_uid in set(stale_tg_ids):
+        if tg_uid in store.users:
+            store.users.pop(tg_uid, None)
+            changed = True
+    if changed:
+        await store.save()
+
     cookies = await api_exchange_start_token(args)
-    if not cookies and existing and existing.site_user_id == site_uid:
-        cookies = dict(existing.cookies)
     if not cookies:
         cookies = {}
     rec = UserRecord(
@@ -705,7 +718,10 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
         lang=lang,
         link_token=args,
         cookies=cookies,
-        notif_initialized=notif_init,
+        last_seen_message_id={},
+        logout_confirm=False,
+        notif_initialized=False,
+        ui_message_id=None,
     )
     await store.set_record(message.from_user.id, rec)
     await message.answer(t(rec.lang, "linked_ok"), reply_markup=main_keyboard(rec.lang))
