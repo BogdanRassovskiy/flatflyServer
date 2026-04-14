@@ -18,11 +18,11 @@ ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 3003)
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 1042, in notification_loop
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 1047, in notification_loop
     chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 495, in api_get_chats
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 500, in api_get_chats
     status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 468, in request
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 473, in request
     async with session.request(
   File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 1425, in __aenter__
     self._resp: _RetType = await self._coro
