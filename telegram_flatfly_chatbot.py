@@ -53,6 +53,7 @@ import hmac
 import json
 import logging
 import os
+from pathlib import Path
 import struct
 import sys
 import time
@@ -78,6 +79,17 @@ from aiogram.types import (
 )
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
+# Подгружаем .env, чтобы бот видел те же переменные,
+# что и Django-приложение (в т.ч. при запуске через restart.sh / nohup).
+try:
+    from dotenv import load_dotenv
+
+    BASE_DIR = Path(__file__).resolve().parent
+    load_dotenv(BASE_DIR / ".env")
+    load_dotenv(BASE_DIR / ".env.local")
+except Exception:
+    pass
+
 # ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
@@ -94,8 +106,8 @@ def _require_env(name: str) -> str:
     return v
 
 
-BOT_TOKEN = _env("BOT_TOKEN", "")
-LINK_SECRET_RAW = _env("LINK_SECRET", "")
+BOT_TOKEN = _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
+LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
 FLATFLY_API_BASE = (_env("FLATFLY_API_BASE", "") or "").rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
 POLL_INTERVAL_SEC = float(_env("POLL_INTERVAL_SEC", "25") or "25")
@@ -944,8 +956,12 @@ def main() -> int:
         finally:
             sys.argv = old
 
-    BOT_TOKEN = _require_env("BOT_TOKEN")
-    LINK_SECRET_RAW = _require_env("LINK_SECRET")
+    BOT_TOKEN = _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
+    if not BOT_TOKEN:
+        raise RuntimeError("Missing required environment variable: BOT_TOKEN (or TELEGRAM_BOT_TOKEN)")
+    LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
+    if not LINK_SECRET_RAW:
+        raise RuntimeError("Missing required environment variable: LINK_SECRET (or TELEGRAM_LINK_SECRET)")
     if len(LINK_SECRET_RAW.encode("utf-8")) < 16:
         log.warning("LINK_SECRET is shorter than 16 bytes — recommended to use a longer secret.")
     base = _require_env("FLATFLY_API_BASE").rstrip("/")

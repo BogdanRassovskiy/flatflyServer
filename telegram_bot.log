@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 963, in <module>
+    raise SystemExit(main())
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 947, in main
+    BOT_TOKEN = _require_env("BOT_TOKEN")
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 93, in _require_env
+    raise RuntimeError(f"Missing required environment variable: {name}")
+RuntimeError: Missing required environment variable: BOT_TOKEN
