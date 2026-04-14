@@ -1,3 +1,4 @@
+WARNING:aiogram.dispatcher:Received SIGINT signal
 INFO:aiogram.dispatcher:Start polling
 ERROR:flatfly_tg_bot:notification_loop: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
 Traceback (most recent call last):
@@ -18,11 +19,11 @@ ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 8000)
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 996, in notification_loop
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 1018, in notification_loop
     chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 492, in api_get_chats
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 495, in api_get_chats
     status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 465, in request
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 468, in request
     async with session.request(
   File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 1425, in __aenter__
     self._resp: _RetType = await self._coro
@@ -39,12 +40,4 @@ Traceback (most recent call last):
   File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/connector.py", line 1130, in _wrap_create_connection
     raise client_error(req.connection_key, exc) from exc
 aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
-INFO:aiogram.dispatcher:Run polling for bot @flatflychatbot id=8653886650 - 'flatflychat'
-INFO:aiogram.event:Update id=890521092 is handled. Duration 116 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521093 is handled. Duration 76 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521094 is handled. Duration 160 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521095 is handled. Duration 197 ms by bot id=8653886650
-WARNING:aiogram.dispatcher:Received SIGINT signal
-INFO:aiogram.dispatcher:Polling stopped for bot @flatflychatbot id=8653886650 - 'flatflychat'
 INFO:aiogram.dispatcher:Polling stopped
-WARNING:aiogram.dispatcher:Received SIGINT signal
