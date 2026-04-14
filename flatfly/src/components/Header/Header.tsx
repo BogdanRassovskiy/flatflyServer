@@ -344,12 +344,12 @@ export default function Header() {
                     {isAuthenticated && (
                         <Link
                             to="/messenger"
-                            className="relative hidden min-[771px]:flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white duration-300 hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB]"
+                            className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white duration-300 hover:border-[#C505EB] dark:border-gray-600 dark:bg-gray-800 dark:hover:border-[#C505EB] min-[771px]:h-10 min-[771px]:w-10"
                             aria-label={t("messenger.title")}
                         >
-                            <MessageCircle size={22} className="text-[#C505EB]" />
+                            <MessageCircle size={16} className="text-[#C505EB] min-[771px]:h-[22px] min-[771px]:w-[22px]" />
                             {unreadMessagesCount > 0 && (
-                                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C505EB] px-1 text-center text-[11px] font-bold leading-none text-white">
+                                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C505EB] px-1 text-center text-[10px] font-bold leading-none text-white min-[771px]:h-5 min-[771px]:min-w-5 min-[771px]:text-[11px]">
                                     {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
                                 </span>
                             )}
@@ -555,7 +555,7 @@ export default function Header() {
                             ))}
                             
                             {/* Второй столбец - как на десктопе */}
-                            {menuItemsColumn2.map((item, index) => (
+                            {menuItemsColumn2.filter((item) => item.path !== "/neighbours").map((item, index) => (
                                 <Link
                                     key={index}
                                     to={item.path}
@@ -609,26 +609,6 @@ export default function Header() {
                                 {t("header.findNeighbor")}
                             </Link>
                             
-                            {/* Профиль для зарегистрированных пользователей */}
-                            {isAuthenticated && (
-                                <Link
-                                    to="/messenger"
-                                    className={`w-full rounded-lg px-3 py-2 text-center text-[15px] font-semibold duration-300 touch-manipulation active:scale-[0.98] ${
-                                        pathname === "/messenger"
-                                            ? 'bg-[#C505EB] text-white shadow-sm'
-                                            : 'bg-gray-50 text-[#333333] hover:bg-gray-100 active:bg-gray-200/80 dark:bg-zinc-800 dark:text-gray-100 dark:hover:bg-zinc-700 dark:active:bg-zinc-600'
-                                    }`}
-                                    onClick={() => {
-                                        setTimeout(() => {
-                                            setIsMenuOpen(false);
-                                        }, 100);
-                                    }}
-                                >
-                                    {t("messenger.title")}
-                                    {unreadMessagesCount > 0 ? ` (${unreadMessagesCount > 9 ? "9+" : unreadMessagesCount})` : ""}
-                                </Link>
-                            )}
-
                             {/* Профиль для зарегистрированных пользователей */}
                             {isAuthenticated && (
                                 <Link
