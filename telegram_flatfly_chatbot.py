@@ -108,7 +108,7 @@ def _require_env(name: str) -> str:
 
 BOT_TOKEN = _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
 LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
-FLATFLY_API_BASE = (_env("FLATFLY_API_BASE", "") or "").rstrip("/")
+FLATFLY_API_BASE = (_env("FLATFLY_API_BASE", "") or "http://127.0.0.1:8000").rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
 POLL_INTERVAL_SEC = float(_env("POLL_INTERVAL_SEC", "25") or "25")
 WEBHOOK_URL = (_env("WEBHOOK_URL", "") or "").strip()
@@ -480,6 +480,30 @@ async def api_post_message(cookies: dict[str, str], chat_id: int, text: str) -> 
     return status in (200, 201), new_c
 
 
+async def api_exchange_start_token(token: str) -> Optional[dict[str, str]]:
+    if not token:
+        return None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                api._url("/api/chats/telegram-bot/session/"),
+                json={"token": token},
+                headers={"Content-Type": "application/json"},
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("telegram-bot/session failed: %s", resp.status)
+                    return None
+                data = await resp.json(content_type=None)
+                sessionid = str((data or {}).get("sessionid") or "").strip()
+                csrftoken = str((data or {}).get("csrftoken") or "").strip()
+                if not sessionid or not csrftoken:
+                    return None
+                return {"sessionid": sessionid, "csrftoken": csrftoken}
+    except Exception as e:
+        log.warning("api_exchange_start_token error: %s", e)
+        return None
+
+
 def _other_participant(chat: dict[str, Any], my_site_user_id: int) -> Optional[dict[str, Any]]:
     parts = chat.get("participants") or []
     for p in parts:
@@ -563,12 +587,12 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
         return
     site_uid, lang, _exp = parsed
     existing = store.get(message.from_user.id)
-    if existing and existing.site_user_id == site_uid:
+    notif_init = bool(existing.notif_initialized) if existing and existing.site_user_id == site_uid else False
+    cookies = await api_exchange_start_token(args)
+    if not cookies and existing and existing.site_user_id == site_uid:
         cookies = dict(existing.cookies)
-        notif_init = existing.notif_initialized
-    else:
+    if not cookies:
         cookies = {}
-        notif_init = False
     rec = UserRecord(
         site_user_id=site_uid,
         lang=lang,
@@ -964,7 +988,7 @@ def main() -> int:
         raise RuntimeError("Missing required environment variable: LINK_SECRET (or TELEGRAM_LINK_SECRET)")
     if len(LINK_SECRET_RAW.encode("utf-8")) < 16:
         log.warning("LINK_SECRET is shorter than 16 bytes — recommended to use a longer secret.")
-    base = _require_env("FLATFLY_API_BASE").rstrip("/")
+    base = (_env("FLATFLY_API_BASE", "") or "http://127.0.0.1:8000").rstrip("/")
     FLATFLY_API_BASE = base
     api.base_url = base
 

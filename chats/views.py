@@ -1,23 +1,75 @@
 import uuid
+import json
 from django.conf import settings
+from importlib import import_module
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Chat, Message, ChatBlock, ChatReport, ListingCardReaction
 from .serializers import ChatSerializer, MessageSerializer, UserSerializer
-from .telegram_link import can_sign_telegram_links, find_telegram_link, sign_link_token, unlink_telegram
+from .telegram_link import (
+    can_sign_telegram_links,
+    find_telegram_link,
+    sign_link_token,
+    unlink_telegram,
+    verify_link_token,
+)
 from .utils import listing_to_preview_dict
 from django.contrib.auth import get_user_model
 from rest_framework.generics import get_object_or_404
 from django.db.models import Count, Max, Prefetch
 from rest_framework.exceptions import ValidationError, PermissionDenied
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.contrib.auth import SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY
+from django.middleware.csrf import _get_new_csrf_string
 from users.models import Profile
 from listings.models import Listing
 
 User = get_user_model()
 MESSAGES_PAGE_SIZE = 10
 HOUSING_GROUP_MAX_MEMBERS = 6
+
+
+@csrf_exempt
+@require_POST
+def telegram_bot_session(request):
+    """
+    Exchange Telegram deep-link token for API session cookies for bot usage.
+    """
+    try:
+        payload = request.body.decode("utf-8") if request.body else "{}"
+        data = json.loads(payload or "{}")
+    except Exception:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    token = str(data.get("token") or "").strip()
+    parsed = verify_link_token(token)
+    if not parsed:
+        return JsonResponse({"detail": "Invalid or expired token"}, status=400)
+
+    site_user_id, _lang, _exp = parsed
+    user = get_object_or_404(User, id=site_user_id)
+
+    engine = import_module(settings.SESSION_ENGINE)
+    SessionStore = engine.SessionStore
+    session = SessionStore()
+    session[SESSION_KEY] = str(user.pk)
+    session[BACKEND_SESSION_KEY] = settings.AUTHENTICATION_BACKENDS[0]
+    session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+    session["csrf_token"] = _get_new_csrf_string()
+    session.save()
+
+    csrf_token = _get_new_csrf_string()
+    return JsonResponse(
+        {
+            "sessionid": session.session_key,
+            "csrftoken": csrf_token,
+            "user_id": user.pk,
+        }
+    )
 
 
 def _share_listing_message(chat, user, listing, request):
