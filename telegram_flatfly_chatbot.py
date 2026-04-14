@@ -734,14 +734,24 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
         return
     results = data.get("results") or []
     my_id = rec.site_user_id
-    incoming = [m for m in results if int((m.get("sender") or {}).get("id", 0)) != my_id]
-    # Показать тексты входящих (ограничим 15 последними в хронологии)
-    incoming_sorted = sorted(incoming, key=lambda m: (m.get("created_at") or "", m.get("id") or 0))
+    # Всегда показываем последние сообщения чата целиком (входящие + исходящие),
+    # иначе в некоторых групповых сценариях история визуально "пропадает".
+    history_sorted = sorted(results, key=lambda m: (m.get("created_at") or "", m.get("id") or 0))
     lines: list[str] = []
-    for m in incoming_sorted[-15:]:
+    for m in history_sorted[-15:]:
         sender = m.get("sender") or {}
         who = _display_name(sender)
         text = (m.get("text") or "").strip()
+        if not text:
+            if str(m.get("message_kind") or "") == "listing":
+                preview = m.get("listing_preview") or {}
+                text = (
+                    str(preview.get("title") or "").strip()
+                    or (m.get("display_text") or "").strip()
+                    or "📌 Listing"
+                )
+            else:
+                text = (m.get("display_text") or "").strip() or "—"
         lines.append(f"{who}: {text}")
     body = "\n".join(lines) if lines else "—"
     kb = InlineKeyboardMarkup(
@@ -755,8 +765,12 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
     await upsert_ui_message(query.message, query.from_user.id, rec, body, reply_markup=kb)
 
     # Уведомления: обновить last seen по последнему сообщению от собеседника
+    incoming_other_sorted = sorted(
+        [m for m in results if int((m.get("sender") or {}).get("id", 0)) != my_id],
+        key=lambda m: (m.get("created_at") or "", m.get("id") or 0),
+    )
     last_other_id = 0
-    for m in incoming_sorted:
+    for m in incoming_other_sorted:
         last_other_id = max(last_other_id, int(m.get("id") or 0))
     if last_other_id:
         rec.last_seen_message_id[str(chat_id)] = last_other_id

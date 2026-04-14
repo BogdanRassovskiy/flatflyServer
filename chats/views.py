@@ -1,5 +1,6 @@
 import uuid
 import json
+import os
 from django.conf import settings
 from importlib import import_module
 
@@ -432,7 +433,7 @@ class ChatViewSet(viewsets.ModelViewSet):
     def telegram_link_unlink(self, request):
         removed_tg_ids = unlink_telegram(request.user.id)
 
-        bot_token = str(getattr(settings, "TELEGRAM_BOT_TOKEN", "") or "").strip()
+        bot_token = str(os.getenv("BOT_TOKEN") or "").strip()
         notified = 0
         if bot_token and removed_tg_ids:
             api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"

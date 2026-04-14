@@ -18,7 +18,7 @@ ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 8000)
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 923, in notification_loop
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 956, in notification_loop
     chats, new_c = await api_get_chats(rec.cookies)
   File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 480, in api_get_chats
     status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
@@ -40,21 +40,54 @@ Traceback (most recent call last):
     raise client_error(req.connection_key, exc) from exc
 aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
 INFO:aiogram.dispatcher:Run polling for bot @flatflychatbot id=8653886650 - 'flatflychat'
-INFO:aiogram.event:Update id=890520987 is handled. Duration 275 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520988 is handled. Duration 134 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520989 is handled. Duration 120 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520990 is handled. Duration 125 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520991 is handled. Duration 193 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520992 is handled. Duration 161 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520993 is handled. Duration 164 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520994 is handled. Duration 141 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520995 is handled. Duration 111 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520996 is handled. Duration 110 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520997 is handled. Duration 80 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520998 is handled. Duration 158 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890520999 is handled. Duration 144 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521000 is handled. Duration 84 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521001 is handled. Duration 90 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521002 is handled. Duration 208 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521003 is handled. Duration 138 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521004 is handled. Duration 1 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521005 is handled. Duration 120 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521006 is handled. Duration 146 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521007 is handled. Duration 121 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521008 is handled. Duration 117 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521009 is handled. Duration 114 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521010 is handled. Duration 128 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521011 is handled. Duration 112 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521012 is handled. Duration 154 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521013 is handled. Duration 111 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521014 is handled. Duration 58 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521015 is handled. Duration 77 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521016 is handled. Duration 95 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521017 is handled. Duration 142 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521018 is handled. Duration 100 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521019 is handled. Duration 144 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521020 is handled. Duration 144 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521021 is handled. Duration 278 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521022 is handled. Duration 210 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521023 is handled. Duration 140 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521024 is handled. Duration 170 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521025 is handled. Duration 325 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521026 is handled. Duration 142 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521027 is handled. Duration 155 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521028 is handled. Duration 176 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521029 is handled. Duration 240 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521030 is handled. Duration 166 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521031 is handled. Duration 68 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521032 is handled. Duration 92 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521033 is handled. Duration 145 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521034 is handled. Duration 126 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521035 is handled. Duration 133 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521036 is handled. Duration 177 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521037 is handled. Duration 126 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521038 is handled. Duration 109 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521039 is handled. Duration 230 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521040 is handled. Duration 104 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521041 is handled. Duration 92 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521042 is handled. Duration 101 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521043 is handled. Duration 97 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521044 is handled. Duration 99 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521045 is handled. Duration 110 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521046 is handled. Duration 113 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521047 is handled. Duration 132 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521048 is handled. Duration 149 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521049 is handled. Duration 106 ms by bot id=8653886650
 WARNING:aiogram.dispatcher:Received SIGINT signal
 INFO:aiogram.dispatcher:Polling stopped for bot @flatflychatbot id=8653886650 - 'flatflychat'
 INFO:aiogram.dispatcher:Polling stopped

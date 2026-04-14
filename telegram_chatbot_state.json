@@ -4,15 +4,16 @@
       "site_user_id": 5,
       "lang": "cz",
       "cookies": {
-        "sessionid": "9ssropcuukfyi14wutsheyboy14xpzg6",
-        "csrftoken": "QbNnBYhMVyOYw8zSYN9GyDo1bWz79DeZ"
+        "sessionid": "b8dcyzfzcowt3xxgl7kv4k5irokruqxs",
+        "csrftoken": "COLqdnsGsLxhaiJUNZtH58oOAzWb26vz"
       },
       "last_seen_message_id": {
-        "18": 125,
-        "20": 57
+        "18": 126,
+        "20": 57,
+        "34": 131
       },
       "notif_initialized": true,
-      "ui_message_id": 82
+      "ui_message_id": 129
     }
   }
 }
