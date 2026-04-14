@@ -1,10 +1,12 @@
 import uuid
+from django.conf import settings
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Chat, Message, ChatBlock, ChatReport, ListingCardReaction
 from .serializers import ChatSerializer, MessageSerializer, UserSerializer
+from .telegram_link import can_sign_telegram_links, find_telegram_link, sign_link_token, unlink_telegram
 from .utils import listing_to_preview_dict
 from django.contrib.auth import get_user_model
 from rest_framework.generics import get_object_or_404
@@ -338,6 +340,45 @@ class ChatViewSet(viewsets.ModelViewSet):
             id__in=ChatBlock.objects.filter(blocker=request.user).values_list('blocked_id', flat=True)
         ).select_related('profile')
         return Response(UserSerializer(blocked_users, many=True, context={'request': request}).data)
+
+    @action(detail=False, methods=['get'], url_path='telegram-link-status')
+    def telegram_link_status(self, request):
+        bot_username = str(getattr(settings, "TELEGRAM_CHAT_BOT_USERNAME", "") or "").strip().lstrip("@")
+        linked_telegram_user_id = find_telegram_link(request.user.id)
+        return Response({
+            "linked": linked_telegram_user_id is not None,
+            "telegram_user_id": linked_telegram_user_id,
+            "bot_username": bot_username,
+        })
+
+    @action(detail=False, methods=['post'], url_path='telegram-link-start')
+    def telegram_link_start(self, request):
+        if not can_sign_telegram_links():
+            return Response(
+                {"detail": "Telegram link secret is not configured"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        bot_username = str(getattr(settings, "TELEGRAM_CHAT_BOT_USERNAME", "") or "").strip().lstrip("@")
+        if not bot_username:
+            return Response(
+                {"detail": "Telegram bot username is not configured"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        lang = str(getattr(request, "LANGUAGE_CODE", "ru") or "ru")[:2].lower()
+        if lang not in ("ru", "en", "cz", "cs", "uk"):
+            lang = "ru"
+        token = sign_link_token(request.user.id, "cz" if lang == "cs" else lang)
+        return Response({
+            "linked": find_telegram_link(request.user.id) is not None,
+            "deep_link_token": token,
+            "link_url": f"https://t.me/{bot_username}?start={token}",
+            "bot_username": bot_username,
+        })
+
+    @action(detail=False, methods=['post'], url_path='telegram-link-unlink')
+    def telegram_link_unlink(self, request):
+        removed = unlink_telegram(request.user.id)
+        return Response({"linked": False, "removed_links": removed})
 
     @action(detail=True, methods=['post'])
     def report(self, request, pk=None):

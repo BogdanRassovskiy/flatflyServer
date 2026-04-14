@@ -762,6 +762,8 @@ export default function MessengerPage() {
   const [isHousingConfirmBusy, setIsHousingConfirmBusy] = useState(false);
   const [blacklist, setBlacklist] = useState<User[]>([]);
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false);
+  const [isTelegramLinked, setIsTelegramLinked] = useState(false);
+  const [isTelegramLinkBusy, setIsTelegramLinkBusy] = useState(false);
   const [isReportingOpen, setIsReportingOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("insult");
   const [reportDetails, setReportDetails] = useState("");
@@ -2097,6 +2099,68 @@ export default function MessengerPage() {
     setBlacklist(Array.isArray(payload) ? payload : []);
   };
 
+  const loadTelegramLinkStatus = async () => {
+    try {
+      const response = await fetch("/api/chats/telegram-link-status/", { credentials: "include" });
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      setIsTelegramLinked(Boolean(payload?.linked));
+    } catch {
+      // no-op: section remains available, status can be refreshed later
+    }
+  };
+
+  const handleTelegramLinkToggle = async () => {
+    if (isTelegramLinkBusy) return;
+    if (isTelegramLinked) {
+      const confirmed = window.confirm(t("messenger.telegramUnlinkConfirm"));
+      if (!confirmed) return;
+    }
+    setIsTelegramLinkBusy(true);
+    try {
+      if (isTelegramLinked) {
+        const response = await fetch("/api/chats/telegram-link-unlink/", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+          },
+        });
+        if (!response.ok) {
+          showToast(t("messenger.telegramUnlinkFailed"), "error");
+          return;
+        }
+        setIsTelegramLinked(false);
+        showToast(t("messenger.telegramUnlinked"), "success");
+        return;
+      }
+
+      const response = await fetch("/api/chats/telegram-link-start/", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.link_url) {
+        showToast(String(payload?.detail || t("messenger.telegramLinkFailed")), "error");
+        return;
+      }
+      window.open(String(payload.link_url), "_blank", "noopener,noreferrer");
+      showToast(t("messenger.telegramLinkOpenHint"), "success");
+      setTimeout(() => {
+        void loadTelegramLinkStatus();
+      }, 1200);
+    } catch {
+      showToast(t("messenger.telegramLinkFailed"), "error");
+    } finally {
+      setIsTelegramLinkBusy(false);
+    }
+  };
+
   const handleBlockParticipant = async () => {
     if (!canInteractWithParticipant) return;
     if (!activeParticipant?.id) return;
@@ -2180,6 +2244,10 @@ export default function MessengerPage() {
     setIsMobileActionsOpen(false);
   };
 
+  useEffect(() => {
+    void loadTelegramLinkStatus();
+  }, []);
+
   return (
     <div className="mt-[100px] flex h-[calc(100vh-100px)] w-full min-w-0 bg-white dark:bg-gray-900">
       <div className={`${isMobileChatOpen ? "hidden md:block" : "block"} w-full overflow-y-auto border-r border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 md:min-w-[200px] md:max-w-[280px] md:w-[240px]`}>
@@ -2201,6 +2269,19 @@ export default function MessengerPage() {
           placeholder={t("messenger.searchPlaceholder")}
           className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
         />
+        <button
+          type="button"
+          onClick={() => {
+            void handleTelegramLinkToggle();
+          }}
+          disabled={isTelegramLinkBusy}
+          className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#229ED9]/45 bg-[#229ED9]/10 px-3 py-2 text-sm font-semibold text-[#1D86BA] transition hover:bg-[#229ED9]/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#229ED9]/40 dark:bg-[#229ED9]/15 dark:text-[#7fd9ff]"
+        >
+          <Icon icon="mdi:telegram" className="h-4 w-4 shrink-0" />
+          <span>
+            {isTelegramLinked ? t("messenger.telegramUnlink") : t("messenger.telegramLink")}
+          </span>
+        </button>
         <div
           className={`relative mb-3 cursor-pointer rounded-xl border p-3 transition-all duration-200 ${
             housingGroupChat && selectedChatId === housingGroupChat.chatid
