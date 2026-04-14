@@ -437,10 +437,30 @@ class ChatViewSet(viewsets.ModelViewSet):
         notified = 0
         if bot_token and removed_tg_ids:
             api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            text = (
-                "Привязка Telegram была отменена на сайте FlatFly.\n"
-                "Доступ к чатам через бота остановлен. История сессии очищена."
-            )
+            lang = str(getattr(request, "LANGUAGE_CODE", "ru") or "ru")[:2].lower()
+            if lang == "cs":
+                lang = "cz"
+            if lang not in ("cz", "ru", "en", "uk"):
+                lang = "ru"
+            unlink_notice = {
+                "cz": (
+                    "Propojení Telegramu bylo na webu FlatFly zrušeno.\n"
+                    "Přístup k chatům přes bota byl zastaven. Historie relace byla vymazána."
+                ),
+                "ru": (
+                    "Привязка Telegram была отменена на сайте FlatFly.\n"
+                    "Доступ к чатам через бота остановлен. История сессии очищена."
+                ),
+                "en": (
+                    "Telegram link was removed on the FlatFly website.\n"
+                    "Access to chats via the bot has been stopped. Session history was cleared."
+                ),
+                "uk": (
+                    "Прив'язку Telegram скасовано на сайті FlatFly.\n"
+                    "Доступ до чатів через бота зупинено. Історію сесії очищено."
+                ),
+            }
+            text = unlink_notice.get(lang, unlink_notice["ru"])
             for tg_id in removed_tg_ids:
                 try:
                     requests.post(
