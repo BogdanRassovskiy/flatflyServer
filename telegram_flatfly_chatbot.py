@@ -109,7 +109,11 @@ def _require_env(name: str) -> str:
 
 BOT_TOKEN = _env("TELEGRAM_CHAT_BOT_TOKEN", "") or _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
 LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
-FLATFLY_API_BASE = (_env("FLATFLY_API_BASE", "") or "http://127.0.0.1:8000").rstrip("/")
+FLATFLY_API_BASE = (
+    _env("FLATFLY_API_BASE", "")
+    or _env("LISTING_PUBLIC_BASE_URL", "")
+    or "http://127.0.0.1:8000"
+).rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
 POLL_INTERVAL_SEC = float(_env("POLL_INTERVAL_SEC", "25") or "25")
 WEBHOOK_URL = (_env("WEBHOOK_URL", "") or "").strip()
@@ -1108,7 +1112,11 @@ def main() -> int:
         raise RuntimeError("Missing required environment variable: LINK_SECRET (or TELEGRAM_LINK_SECRET)")
     if len(LINK_SECRET_RAW.encode("utf-8")) < 16:
         log.warning("LINK_SECRET is shorter than 16 bytes — recommended to use a longer secret.")
-    base = (_env("FLATFLY_API_BASE", "") or "http://127.0.0.1:8000").rstrip("/")
+    base = (
+        _env("FLATFLY_API_BASE", "")
+        or _env("LISTING_PUBLIC_BASE_URL", "")
+        or "http://127.0.0.1:8000"
+    ).rstrip("/")
     FLATFLY_API_BASE = base
     api.base_url = base
 

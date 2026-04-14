@@ -18,11 +18,11 @@ ConnectionRefusedError: [Errno 61] Connect call failed ('127.0.0.1', 8000)
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 970, in notification_loop
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 988, in notification_loop
     chats, new_c = await api_get_chats(rec.cookies)
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 480, in api_get_chats
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 484, in api_get_chats
     status, (data, new_c) = await api.request(cookies, "GET", "/api/chats/")
-  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 453, in request
+  File "/Users/bogdanrassovskiy/dev/flatflyServer/telegram_flatfly_chatbot.py", line 457, in request
     async with session.request(
   File "/Users/bogdanrassovskiy/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 1425, in __aenter__
     self._resp: _RetType = await self._coro
@@ -40,12 +40,25 @@ Traceback (most recent call last):
     raise client_error(req.connection_key, exc) from exc
 aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
 INFO:aiogram.dispatcher:Run polling for bot @flatflychatbot id=8653886650 - 'flatflychat'
-INFO:aiogram.event:Update id=890521050 is handled. Duration 291 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521051 is handled. Duration 159 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521052 is handled. Duration 121 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521053 is handled. Duration 131 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521054 is handled. Duration 134 ms by bot id=8653886650
-INFO:aiogram.event:Update id=890521055 is handled. Duration 299 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521056 is handled. Duration 282 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521057 is handled. Duration 114 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521058 is handled. Duration 185 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521059 is handled. Duration 197 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521060 is handled. Duration 151 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521061 is handled. Duration 135 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521062 is handled. Duration 293 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521063 is handled. Duration 137 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521064 is handled. Duration 105 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521065 is handled. Duration 121 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521066 is handled. Duration 177 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521067 is handled. Duration 248 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521068 is handled. Duration 132 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521069 is handled. Duration 127 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521070 is handled. Duration 174 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521071 is handled. Duration 135 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521072 is handled. Duration 161 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521073 is handled. Duration 158 ms by bot id=8653886650
+INFO:aiogram.event:Update id=890521074 is handled. Duration 238 ms by bot id=8653886650
 WARNING:aiogram.dispatcher:Received SIGINT signal
 INFO:aiogram.dispatcher:Polling stopped for bot @flatflychatbot id=8653886650 - 'flatflychat'
 INFO:aiogram.dispatcher:Polling stopped

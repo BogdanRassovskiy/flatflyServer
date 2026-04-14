@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+from importlib import import_module
 import json
 import os
 import struct
@@ -111,16 +112,36 @@ def unlink_telegram(site_user_id: int) -> list[int]:
     users = state.get("users") or {}
     to_delete: list[str] = []
     removed_tg_ids: list[int] = []
+    session_keys_to_revoke: list[str] = []
     for tg_user_id, payload in users.items():
         try:
             if int((payload or {}).get("site_user_id")) == int(site_user_id):
                 to_delete.append(str(tg_user_id))
                 removed_tg_ids.append(int(tg_user_id))
+                cookies = (payload or {}).get("cookies") or {}
+                session_key = str((cookies or {}).get("sessionid") or "").strip()
+                if session_key:
+                    session_keys_to_revoke.append(session_key)
         except Exception:
             continue
     for key in to_delete:
         users.pop(key, None)
     state["users"] = users
     _write_state(state)
+
+    # Revoking Django sessions makes unlink effective immediately, even if
+    # the bot process still holds old cookies in memory.
+    if session_keys_to_revoke:
+        try:
+            engine = import_module(settings.SESSION_ENGINE)
+            SessionStore = engine.SessionStore
+            for session_key in session_keys_to_revoke:
+                try:
+                    SessionStore(session_key=session_key).delete(session_key)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
     return removed_tg_ids
 
