@@ -662,26 +662,6 @@ export default function Header() {
                             {/* Разделитель */}
                             <div className="my-1 h-px w-full bg-gray-200 dark:bg-zinc-700" />
                             
-                            {/* Кнопка темы - в мобильном меню */}
-                            {mounted && (
-                                <button
-                                    onClick={toggleTheme}
-                                    className={`flex w-full items-center justify-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-center text-[15px] font-semibold text-[#333333] duration-300 touch-manipulation active:scale-[0.98] hover:bg-gray-100 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700`}
-                                >
-                                    {isDark ? (
-                                        <>
-                                            <Sun size={18} className="shrink-0 text-yellow-400" />
-                                            <span>{t("header.lightTheme")}</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Moon size={18} className="shrink-0 text-gray-700 dark:text-gray-300" />
-                                            <span>{t("header.darkTheme")}</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
-                            
                             {/* Выбор языка в выезжающем меню — на всех страницах */}
                             <div className="flex w-full items-stretch justify-center gap-1.5">
                                 {languages.map((lang) => (
@@ -691,15 +671,13 @@ export default function Header() {
                                         onClick={() => {
                                             setLanguage(lang.code);
                                         }}
-                                        className={`flex flex-1 items-center justify-center rounded-lg px-2 py-2 text-xl leading-none duration-300 touch-manipulation active:scale-[0.98] ${
+                                        className={`flex flex-1 items-center justify-center rounded-lg px-2 py-2 text-sm font-bold uppercase tracking-wide leading-none duration-300 touch-manipulation active:scale-[0.98] ${
                                             language === lang.code
                                                 ? "bg-[#C505EB] text-white shadow-sm ring-1 ring-[#C505EB]/40"
                                                 : "bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                                         }`}
                                     >
-                                        {lang.code === "cz" && "🇨🇿"}
-                                        {lang.code === "ru" && "🇷🇺"}
-                                        {lang.code === "en" && "🇬🇧"}
+                                        {lang.code.toUpperCase()}
                                     </button>
                                 ))}
                             </div>

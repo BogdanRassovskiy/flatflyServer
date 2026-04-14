@@ -935,19 +935,17 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
 
               {RoomsCategories.length > 0 ? (
                 <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                  <div className="flex flex-col gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
-                    {RoomsCategories.map((value, index) => (
+                  <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
+                    {RoomsCategories.map((value) => (
                       <button
                         key={value.id}
                         type="button"
                         onClick={value.onRemove}
-                        className={`filter-panel-chip flex w-full items-center justify-between bg-white px-4 py-3.5 text-left dark:bg-zinc-900 ${
-                          index === 0 ? "rounded-t-2xl" : ""
-                        } ${index === RoomsCategories.length - 1 ? "rounded-b-2xl" : ""}`}
+                        className="filter-panel-chip flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-2.5 py-1.5 text-left dark:bg-zinc-900"
                       >
                         <div className="flex flex-col items-start">
-                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{value.title}</span>
-                          <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
+                          <span className="text-[12px] font-bold leading-tight text-zinc-900 dark:text-zinc-100">{value.title}</span>
+                          <span className="text-[10px] font-semibold leading-tight text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
                         </div>
                         <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
                       </button>

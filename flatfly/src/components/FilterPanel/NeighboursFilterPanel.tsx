@@ -46,7 +46,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
     const [universitiesLoading, setUniversitiesLoading] = useState(false);
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
-
+    
     // Функции для перевода значений фильтров
     const translateGender = (value: string) => {
         const map: Record<string, string> = {
@@ -275,7 +275,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
             ...filters,
             ageFrom: formatAgeValue(safeFrom),
             ageTo: formatAgeValue(safeTo),
-        });
+      });
     };
 
         const handleBooleanFilterChange = (key: keyof NeighbourFilterState, value: boolean) => {
@@ -295,27 +295,27 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     };
 
     const handleReset = () => {
-        setUniversityInput("");
-        setUniversityDropdownOpen(false);
-        setUniversitySuggestions([]);
-        onChange({
-            city: "",
-            ageFrom: "",
-            ageTo: "",
+            setUniversityInput("");
+            setUniversityDropdownOpen(false);
+            setUniversitySuggestions([]);
+      onChange({
+        city: "",
+        ageFrom: "",
+        ageTo: "",
             ratingMin: "0",
-            gender: "",
-            smoking: "",
-            alcohol: "",
-            sleepSchedule: "",
-            universityId: "",
-            universityName: "",
-            excludeWithChildren: false,
-            excludeWithDisability: false,
-            workFromHome: "",
-            languages: [],
-            interests: "",
+        gender: "",
+        smoking: "",
+        alcohol: "",
+        sleepSchedule: "",
+                universityId: "",
+                universityName: "",
+                excludeWithChildren: false,
+                excludeWithDisability: false,
+        workFromHome: "",
+        languages: [],
+                interests: "",
             neighbourFrom: "",
-        });
+      });
     };
 
     const handleApply = () => {
@@ -746,21 +746,21 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                             >
                                 <div className="flex flex-col items-start">
                                     <span className="whitespace-nowrap text-[13px] font-bold text-zinc-900 dark:text-zinc-100">
-                                        {value.title}
-                                    </span>
+          {value.title}
+        </span>
                                     <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                                        {value.subTitle}
-                                    </span>
-                                </div>
+          {value.subTitle}
+        </span>
+      </div>
                                 <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
                             </button>
-                        ))}
+    ))}
                     </div>
                 ) : null}
-            </div>
+  </div>
 
             <div className="flex min-[771px]:hidden w-full flex-col gap-2.5">
-                <button
+  <button
                     type="button"
                     onClick={openConfigureModal}
                     className="flex w-full touch-manipulation items-center justify-center gap-2.5 rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
@@ -768,26 +768,24 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                     <span className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
                         <Icon icon="mage:filter" className="h-6 w-6 shrink-0" style={{ color: "#08E2BE" }} />
                         <span className="text-base font-bold tracking-tight">{t("filter.filters")}</span>
-                    </span>
-                </button>
+    </span>
+  </button>
 
                 {secondaryChips.length > 0 ? (
                     <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                        <div className="flex flex-col gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
-                            {secondaryChips.map((value, index) => (
+                        <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
+                            {secondaryChips.map((value) => (
                                 <button
                                     key={value.id}
                                     type="button"
                                     onClick={value.onRemove}
-                                    className={`filter-panel-chip flex w-full items-center justify-between bg-white px-4 py-3.5 text-left dark:bg-zinc-900 ${
-                                        index === 0 ? "rounded-t-2xl" : ""
-                                    } ${index === secondaryChips.length - 1 ? "rounded-b-2xl" : ""}`}
+                                    className="filter-panel-chip flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-2.5 py-1.5 text-left dark:bg-zinc-900"
                                 >
                                     <div className="flex flex-col items-start">
-                                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                        <span className="text-[12px] font-bold leading-tight text-zinc-900 dark:text-zinc-100">
                                             {value.title}
                                         </span>
-                                        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                                        <span className="text-[10px] font-semibold leading-tight text-zinc-500 dark:text-zinc-400">
                                             {value.subTitle}
                                         </span>
                                     </div>
@@ -797,7 +795,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                         </div>
                     </div>
                 ) : null}
-            </div>
+</div>
 
             {/* Модальное окно фильтров */}
             {isModalOpen && (
@@ -860,10 +858,10 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                                                             left: `${selectedAgeFromPercent}%`,
                                                             width: `${Math.max(2, selectedAgeToPercent - selectedAgeFromPercent)}%`,
                                                         }}
-                                                    />
-                                                </div>
+                                        />
+                                    </div>
 
-                                                <input
+                                        <input
                                                     type="range"
                                                     min={ageSliderMin}
                                                     max={ageSliderMax}
@@ -909,7 +907,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                                                     max="5"
                                                     step="1"
                                                     value={Number(filters.ratingMin || "0")}
-                                                    onChange={(e) => handleFilterChange("ratingMin", e.target.value)}
+                                            onChange={(e) => handleFilterChange("ratingMin", e.target.value)}
                                                     className="age-range-input z-20"
                                                 />
                                             </div>

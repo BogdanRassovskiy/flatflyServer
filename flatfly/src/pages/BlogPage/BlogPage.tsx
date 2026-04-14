@@ -54,7 +54,7 @@ export default function BlogPage() {
 
             <div className={`w-full max-w-[1440px] min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2 flex flex-col items-center`}>
 
-                <div className={`mt-[214px] max-[770px]:mt-[90px] flex flex-col items-center `}>
+                <div className={`mt-[214px] max-[770px]:mt-[112px] flex flex-col items-center `}>
                     <span className={`text-[44px] max-[770px]:text-[28px] font-extrabold text-[#555555] dark:text-gray-300 interFont leading-16 max-[770px]:leading-10 text-center`}>
                         <span className={`text-[48px] max-[770px]:text-[32px]`}>
                             <span className={`bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent`}>Blog FlatFly,</span> {t("blog.title").replace("Blog FlatFly, ", "")}
