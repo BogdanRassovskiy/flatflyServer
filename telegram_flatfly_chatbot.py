@@ -325,6 +325,7 @@ def t(lang: str, key: str, **fmt: Any) -> str:
 class UserRecord:
     site_user_id: int
     lang: str = "cz"
+    link_token: str = ""
     cookies: dict[str, str] = field(default_factory=dict)
     # chat_id -> last seen other-user message id for notifications
     last_seen_message_id: dict[str, int] = field(default_factory=dict)
@@ -337,6 +338,7 @@ class UserRecord:
         return {
             "site_user_id": self.site_user_id,
             "lang": self.lang,
+            "link_token": self.link_token,
             "cookies": self.cookies,
             "last_seen_message_id": self.last_seen_message_id,
             "notif_initialized": self.notif_initialized,
@@ -348,6 +350,7 @@ class UserRecord:
         return UserRecord(
             site_user_id=int(d["site_user_id"]),
             lang=str(d.get("lang") or "cz"),
+            link_token=str(d.get("link_token") or ""),
             cookies=dict(d.get("cookies") or {}),
             last_seen_message_id={str(k): int(v) for k, v in (d.get("last_seen_message_id") or {}).items()},
             notif_initialized=bool(d.get("notif_initialized")),
@@ -550,6 +553,21 @@ async def api_exchange_start_token(token: str) -> Optional[dict[str, str]]:
         return None
 
 
+async def ensure_session_cookies(telegram_user_id: int, rec: UserRecord) -> UserRecord:
+    """Try to restore missing session cookies from saved start token."""
+    if rec.cookies.get("sessionid"):
+        return rec
+    token = (rec.link_token or "").strip()
+    if not token:
+        return rec
+    cookies = await api_exchange_start_token(token)
+    if not cookies or not cookies.get("sessionid"):
+        return rec
+    rec.cookies = cookies
+    await store.set_record(telegram_user_id, rec)
+    return rec
+
+
 def _other_participant(chat: dict[str, Any], my_site_user_id: int) -> Optional[dict[str, Any]]:
     parts = chat.get("participants") or []
     for p in parts:
@@ -677,6 +695,7 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
     rec = UserRecord(
         site_user_id=site_uid,
         lang=lang,
+        link_token=args,
         cookies=cookies,
         notif_initialized=notif_init,
     )
@@ -695,6 +714,7 @@ async def chats_button(message: Message) -> None:
 
 
 async def show_chats_list(message: Message, rec: UserRecord) -> None:
+    rec = await ensure_session_cookies(message.from_user.id, rec)
     if not rec.cookies.get("sessionid"):
         await message.answer(t(rec.lang, "no_session"), reply_markup=main_keyboard(rec.lang))
         return
@@ -735,6 +755,7 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
     if not rec:
         return
     chat_id = int(query.data.split(":", 1)[1])
+    rec = await ensure_session_cookies(query.from_user.id, rec)
     if not rec.cookies.get("sessionid"):
         await query.message.answer(t(rec.lang, "no_session"))
         return
@@ -990,6 +1011,7 @@ async def notification_loop(bot: Bot) -> None:
         try:
             for tg_id_str, rec in list(store.users.items()):
                 tg_id = int(tg_id_str)
+                rec = await ensure_session_cookies(tg_id, rec)
                 if not rec.cookies.get("sessionid"):
                     continue
                 cookies_before = dict(rec.cookies)
