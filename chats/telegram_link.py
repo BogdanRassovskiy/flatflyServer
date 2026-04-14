@@ -106,19 +106,21 @@ def find_telegram_link(site_user_id: int) -> Optional[int]:
     return None
 
 
-def unlink_telegram(site_user_id: int) -> int:
+def unlink_telegram(site_user_id: int) -> list[int]:
     state = _read_state()
     users = state.get("users") or {}
     to_delete: list[str] = []
+    removed_tg_ids: list[int] = []
     for tg_user_id, payload in users.items():
         try:
             if int((payload or {}).get("site_user_id")) == int(site_user_id):
                 to_delete.append(str(tg_user_id))
+                removed_tg_ids.append(int(tg_user_id))
         except Exception:
             continue
     for key in to_delete:
         users.pop(key, None)
     state["users"] = users
     _write_state(state)
-    return len(to_delete)
+    return removed_tg_ids
 

@@ -25,6 +25,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY
 from django.middleware.csrf import _get_new_csrf_string
+import requests
 from users.models import Profile
 from listings.models import Listing
 
@@ -429,8 +430,38 @@ class ChatViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='telegram-link-unlink')
     def telegram_link_unlink(self, request):
-        removed = unlink_telegram(request.user.id)
-        return Response({"linked": False, "removed_links": removed})
+        removed_tg_ids = unlink_telegram(request.user.id)
+
+        bot_token = str(getattr(settings, "TELEGRAM_BOT_TOKEN", "") or "").strip()
+        notified = 0
+        if bot_token and removed_tg_ids:
+            api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            text = (
+                "Привязка Telegram была отменена на сайте FlatFly.\n"
+                "Доступ к чатам через бота остановлен. История сессии очищена."
+            )
+            for tg_id in removed_tg_ids:
+                try:
+                    requests.post(
+                        api_url,
+                        json={
+                            "chat_id": tg_id,
+                            "text": text,
+                            "reply_markup": {"remove_keyboard": True},
+                        },
+                        timeout=5,
+                    )
+                    notified += 1
+                except Exception:
+                    continue
+
+        return Response(
+            {
+                "linked": False,
+                "removed_links": len(removed_tg_ids),
+                "notified": notified,
+            }
+        )
 
     @action(detail=True, methods=['post'])
     def report(self, request, pk=None):

@@ -136,7 +136,7 @@ def _link_secret_bytes() -> bytes:
 def sign_link_token(user_id: int, lang_code: str, ttl_seconds: int = 7 * 24 * 3600) -> str:
     """Сгенерировать токен для ?start=... (используйте на сайте с тем же LINK_SECRET)."""
     exp = int(time.time()) + int(ttl_seconds)
-    lang = (lang_code or "ru")[:2].lower().ljust(2, "x")[:2]
+    lang = (lang_code or "cz")[:2].lower().ljust(2, "x")[:2]
     if len(lang) != 2:
         lang = "ru"
     body = struct.pack(
@@ -172,7 +172,7 @@ def verify_link_token(token: str) -> Optional[tuple[int, str, int]]:
         return None
     if int(time.time()) > exp:
         return None
-    return int(user_id), lang.strip() or "ru", int(exp)
+    return int(user_id), lang.strip() or "cz", int(exp)
 
 
 def _sign_link_cli():
@@ -192,10 +192,37 @@ def _sign_link_cli():
 # ---------------------------------------------------------------------------
 
 STRINGS: dict[str, dict[str, str]] = {
+    "cz": {
+        "main_chats": "Chaty",
+        "housing_group_title": "Hledáme spolu",
+        "main_lang": "Jazyk",
+        "main_logout": "Zrušit propojení",
+        "choose_lang": "Vyberte jazyk:",
+        "back": "Zpět",
+        "reply": "Odpovědět",
+        "cancel": "Zrušit",
+        "logout_confirm": "Opravdu chcete zrušit propojení?",
+        "yes": "Ano",
+        "no": "Ne",
+        "linked_ok": "Účet byl propojen. Použijte menu níže.",
+        "link_invalid": "Odkaz je neplatný nebo vypršel. Vygenerujte nový na webu.",
+        "no_session": "Propojení je aktivní, ale chybí cookies relace webu.",
+        "chats_empty": "Zatím nemáte žádné chaty.",
+        "open_chat_error": "Chat se nepodařilo otevřít.",
+        "send_error": "Zprávu se nepodařilo odeslat.",
+        "sent_ok": "✅ Odesláno",
+        "reply_hint": "Napište odpověď. Tlačítko „Zrušit“ ukončí odpovídání.",
+        "logged_out": "Propojení zrušeno. Otevřete bota znovu přes odkaz z webu.",
+        "notify_new": "Nová zpráva od {name}:",
+        "dev_usage": "Použití: /dev_session sessionid=... csrftoken=...",
+        "dev_ok": "Cookies uloženy.",
+        "start_plain": "Otevřete bota přes odkaz z webu pro propojení účtu.",
+    },
     "ru": {
         "main_chats": "Чаты",
+        "housing_group_title": "Ищем вместе",
         "main_lang": "Язык",
-        "main_logout": "Выйти",
+        "main_logout": "Отменить привязку",
         "choose_lang": "Выберите язык:",
         "back": "Назад",
         "reply": "Ответить",
@@ -210,6 +237,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "chats_empty": "Чатов пока нет.",
         "open_chat_error": "Не удалось открыть чат.",
         "send_error": "Не удалось отправить сообщение.",
+        "sent_ok": "✅ Отправлено",
         "reply_hint": "Напишите ответ текстом. Кнопка «Отмена» — выйти без отправки.",
         "logged_out": "Связь разорвана. Снова откройте бота по ссылке с сайта.",
         "notify_new": "Новое сообщение от {name}:",
@@ -219,8 +247,9 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "en": {
         "main_chats": "Chats",
+        "housing_group_title": "Looking together",
         "main_lang": "Language",
-        "main_logout": "Log out",
+        "main_logout": "Cancel link",
         "choose_lang": "Choose language:",
         "back": "Back",
         "reply": "Reply",
@@ -235,6 +264,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "chats_empty": "No chats yet.",
         "open_chat_error": "Could not open chat.",
         "send_error": "Could not send message.",
+        "sent_ok": "✅ Sent",
         "reply_hint": "Type your reply. Tap Cancel to leave without sending.",
         "logged_out": "Disconnected. Open the bot again using the site link.",
         "notify_new": "New message from {name}:",
@@ -270,7 +300,7 @@ STRINGS: dict[str, dict[str, str]] = {
 
 
 def t(lang: str, key: str, **fmt: Any) -> str:
-    bucket = STRINGS.get((lang or "ru")[:2], STRINGS["ru"])
+    bucket = STRINGS.get((lang or "cz")[:2], STRINGS["cz"])
     s = bucket.get(key) or STRINGS["en"].get(key) or key
     return s.format(**fmt) if fmt else s
 
@@ -282,13 +312,14 @@ def t(lang: str, key: str, **fmt: Any) -> str:
 @dataclass
 class UserRecord:
     site_user_id: int
-    lang: str = "ru"
+    lang: str = "cz"
     cookies: dict[str, str] = field(default_factory=dict)
     # chat_id -> last seen other-user message id for notifications
     last_seen_message_id: dict[str, int] = field(default_factory=dict)
     logout_confirm: bool = False
     # после первого опроса чатов выставляем last_seen по last_message, без рассылки старых «новых»
     notif_initialized: bool = False
+    ui_message_id: Optional[int] = None
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -297,16 +328,18 @@ class UserRecord:
             "cookies": self.cookies,
             "last_seen_message_id": self.last_seen_message_id,
             "notif_initialized": self.notif_initialized,
+            "ui_message_id": self.ui_message_id,
         }
 
     @staticmethod
     def from_json(d: dict[str, Any]) -> "UserRecord":
         return UserRecord(
             site_user_id=int(d["site_user_id"]),
-            lang=str(d.get("lang") or "ru"),
+            lang=str(d.get("lang") or "cz"),
             cookies=dict(d.get("cookies") or {}),
             last_seen_message_id={str(k): int(v) for k, v in (d.get("last_seen_message_id") or {}).items()},
             notif_initialized=bool(d.get("notif_initialized")),
+            ui_message_id=int(d["ui_message_id"]) if d.get("ui_message_id") is not None else None,
         )
 
 
@@ -561,12 +594,29 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
+                InlineKeyboardButton(text="Čeština", callback_data="lang:cz"),
                 InlineKeyboardButton(text="Русский", callback_data="lang:ru"),
                 InlineKeyboardButton(text="English", callback_data="lang:en"),
             ],
-            [InlineKeyboardButton(text="Українська", callback_data="lang:uk")],
         ]
     )
+
+
+async def upsert_ui_message(message: Message, telegram_user_id: int, rec: UserRecord, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> None:
+    if rec.ui_message_id:
+        try:
+            await message.bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=rec.ui_message_id,
+                text=text[:4096],
+                reply_markup=reply_markup,
+            )
+            return
+        except Exception:
+            rec.ui_message_id = None
+    sent = await message.answer(text[:4096], reply_markup=reply_markup)
+    rec.ui_message_id = sent.message_id
+    await store.set_record(telegram_user_id, rec)
 
 
 _LABEL_MAIN_CHATS = frozenset(STRINGS[lang]["main_chats"] for lang in STRINGS)
@@ -578,7 +628,7 @@ _LABEL_MAIN_LOGOUT = frozenset(STRINGS[lang]["main_logout"] for lang in STRINGS)
 async def cmd_start(message: Message, command: CommandObject) -> None:
     args = (command.args or "").strip()
     rec_existing = store.get(message.from_user.id)
-    lang_hint = rec_existing.lang if rec_existing else "ru"
+    lang_hint = rec_existing.lang if rec_existing else "cz"
     if not args:
         await message.answer(t(lang_hint, "start_plain"))
         return
@@ -630,13 +680,18 @@ async def show_chats_list(message: Message, rec: UserRecord) -> None:
         cid = chat.get("chatid")
         if cid is None:
             continue
-        other = _other_participant(chat, rec.site_user_id)
-        label_base = _display_name(other) if other else f"Chat {cid}"
+        if str(chat.get("chat_type") or "") == "housing_group":
+            label_base = t(rec.lang, "housing_group_title")
+        else:
+            other = _other_participant(chat, rec.site_user_id)
+            label_base = _display_name(other) if other else f"Chat {cid}"
         unread = int(chat.get("unread_count") or 0)
         label = label_base + _unread_bracket(unread)
         rows.append([InlineKeyboardButton(text=label[:64], callback_data=f"open:{cid}")])
-    rows.append([InlineKeyboardButton(text=t(rec.lang, "back"), callback_data="menu:main")])
-    await message.answer(
+    await upsert_ui_message(
+        message,
+        message.from_user.id,
+        rec,
         t(rec.lang, "main_chats") + ":",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -678,7 +733,7 @@ async def cb_open_chat(query: CallbackQuery, state: FSMContext) -> None:
             ],
         ]
     )
-    await query.message.answer(body[:4096], reply_markup=kb)
+    await upsert_ui_message(query.message, query.from_user.id, rec, body, reply_markup=kb)
 
     # Уведомления: обновить last seen по последнему сообщению от собеседника
     last_other_id = 0
@@ -735,7 +790,7 @@ async def reply_text(message: Message, state: FSMContext) -> None:
     await store.set_record(message.from_user.id, rec)
     await state.clear()
     if ok:
-        await message.answer("✓", reply_markup=main_keyboard(rec.lang))
+        await message.answer(t(rec.lang, "sent_ok"), reply_markup=main_keyboard(rec.lang))
     else:
         await message.answer(t(rec.lang, "send_error"), reply_markup=main_keyboard(rec.lang))
 
@@ -769,7 +824,7 @@ async def logout_press(message: Message) -> None:
         return
     rec.logout_confirm = True
     await store.set_record(message.from_user.id, rec)
-    await message.answer(t(rec.lang, "logout_confirm"), reply_markup=_logout_kb(rec.lang))
+    await upsert_ui_message(message, message.from_user.id, rec, t(rec.lang, "logout_confirm"), reply_markup=_logout_kb(rec.lang))
 
 
 @router.callback_query(F.data.startswith("logout:"))
@@ -794,7 +849,7 @@ async def lang_menu(message: Message) -> None:
         return
     if message.text != t(rec.lang, "main_lang"):
         return
-    await message.answer(t(rec.lang, "choose_lang"), reply_markup=lang_keyboard())
+    await upsert_ui_message(message, message.from_user.id, rec, t(rec.lang, "choose_lang"), reply_markup=lang_keyboard())
 
 
 @router.callback_query(F.data.startswith("lang:"))
@@ -805,7 +860,7 @@ async def lang_set(query: CallbackQuery) -> None:
         return
     lang = query.data.split(":", 1)[1]
     if lang not in STRINGS:
-        lang = "ru"
+        lang = "cz"
     rec.lang = lang
     await store.set_record(query.from_user.id, rec)
     await query.message.answer("OK", reply_markup=main_keyboard(rec.lang))
@@ -850,8 +905,7 @@ async def ignore_other_in_reply_state(message: Message, state: FSMContext) -> No
         t(rec.lang, "main_logout"),
     ):
         return
-    if rec:
-        await message.answer("—", reply_markup=main_keyboard(rec.lang))
+    return
 
 
 # ---------------------------------------------------------------------------
