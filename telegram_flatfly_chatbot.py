@@ -219,6 +219,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "reply_hint": "Napište odpověď. Tlačítko „Zrušit“ ukončí odpovídání.",
         "logged_out": "Propojení zrušeno. Otevřete bota znovu přes odkaz z webu.",
         "notify_new": "Nová zpráva od {name}:",
+        "notify_new_group": "Nová zpráva v chatu „{chat_title}“ od {name}:",
         "dev_usage": "Použití: /dev_session sessionid=... csrftoken=...",
         "dev_ok": "Cookies uloženy.",
         "start_plain": "Otevřete bota přes odkaz z webu pro propojení účtu.",
@@ -247,6 +248,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "reply_hint": "Напишите ответ текстом. Кнопка «Отмена» — выйти без отправки.",
         "logged_out": "Связь разорвана. Снова откройте бота по ссылке с сайта.",
         "notify_new": "Новое сообщение от {name}:",
+        "notify_new_group": "Новое сообщение в чате «{chat_title}» от {name}:",
         "dev_usage": "Использование: /dev_session sessionid=... csrftoken=...",
         "dev_ok": "Cookies сохранены.",
         "start_plain": "Откройте бота по ссылке с сайта, чтобы привязать аккаунт.",
@@ -275,6 +277,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "reply_hint": "Type your reply. Tap Cancel to leave without sending.",
         "logged_out": "Disconnected. Open the bot again using the site link.",
         "notify_new": "New message from {name}:",
+        "notify_new_group": "New message in \"{chat_title}\" from {name}:",
         "dev_usage": "Usage: /dev_session sessionid=... csrftoken=...",
         "dev_ok": "Cookies saved.",
         "start_plain": "Open the bot using the link on the website to link your account.",
@@ -300,6 +303,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "reply_hint": "Напишіть відповідь текстом. «Скасувати» — вийти без надсилання.",
         "logged_out": "Зв'язок розірвано. Знову відкрийте бота за посиланням з сайту.",
         "notify_new": "Нове повідомлення від {name}:",
+        "notify_new_group": "Нове повідомлення в чаті «{chat_title}» від {name}:",
         "dev_usage": "Використання: /dev_session sessionid=... csrftoken=...",
         "dev_ok": "Cookies збережено.",
         "start_plain": "Відкрийте бота за посиланням з сайту, щоб прив'язати обліковий запис.",
@@ -1023,9 +1027,22 @@ async def notification_loop(bot: Bot) -> None:
                         dirty = True
                         name = _display_name(sender)
                         preview = (last_msg.get("text") or "")[:500]
-                        text = t(rec.lang, "notify_new", name=name) + "\n" + preview
+                        chat_type = str(chat.get("chat_type") or "")
+                        if chat_type == "housing_group":
+                            chat_title = t(rec.lang, "housing_group_title")
+                            text = t(rec.lang, "notify_new_group", chat_title=chat_title, name=name) + "\n" + preview
+                        else:
+                            text = t(rec.lang, "notify_new", name=name) + "\n" + preview
                         try:
-                            await bot.send_message(tg_id, text[:4096])
+                            await bot.send_message(
+                                tg_id,
+                                text[:4096],
+                                reply_markup=InlineKeyboardMarkup(
+                                    inline_keyboard=[
+                                        [InlineKeyboardButton(text=t(rec.lang, "reply"), callback_data=f"reply:{cid}")]
+                                    ]
+                                ),
+                            )
                         except Exception as e:
                             log.warning("notify %s: %s", tg_id, e)
                 if dirty:
