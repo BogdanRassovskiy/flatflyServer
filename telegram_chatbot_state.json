@@ -2,16 +2,17 @@
   "users": {
     "104932971": {
       "site_user_id": 5,
-      "lang": "ru",
+      "lang": "cz",
       "cookies": {
-        "sessionid": "k0u9r385slkc0n8lhf28px80sqcar7d5",
-        "csrftoken": "PsB3hRDRMQVJeypvKpwnNw61XjNGGQXf"
+        "sessionid": "9ssropcuukfyi14wutsheyboy14xpzg6",
+        "csrftoken": "QbNnBYhMVyOYw8zSYN9GyDo1bWz79DeZ"
       },
       "last_seen_message_id": {
         "18": 125,
         "20": 57
       },
-      "notif_initialized": true
+      "notif_initialized": true,
+      "ui_message_id": 82
     }
   }
 }

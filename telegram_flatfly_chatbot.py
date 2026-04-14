@@ -107,7 +107,7 @@ def _require_env(name: str) -> str:
     return v
 
 
-BOT_TOKEN = _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
+BOT_TOKEN = _env("TELEGRAM_CHAT_BOT_TOKEN", "") or _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
 LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
 FLATFLY_API_BASE = (_env("FLATFLY_API_BASE", "") or "http://127.0.0.1:8000").rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
@@ -598,11 +598,29 @@ def lang_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Русский", callback_data="lang:ru"),
                 InlineKeyboardButton(text="English", callback_data="lang:en"),
             ],
+            [InlineKeyboardButton(text="Українська", callback_data="lang:uk")],
         ]
     )
 
 
-async def upsert_ui_message(message: Message, telegram_user_id: int, rec: UserRecord, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> None:
+async def upsert_ui_message(
+    message: Message,
+    telegram_user_id: int,
+    rec: UserRecord,
+    text: str,
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+    *,
+    ensure_visible: bool = False,
+) -> None:
+    # Если пользователь уже отправил более новое сообщение, старый инлайн-блок
+    # уехал вверх. Удаляем его и публикуем новый внизу, чтобы меню всегда было видно.
+    if ensure_visible and rec.ui_message_id and message.message_id > rec.ui_message_id:
+        try:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=rec.ui_message_id)
+        except Exception:
+            pass
+        rec.ui_message_id = None
+
     if rec.ui_message_id:
         try:
             await message.bot.edit_message_text(
@@ -694,6 +712,7 @@ async def show_chats_list(message: Message, rec: UserRecord) -> None:
         rec,
         t(rec.lang, "main_chats") + ":",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        ensure_visible=True,
     )
 
 
@@ -824,7 +843,14 @@ async def logout_press(message: Message) -> None:
         return
     rec.logout_confirm = True
     await store.set_record(message.from_user.id, rec)
-    await upsert_ui_message(message, message.from_user.id, rec, t(rec.lang, "logout_confirm"), reply_markup=_logout_kb(rec.lang))
+    await upsert_ui_message(
+        message,
+        message.from_user.id,
+        rec,
+        t(rec.lang, "logout_confirm"),
+        reply_markup=_logout_kb(rec.lang),
+        ensure_visible=True,
+    )
 
 
 @router.callback_query(F.data.startswith("logout:"))
@@ -849,7 +875,14 @@ async def lang_menu(message: Message) -> None:
         return
     if message.text != t(rec.lang, "main_lang"):
         return
-    await upsert_ui_message(message, message.from_user.id, rec, t(rec.lang, "choose_lang"), reply_markup=lang_keyboard())
+    await upsert_ui_message(
+        message,
+        message.from_user.id,
+        rec,
+        t(rec.lang, "choose_lang"),
+        reply_markup=lang_keyboard(),
+        ensure_visible=True,
+    )
 
 
 @router.callback_query(F.data.startswith("lang:"))
@@ -1035,7 +1068,7 @@ def main() -> int:
         finally:
             sys.argv = old
 
-    BOT_TOKEN = _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
+    BOT_TOKEN = _env("TELEGRAM_CHAT_BOT_TOKEN", "") or _env("BOT_TOKEN", "") or _env("TELEGRAM_BOT_TOKEN", "")
     if not BOT_TOKEN:
         raise RuntimeError("Missing required environment variable: BOT_TOKEN (or TELEGRAM_BOT_TOKEN)")
     LINK_SECRET_RAW = _env("LINK_SECRET", "") or _env("TELEGRAM_LINK_SECRET", "")
