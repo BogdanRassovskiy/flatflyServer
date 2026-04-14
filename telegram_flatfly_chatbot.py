@@ -115,9 +115,7 @@ FLATFLY_API_BASE = (
     or "http://127.0.0.1:8000"
 ).rstrip("/")
 FLATFLY_WEB_BASE = (
-    _env("FLATFLY_WEB_BASE", "")
-    or _env("LISTING_PUBLIC_BASE_URL", "")
-    or FLATFLY_API_BASE
+    "https://flatfly.eu"
 ).rstrip("/")
 STATE_PATH = _env("TG_BOT_STATE_PATH", "telegram_chatbot_state.json")
 POLL_INTERVAL_SEC = float(_env("POLL_INTERVAL_SEC", "25") or "25")
@@ -1187,11 +1185,7 @@ def main() -> int:
     ).rstrip("/")
     FLATFLY_API_BASE = base
     api.base_url = base
-    FLATFLY_WEB_BASE = (
-        _env("FLATFLY_WEB_BASE", "")
-        or _env("LISTING_PUBLIC_BASE_URL", "")
-        or base
-    ).rstrip("/")
+    FLATFLY_WEB_BASE = "https://flatfly.eu"
 
     if WEBHOOK_URL:
         asyncio.run(run_webhook_server())
