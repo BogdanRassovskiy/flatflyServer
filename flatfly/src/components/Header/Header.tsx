@@ -430,9 +430,9 @@ export default function Header() {
 
                                 <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
                                     <div className="flex flex-col divide-y divide-gray-200/90 dark:divide-zinc-600">
-                                        {menuItemsColumn1.map((item, index) => (
+                                        {menuItemsColumn2.map((item, index) => (
                                             <Link
-                                                key={`nav-${index}`}
+                                                key={`cat-${index}`}
                                                 to={item.path}
                                                 className={`block px-4 py-2.5 text-left text-[15px] font-semibold transition-colors hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-100 ${
                                                     pathname === item.path ? "text-[#C505EB]" : "text-[#333333]"
@@ -447,9 +447,9 @@ export default function Header() {
 
                                 <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
                                     <div className="flex flex-col divide-y divide-gray-200/90 dark:divide-zinc-600">
-                                        {menuItemsColumn2.map((item, index) => (
+                                        {menuItemsColumn1.map((item, index) => (
                                             <Link
-                                                key={`cat-${index}`}
+                                                key={`nav-${index}`}
                                                 to={item.path}
                                                 className={`block px-4 py-2.5 text-left text-[15px] font-semibold transition-colors hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-100 ${
                                                     pathname === item.path ? "text-[#C505EB]" : "text-[#333333]"

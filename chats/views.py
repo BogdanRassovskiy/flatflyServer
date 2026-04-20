@@ -1,8 +1,10 @@
 import uuid
 import json
 import os
+from datetime import timedelta
 from django.conf import settings
 from importlib import import_module
+from django.utils import timezone
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -650,6 +652,14 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @staticmethod
+    def _can_edit_message(user, message):
+        if message.sender_id != user.id:
+            return False
+        if message.message_kind != Message.KIND_TEXT:
+            return False
+        return message.created_at >= timezone.now() - timedelta(minutes=5)
+
     def get_queryset(self):
         chat_id = self.request.query_params.get('chatid')
         qs = Message.objects.filter(chat__participants=self.request.user).select_related(
@@ -711,6 +721,32 @@ class MessageViewSet(viewsets.ModelViewSet):
             message_kind=Message.KIND_TEXT,
             reply_to=reply_to,
         )
+
+    @action(detail=True, methods=['patch'], url_path='edit')
+    def edit(self, request, pk=None):
+        message = self.get_object()
+        if not self._can_edit_message(request.user, message):
+            return Response(
+                {
+                    'code': 'edit_time_expired',
+                    'detail': 'Editing is allowed only for your recent text messages.',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        next_text = str(request.data.get('text') or '').strip()
+        if not next_text:
+            return Response(
+                {
+                    'detail': 'Message text cannot be empty.',
+                    'text': ['This field may not be blank.'],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        message.text = next_text
+        message.save(update_fields=['text'])
+        return Response(MessageSerializer(message, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='listing-reaction')
     def listing_reaction(self, request, pk=None):

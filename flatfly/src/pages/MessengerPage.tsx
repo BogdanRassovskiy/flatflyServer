@@ -21,6 +21,7 @@ import {
   Copy,
   MessageCircle,
   MoreVertical,
+  PenSquare,
   Reply,
   Send,
   Square,
@@ -98,6 +99,7 @@ interface Message {
   display_text?: string;
   listing_ratings?: ListingRatingsPayload | null;
   reply_preview?: MessageReplyPreview | null;
+  can_edit?: boolean;
 }
 
 function buildReplyPreviewFromMessage(
@@ -783,6 +785,7 @@ export default function MessengerPage() {
   const [joinConflictChatId, setJoinConflictChatId] = useState<number | null>(null);
   const [isJoinBusy, setIsJoinBusy] = useState(false);
   const [replyDraft, setReplyDraft] = useState<MessageReplyPreview | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -818,6 +821,10 @@ export default function MessengerPage() {
   const isDraftConversationActive = Boolean(draftConversation);
   const isAwaitingReply = Boolean(selectedChatPermission?.awaitingReply);
   const canSendInCurrentChat = selectedChat ? (selectedChatPermission?.canSend ?? true) : true;
+  const editingMessage = useMemo(
+    () => activeMessages.find((message) => message.id === editingMessageId) ?? null,
+    [activeMessages, editingMessageId],
+  );
 
   const replaceMessengerUrlChat = useCallback(
     (chatId: number | null) => {
@@ -897,6 +904,8 @@ export default function MessengerPage() {
     || Boolean(selectedChat?.is_blocked)
     || (!isHousingGroupChat && isAwaitingReply)
     || (Boolean(selectedChat) && !canSendInCurrentChat);
+  const isEditingMode = editingMessageId !== null;
+  const isComposerDisabled = isSending || (isSendLocked && !isEditingMode);
 
   const housingGroupChat = useMemo(
     () => chats.find((c) => c.chat_type === "housing_group") ?? null,
@@ -1246,10 +1255,29 @@ export default function MessengerPage() {
 
   const startReplyTo = useCallback(
     (message: Message) => {
+      setEditingMessageId(null);
       setReplyDraft(buildReplyPreviewFromMessage(message, getParticipantName));
     },
     [getParticipantName],
   );
+
+  const startEditingMessage = useCallback((message: Message) => {
+    if (!message.can_edit || message.message_kind === "listing") {
+      return;
+    }
+    setReplyDraft(null);
+    setEditingMessageId(message.id);
+    setInput(message.text || "");
+    setSendError(null);
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const cancelEditingMessage = useCallback(() => {
+    setEditingMessageId(null);
+    setInput("");
+  }, []);
 
   const clearMessageReplyLongPress = useCallback(() => {
     if (messageReplyLongPressTimeoutRef.current !== null) {
@@ -1282,6 +1310,20 @@ export default function MessengerPage() {
       clearMessageReplyLongPress();
     };
   }, [clearMessageReplyLongPress, selectedChatId]);
+
+  useEffect(() => {
+    setEditingMessageId(null);
+  }, [selectedChatId]);
+
+  useEffect(() => {
+    if (!editingMessageId) {
+      return;
+    }
+    if (!editingMessage || !editingMessage.can_edit) {
+      setEditingMessageId(null);
+      setInput("");
+    }
+  }, [editingMessage, editingMessageId]);
 
   const clearJoinGroupQuery = useCallback(() => {
     const next = new URLSearchParams(searchParams);
@@ -1930,7 +1972,7 @@ export default function MessengerPage() {
 
   const sendMessage = async (rawText: string, options?: { omitReply?: boolean }) => {
     const sentText = rawText.trim();
-    if (!sentText || isSending || isSendLocked) return;
+    if (!sentText || isSending || isComposerDisabled) return;
 
     let activeChat = selectedChat;
     if (!activeChat && !draftConversation) return;
@@ -1969,6 +2011,51 @@ export default function MessengerPage() {
       }
 
       const chatId = activeChat.chatid;
+
+      if (editingMessageId !== null) {
+        const response = await fetch(`/api/messages/${editingMessageId}/edit/`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          credentials: "include",
+          body: JSON.stringify({ text: sentText }),
+        });
+
+        if (!response.ok) {
+          let errorCode = "";
+          try {
+            const errorPayload = await response.json();
+            if (
+              errorPayload
+              && typeof errorPayload === "object"
+              && "code" in errorPayload
+              && typeof (errorPayload as { code?: unknown }).code === "string"
+            ) {
+              errorCode = (errorPayload as { code: string }).code;
+            }
+          } catch {
+          }
+
+          if (errorCode === "edit_time_expired") {
+            setSendError(t("messenger.editExpiredError"));
+            setEditingMessageId(null);
+            return;
+          }
+          throw new Error("Failed to edit message");
+        }
+
+        const updatedMessage = (await response.json()) as Message;
+        updateMessageCacheEntry(chatId, (previous) => {
+          const merged = mergeMessages(previous?.messages ?? [], [updatedMessage]);
+          return buildCacheEntry(merged, previous);
+        });
+        syncChatPreview(chatId, updatedMessage, 0);
+        setEditingMessageId(null);
+        setInput("");
+        return;
+      }
 
       const payload: Record<string, unknown> = { chat: chatId, text: sentText };
       const replySource = options?.omitReply ? null : replyDraft;
@@ -2040,7 +2127,7 @@ export default function MessengerPage() {
 
       queueScrollToBottom("smooth");
     } catch {
-      setSendError(t("messenger.sendError"));
+      setSendError(editingMessageId !== null ? t("messenger.editError") : t("messenger.sendError"));
     } finally {
       setIsSending(false);
     }
@@ -2852,6 +2939,16 @@ export default function MessengerPage() {
                             {getParticipantName(message.sender)}
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
+                            {isOutgoingText && message.can_edit ? (
+                              <button
+                                type="button"
+                                className="rounded-md p-1 transition text-white/70 hover:bg-white/15 hover:text-white"
+                                aria-label={t("messenger.edit")}
+                                onClick={() => startEditingMessage(message)}
+                              >
+                                <PenSquare size={15} strokeWidth={2} aria-hidden />
+                              </button>
+                            ) : null}
                             {selectedChat ? (
                               <button
                                 type="button"
@@ -2888,6 +2985,24 @@ export default function MessengerPage() {
               )}
             </div>
             <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-3 sm:p-4 dark:border-gray-700 dark:bg-gray-800">
+              {isEditingMode && editingMessage ? (
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#08D3E2]/40 bg-[#08D3E2]/10 px-3 py-2 dark:border-[#08D3E2]/55 dark:bg-[#08D3E2]/15">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-semibold text-[#067c86] dark:text-[#9feaf0]">
+                      {t("messenger.editingMessage")}
+                    </div>
+                    <div className="line-clamp-2 text-sm text-gray-800 dark:text-gray-100">{editingMessage.text}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
+                    aria-label={t("messenger.cancelEdit")}
+                    onClick={cancelEditingMessage}
+                  >
+                    <X size={18} aria-hidden />
+                  </button>
+                </div>
+              ) : null}
               {replyDraft ? (
                 <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#C505EB]/35 bg-[#C505EB]/8 px-3 py-2 dark:border-[#C505EB]/45 dark:bg-[#C505EB]/15">
                   {replyDraft.listing_thumb ? (
@@ -2916,7 +3031,7 @@ export default function MessengerPage() {
               {(sendError
                 || selectedChatIsBlocked
                 || isDraftConversationActive
-                || (!isHousingGroupChat && isAwaitingReply)) && (
+                || (!isEditingMode && !isHousingGroupChat && isAwaitingReply)) && (
                 <div className={`mb-3 rounded-lg border px-3 py-2 text-sm ${sendError ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-900/20 dark:text-red-300" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300"}`}>
                   {sendError
                     ? sendError
@@ -2941,11 +3056,13 @@ export default function MessengerPage() {
                 onKeyDown={(event) => event.key === "Enter" && void handleSend()}
                 className="flex-1 touch-manipulation rounded-xl border border-gray-300 bg-white px-4 py-2 text-black outline-none focus:border-[#C505EB] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 placeholder={
-                  !isHousingGroupChat && isAwaitingReply
+                  isEditingMode
+                    ? t("messenger.editPlaceholder")
+                    : !isHousingGroupChat && isAwaitingReply
                     ? t("messenger.awaitingReplyPlaceholder")
                     : t("messenger.inputPlaceholder")
                 }
-                disabled={isSending || isSendLocked}
+                disabled={isComposerDisabled}
                 autoComplete="off"
                 enterKeyHint="send"
                 inputMode="text"
@@ -2955,7 +3072,7 @@ export default function MessengerPage() {
                   void handleSend();
                 }}
                 className="rounded-full bg-[#C505EB] p-2 text-white duration-200 hover:bg-[#BA00F8]"
-                disabled={isSending || isSendLocked || !input.trim()}
+                disabled={isComposerDisabled || !input.trim()}
               >
                 <Send size={20} />
               </button>

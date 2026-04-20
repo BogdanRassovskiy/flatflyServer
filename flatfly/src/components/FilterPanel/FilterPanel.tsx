@@ -881,7 +881,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         <div ref={pinnedBarRef} className={`interFont flex w-full flex-col gap-2.5`}>
 
             {/* Десктоп: «пилюля» из сегментов (hairline через gap-px, без border на hover) */}
-            <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
+            <div className="hidden min-[771px]:mx-auto min-[771px]:flex min-[771px]:max-w-[1120px] w-full flex-col gap-2.5">
               <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
                 <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
                   {pinnedOrder.map((k, i) => renderPinnedCell(k, i))}

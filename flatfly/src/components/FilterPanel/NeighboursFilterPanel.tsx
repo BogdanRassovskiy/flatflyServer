@@ -48,15 +48,6 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     const [universitySuggestions, setUniversitySuggestions] = useState<Array<{ id: number; name: string }>>([]);
     
     // Функции для перевода значений фильтров
-    const translateGender = (value: string) => {
-        const map: Record<string, string> = {
-            "male": t("filter.neighbourGenderMale"),
-            "female": t("filter.neighbourGenderFemale"),
-            "other": t("filter.neighbourGenderOther"),
-        };
-        return map[value] || value;
-    };
-
     const translateYesNo = (value: string, yesKey: string, noKey: string) => {
         if (value === "yes") return t(yesKey);
         if (value === "no") return t(noKey);
@@ -69,17 +60,6 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
             "late": t("filter.neighbourSleepScheduleLate"),
         };
         return map[value] || value;
-    };
-
-    const translateLanguage = (key: string) => {
-        const map: Record<string, string> = {
-            "cz": t("profile.languages.cz"),
-            "en": t("profile.languages.en"),
-            "ru": t("profile.languages.ru"),
-            "de": t("profile.languages.de"),
-            "sk": t("profile.languages.sk"),
-        };
-        return map[key.toLowerCase()] || key.toUpperCase();
     };
 
     const genderOptions = [
@@ -534,7 +514,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
             const isOpen = pinnedOpen === key;
             const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
             const triggerClass = [
-                "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+                "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 px-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
                 segmentBg,
                 isOpen
                     ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
@@ -553,7 +533,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                             {pinnedTitle(key)}
                         </span>
                         <span
-                            className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                            className={`line-clamp-2 text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                                 pinnedHasValue(key) ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"
                             }`}
                         >
@@ -591,7 +571,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
         const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
         const triggerClass = [
-            "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+            "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 px-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
             segmentBg,
             isOpen
                 ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
@@ -610,7 +590,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                         {pinnedTitle(key)}
                     </span>
                     <span
-                        className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                        className={`line-clamp-2 text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                             pinnedHasValue(key)
                                 ? "text-zinc-900 dark:text-zinc-100"
                                 : "text-zinc-400 dark:text-zinc-500"
@@ -646,77 +626,9 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
         );
     };
 
-    const secondaryChips = [
-        filters.neighbourFrom && {
-            id: `neighbourFrom-${filters.neighbourFrom}`,
-            title: t("filter.neighbourFrom"),
-            subTitle: filters.neighbourFrom,
-            onRemove: () => onChange({ ...filters, neighbourFrom: "" }),
-        },
-        Number(filters.ratingMin || "0") > 0 && {
-            id: `rating-${filters.ratingMin}`,
-            title: t("filter.neighbourMinRating"),
-            subTitle: `${filters.ratingMin}+`,
-            onRemove: () => onChange({ ...filters, ratingMin: "0" }),
-        },
-        filters.gender && {
-            id: `gender-${filters.gender}`,
-            title: t("filter.neighbourGender"),
-            subTitle: translateGender(filters.gender),
-            onRemove: () => onChange({ ...filters, gender: "" }),
-        },
-        filters.smoking && {
-            id: `smoking-${filters.smoking}`,
-            title: t("filter.neighbourSmoking"),
-            subTitle: translateYesNo(filters.smoking, "filter.neighbourSmokingYes", "filter.neighbourSmokingNo"),
-            onRemove: () => onChange({ ...filters, smoking: "" }),
-        },
-        filters.universityName && {
-            id: `uni-${filters.universityId || filters.universityName}`,
-            title: t("filter.neighbourUniversity"),
-            subTitle: filters.universityName,
-            onRemove: () => {
-                setUniversityInput("");
-                onChange({ ...filters, universityId: "", universityName: "" });
-            },
-        },
-        filters.excludeWithChildren && {
-            id: "excludeChildren",
-            title: t("filter.neighbourExcludeWithChildren"),
-            subTitle: t("filter.active"),
-            onRemove: () => onChange({ ...filters, excludeWithChildren: false }),
-        },
-        filters.excludeWithDisability && {
-            id: "excludeDisability",
-            title: t("filter.neighbourExcludeWithDisability"),
-            subTitle: t("filter.active"),
-            onRemove: () => onChange({ ...filters, excludeWithDisability: false }),
-        },
-        filters.workFromHome && {
-            id: `wfh-${filters.workFromHome}`,
-            title: t("filter.neighbourWorkFromHome"),
-            subTitle: translateYesNo(
-                filters.workFromHome,
-                "filter.neighbourWorkFromHomeYes",
-                "filter.neighbourWorkFromHomeNo",
-            ),
-            onRemove: () => onChange({ ...filters, workFromHome: "" }),
-        },
-        ...filters.languages.map((lang) => ({
-            id: `lang-${lang}`,
-            title: t("filter.neighbourLanguages"),
-            subTitle: translateLanguage(lang),
-            onRemove: () =>
-                onChange({
-                    ...filters,
-                    languages: filters.languages.filter((l) => l !== lang),
-                }),
-        })),
-    ].filter(Boolean) as { id: string; title: string; subTitle: string; onRemove: () => void }[];
-
     return (
         <div ref={pinnedBarRef} className="interFont flex w-full flex-col gap-2.5">
-            <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
+            <div className="hidden min-[771px]:mx-auto min-[771px]:flex min-[771px]:max-w-[1120px] w-full flex-col gap-2.5">
                 <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
                     <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
                         {pinnedOrder.map((k, i) => renderPinnedCell(k, i))}
@@ -733,30 +645,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                     </button>
                 </div>
 
-                {secondaryChips.length > 0 ? (
-                    <div className="flex h-[50px] w-full items-stretch gap-px overflow-x-auto overflow-y-hidden scroll-smooth rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.03] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                        {secondaryChips.map((value, index) => (
-                            <button
-                                key={value.id}
-                                type="button"
-                                onClick={value.onRemove}
-                                className={`filter-panel-chip flex h-full shrink-0 items-center justify-center gap-3 bg-white px-5 text-left dark:bg-zinc-900 ${
-                                    index === 0 ? "rounded-l-full pl-5" : ""
-                                } ${index === secondaryChips.length - 1 ? "rounded-r-full pr-5" : ""}`}
-                            >
-                                <div className="flex flex-col items-start">
-                                    <span className="whitespace-nowrap text-[13px] font-bold text-zinc-900 dark:text-zinc-100">
-          {value.title}
-        </span>
-                                    <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-          {value.subTitle}
-        </span>
-      </div>
-                                <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
-                            </button>
-    ))}
-                    </div>
-                ) : null}
+                {/* Secondary chip row is intentionally hidden by request */}
   </div>
 
             <div className="flex min-[771px]:hidden w-full flex-col gap-2.5">
@@ -771,30 +660,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
     </span>
   </button>
 
-                {secondaryChips.length > 0 ? (
-                    <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                        <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
-                            {secondaryChips.map((value) => (
-                                <button
-                                    key={value.id}
-                                    type="button"
-                                    onClick={value.onRemove}
-                                    className="filter-panel-chip flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-2.5 py-1.5 text-left dark:bg-zinc-900"
-                                >
-                                    <div className="flex flex-col items-start">
-                                        <span className="text-[12px] font-bold leading-tight text-zinc-900 dark:text-zinc-100">
-                                            {value.title}
-                                        </span>
-                                        <span className="text-[10px] font-semibold leading-tight text-zinc-500 dark:text-zinc-400">
-                                            {value.subTitle}
-                                        </span>
-                                    </div>
-                                    <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ) : null}
+                {/* Secondary chip grid is intentionally hidden by request */}
 </div>
 
             {/* Модальное окно фильтров */}
