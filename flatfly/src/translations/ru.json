@@ -262,6 +262,9 @@
     "preferredGenderMale": "Мужской",
     "preferredGenderFemale": "Женский",
     "preferredGenderAny": "Не важно",
+    "ownerVerified": "Статус верификации владельца",
+    "ownerVerifiedYes": "Верифицированный пользователь",
+    "ownerVerifiedNo": "Не верифицированный пользователь",
     "secondarySort": "Сортировка (2-3 уровень)",
     "sortPriceAsc": "Сначала самые дешевые",
     "sortPriceDesc": "Сначала самые дорогие",
@@ -294,6 +297,9 @@
     "neighbourAgeFrom": "От",
     "neighbourAgeTo": "До",
     "neighbourMinRating": "Минимальная оценка",
+    "neighbourVerifiedStatus": "Статус верификации",
+    "neighbourVerifiedYes": "Верифицирован",
+    "neighbourVerifiedNo": "Не верифицирован",
     "neighbourAgePlaceholder": "Введите возраст",
     "neighbourGender": "Пол",
     "neighbourGenderMale": "Мужской",
@@ -437,35 +443,35 @@
     "editTitlePrompt": "Введите новое название объявления",
     "editDescriptionPrompt": "Введите новое описание объявления",
     "editPricePrompt": "Введите новую цену",
-    "invalidPrice": "Некорректная цена"
-    ,"deactivated": "Деактивировано"
-    ,"removeFromHome": "Удалить из дома"
-    ,"removeFromHomeConfirm": "Удалить этого человека из дома?"
-    ,"removedFromHomeSuccess": "Пользователь удалён из дома"
-    ,"ratingAndReviews": "Рейтинг и комментарии"
-    ,"yourRating": "Ваша оценка"
-    ,"selectRating": "Выберите оценку от 1 до 5"
-    ,"commentPlaceholder": "Оставьте комментарий..."
-    ,"submitReview": "Сохранить отзыв"
-    ,"updateReview": "Обновить отзыв"
-    ,"reviewFailed": "Не удалось сохранить отзыв"
-    ,"alreadyReviewed": "Вы уже оставили отзыв"
-    ,"onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе"
-    ,"noReviewsYet": "Пока нет отзывов"
-    ,"nearbyServices": "Рядом находится"
-    ,"nearestBusStop": "Ближайшая автобусная остановка"
-    ,"nearestShop": "Ближайший магазин"
-    ,"nearestHospital": "Ближайшая больница"
-    ,"reportListing": "Пожаловаться на объявление"
-    ,"sendReport": "Отправить жалобу"
-    ,"reportReasonFraud": "Мошенничество"
-    ,"reportReasonSpam": "Спам"
-    ,"reportReasonFake": "Фейковое объявление"
-    ,"reportReasonInappropriate": "Неприемлемый контент"
-    ,"reportReasonOther": "Другое"
-    ,"reportDetailsPlaceholder": "Опишите проблему (необязательно)"
-    ,"reportSuccess": "Жалоба отправлена"
-    ,"reportFailed": "Не удалось отправить жалобу"
+    "invalidPrice": "Некорректная цена",
+    "deactivated": "Деактивировано",
+    "removeFromHome": "Удалить из дома",
+    "removeFromHomeConfirm": "Удалить этого человека из дома?",
+    "removedFromHomeSuccess": "Пользователь удалён из дома",
+    "ratingAndReviews": "Рейтинг и комментарии",
+    "yourRating": "Ваша оценка",
+    "selectRating": "Выберите оценку от 1 до 5",
+    "commentPlaceholder": "Оставьте комментарий...",
+    "submitReview": "Сохранить отзыв",
+    "updateReview": "Обновить отзыв",
+    "reviewFailed": "Не удалось сохранить отзыв",
+    "alreadyReviewed": "Вы уже оставили отзыв",
+    "onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе",
+    "noReviewsYet": "Пока нет отзывов",
+    "nearbyServices": "Рядом находится",
+    "nearestBusStop": "Ближайшая автобусная остановка",
+    "nearestShop": "Ближайший магазин",
+    "nearestHospital": "Ближайшая больница",
+    "reportListing": "Пожаловаться на объявление",
+    "sendReport": "Отправить жалобу",
+    "reportReasonFraud": "Мошенничество",
+    "reportReasonSpam": "Спам",
+    "reportReasonFake": "Фейковое объявление",
+    "reportReasonInappropriate": "Неприемлемый контент",
+    "reportReasonOther": "Другое",
+    "reportDetailsPlaceholder": "Опишите проблему (необязательно)",
+    "reportSuccess": "Жалоба отправлена",
+    "reportFailed": "Не удалось отправить жалобу"
   },
   "pagination": {
     "next": "Далее"
@@ -686,7 +692,14 @@
     "authError": "Ошибка аутентификации. Попробуйте еще раз.",
     "processing": "Обработка...",
     "sendResetLink": "Отправить ссылку",
-    "backToLogin": "Вернуться к входу"
+    "backToLogin": "Вернуться к входу",
+    "registrationCheckEmailPrompt": "Проверьте почту: мы отправили ссылку для подтверждения email.",
+    "resendVerificationEmail": "Отправить письмо повторно",
+    "verificationEmailResent": "Письмо с подтверждением отправлено повторно.",
+    "verificationEmailResendFailed": "Не удалось отправить письмо повторно.",
+    "verificationRateLimited": "Слишком частые запросы. Попробуйте позже.",
+    "emailVerifiedSuccess": "Email успешно подтвержден. Теперь можно войти.",
+    "emailVerificationInvalidOrExpired": "Ссылка подтверждения недействительна или истекла."
   },
   "resetPassword": {
     "title": "Восстановление пароля",

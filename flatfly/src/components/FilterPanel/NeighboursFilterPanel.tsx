@@ -15,6 +15,7 @@ interface NeighbourFilterState {
     ageFrom: string;
     ageTo: string;
     ratingMin: string;
+    verified: string;
     gender: string;
     smoking: string;
     alcohol: string;
@@ -66,6 +67,10 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
         {value: "male", label: t("filter.neighbourGenderMale")},
         {value: "female", label: t("filter.neighbourGenderFemale")},
         {value: "other", label: t("filter.neighbourGenderOther")},
+    ];
+    const verifiedOptions = [
+        { value: "true", label: t("filter.neighbourVerifiedYes") },
+        { value: "false", label: t("filter.neighbourVerifiedNo") },
     ];
 
     const smokingOptions = [
@@ -283,6 +288,7 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
         ageFrom: "",
         ageTo: "",
             ratingMin: "0",
+        verified: "",
         gender: "",
         smoking: "",
         alcohol: "",
@@ -795,6 +801,21 @@ export default function NeighboursFilterPanel({ filters, onChange }: Props) {
                                         >
                                             <option value="">-</option>
                                             {genderOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Статус верификации */}
+                                    <div className={`flex flex-col gap-2`}>
+                                        <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.neighbourVerifiedStatus")}</label>
+                                        <select
+                                            value={filters.verified}
+                                            onChange={(e) => handleFilterChange("verified", e.target.value)}
+                                            className={neighbourModalSelectClass}
+                                        >
+                                            <option value="">-</option>
+                                            {verifiedOptions.map((option) => (
                                                 <option key={option.value} value={option.value}>{option.label}</option>
                                             ))}
                                         </select>

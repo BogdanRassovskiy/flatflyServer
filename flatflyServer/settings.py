@@ -53,6 +53,7 @@ TELEGRAM_CHAT_BOT_USERNAME = os.getenv("TELEGRAM_CHAT_BOT_USERNAME", "")
 TELEGRAM_LINK_SECRET = os.getenv("LINK_SECRET", SECRET_KEY or "")
 TELEGRAM_CHANNEL_CHAT_ID = os.getenv("TELEGRAM_CHANNEL_CHAT_ID", "-1003759647230")
 LISTING_PUBLIC_BASE_URL = os.getenv("LISTING_PUBLIC_BASE_URL", "https://flatfly.eu")
+AUTH_REDIRECT_BASE_URL = os.getenv("AUTH_REDIRECT_BASE_URL", "")
 
 # Google OAuth redirect URI (по умолчанию на прод-домен)
 GOOGLE_REDIRECT_URI = os.getenv(
@@ -64,14 +65,18 @@ if not DEBUG and "localhost" in GOOGLE_REDIRECT_URI:
     GOOGLE_REDIRECT_URI = "https://flatfly.eu/api/google_callback/"
 
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "rassovskiybogdan@gmail.com"
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp-relay.brevo.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FlatFly <no-reply@flatfly.local>")
 
-DEFAULT_FROM_EMAIL = "FlatFly <rassovskiybogdan@gmail.com>"
+EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_TTL_MINUTES", "60"))
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60"))
+EMAIL_VERIFICATION_DAILY_LIMIT = int(os.getenv("EMAIL_VERIFICATION_DAILY_LIMIT", "10"))
 
 SITE_ID = 1
 

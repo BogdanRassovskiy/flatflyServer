@@ -262,6 +262,9 @@
     "preferredGenderMale": "Male",
     "preferredGenderFemale": "Female",
     "preferredGenderAny": "No preference",
+    "ownerVerified": "Owner verification status",
+    "ownerVerifiedYes": "Verified user",
+    "ownerVerifiedNo": "Not verified user",
     "secondarySort": "Sorting (2nd-3rd level)",
     "sortPriceAsc": "Cheapest first",
     "sortPriceDesc": "Most expensive first",
@@ -294,6 +297,9 @@
     "neighbourAgeFrom": "From",
     "neighbourAgeTo": "To",
     "neighbourMinRating": "Minimum rating",
+    "neighbourVerifiedStatus": "Verification status",
+    "neighbourVerifiedYes": "Verified",
+    "neighbourVerifiedNo": "Not verified",
     "neighbourAgePlaceholder": "Enter age",
     "neighbourGender": "Gender",
     "neighbourGenderMale": "Male",
@@ -437,35 +443,35 @@
     "editTitlePrompt": "Enter new listing title",
     "editDescriptionPrompt": "Enter new listing description",
     "editPricePrompt": "Enter new price",
-    "invalidPrice": "Invalid price"
-    ,"deactivated": "Deactivated"
-    ,"removeFromHome": "Remove from home"
-    ,"removeFromHomeConfirm": "Remove this person from home?"
-    ,"removedFromHomeSuccess": "User removed from home"
-    ,"ratingAndReviews": "Rating and reviews"
-    ,"yourRating": "Your rating"
-    ,"selectRating": "Select a rating from 1 to 5"
-    ,"commentPlaceholder": "Leave a comment..."
-    ,"submitReview": "Save review"
-    ,"updateReview": "Update review"
-    ,"reviewFailed": "Failed to save review"
-    ,"alreadyReviewed": "You have already submitted a review"
-    ,"onlyCoResidentsCanReview": "Only people who live together can leave ratings"
-    ,"noReviewsYet": "No reviews yet"
-    ,"nearbyServices": "Nearby Services"
-    ,"nearestBusStop": "Nearest Bus Stop"
-    ,"nearestShop": "Nearest Shop"
-    ,"nearestHospital": "Nearest Hospital"
-    ,"reportListing": "Report listing"
-    ,"sendReport": "Send report"
-    ,"reportReasonFraud": "Fraud"
-    ,"reportReasonSpam": "Spam"
-    ,"reportReasonFake": "Fake listing"
-    ,"reportReasonInappropriate": "Inappropriate content"
-    ,"reportReasonOther": "Other"
-    ,"reportDetailsPlaceholder": "Describe the issue (optional)"
-    ,"reportSuccess": "Report submitted"
-    ,"reportFailed": "Failed to submit report"
+    "invalidPrice": "Invalid price",
+    "deactivated": "Deactivated",
+    "removeFromHome": "Remove from home",
+    "removeFromHomeConfirm": "Remove this person from home?",
+    "removedFromHomeSuccess": "User removed from home",
+    "ratingAndReviews": "Rating and reviews",
+    "yourRating": "Your rating",
+    "selectRating": "Select a rating from 1 to 5",
+    "commentPlaceholder": "Leave a comment...",
+    "submitReview": "Save review",
+    "updateReview": "Update review",
+    "reviewFailed": "Failed to save review",
+    "alreadyReviewed": "You have already submitted a review",
+    "onlyCoResidentsCanReview": "Only people who live together can leave ratings",
+    "noReviewsYet": "No reviews yet",
+    "nearbyServices": "Nearby Services",
+    "nearestBusStop": "Nearest Bus Stop",
+    "nearestShop": "Nearest Shop",
+    "nearestHospital": "Nearest Hospital",
+    "reportListing": "Report listing",
+    "sendReport": "Send report",
+    "reportReasonFraud": "Fraud",
+    "reportReasonSpam": "Spam",
+    "reportReasonFake": "Fake listing",
+    "reportReasonInappropriate": "Inappropriate content",
+    "reportReasonOther": "Other",
+    "reportDetailsPlaceholder": "Describe the issue (optional)",
+    "reportSuccess": "Report submitted",
+    "reportFailed": "Failed to submit report"
   },
   "pagination": {
     "next": "Next"
@@ -686,7 +692,14 @@
     "authError": "Authentication failed. Please try again.",
     "processing": "Processing...",
     "sendResetLink": "Send reset link",
-    "backToLogin": "Back to login"
+    "backToLogin": "Back to login",
+    "registrationCheckEmailPrompt": "Check your inbox: we sent an email verification link.",
+    "resendVerificationEmail": "Resend verification email",
+    "verificationEmailResent": "Verification email sent again.",
+    "verificationEmailResendFailed": "Failed to resend verification email.",
+    "verificationRateLimited": "Too many requests. Please try again later.",
+    "emailVerifiedSuccess": "Email verified successfully. You can now sign in.",
+    "emailVerificationInvalidOrExpired": "Verification link is invalid or expired."
   },
   "resetPassword": {
     "title": "Reset Password",

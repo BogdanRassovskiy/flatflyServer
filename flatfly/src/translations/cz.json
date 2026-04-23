@@ -262,6 +262,9 @@
     "preferredGenderMale": "Muž",
     "preferredGenderFemale": "Žena",
     "preferredGenderAny": "Libovolné",
+    "ownerVerified": "Stav ověření vlastníka",
+    "ownerVerifiedYes": "Ověřený uživatel",
+    "ownerVerifiedNo": "Neověřený uživatel",
     "secondarySort": "Řazení (2.-3. úroveň)",
     "sortPriceAsc": "Nejlevnější jako první",
     "sortPriceDesc": "Nejdražší jako první",
@@ -280,7 +283,8 @@
     "conditionUnderReconstruction": "V rekonstrukci",
     "conditionProject": "Projekt",
     "energyClass": "Energetická třída",
-    "selected": "vybráno",    "moveInDatePlaceholder": "Vyberte datum",
+    "selected": "vybráno",
+    "moveInDatePlaceholder": "Vyberte datum",
     "filters": "Upravit filtry",
     "foundListingsCount": "Nalezené inzeráty",
     "applyFilters": "Použít filtry",
@@ -293,6 +297,9 @@
     "neighbourAgeFrom": "Od",
     "neighbourAgeTo": "Do",
     "neighbourMinRating": "Minimální hodnocení",
+    "neighbourVerifiedStatus": "Stav ověření",
+    "neighbourVerifiedYes": "Ověřeno",
+    "neighbourVerifiedNo": "Neověřeno",
     "neighbourAgePlaceholder": "Zadejte věk",
     "neighbourGender": "Pohlaví",
     "neighbourGenderMale": "Muž",
@@ -436,35 +443,35 @@
     "editTitlePrompt": "Zadejte nový název inzerátu",
     "editDescriptionPrompt": "Zadejte nový popis inzerátu",
     "editPricePrompt": "Zadejte novou cenu",
-    "invalidPrice": "Neplatná cena"
-    ,"deactivated": "Deaktivováno"
-    ,"removeFromHome": "Odebrat z domova"
-    ,"removeFromHomeConfirm": "Odebrat tohoto člověka z domova?"
-    ,"removedFromHomeSuccess": "Uživatel byl odebrán z domova"
-    ,"ratingAndReviews": "Hodnocení a komentáře"
-    ,"yourRating": "Vaše hodnocení"
-    ,"selectRating": "Vyberte hodnocení od 1 do 5"
-    ,"commentPlaceholder": "Napište komentář..."
-    ,"submitReview": "Uložit hodnocení"
-    ,"updateReview": "Aktualizovat hodnocení"
-    ,"reviewFailed": "Nepodařilo se uložit hodnocení"
-    ,"alreadyReviewed": "Hodnocení jste už odeslali"
-    ,"onlyCoResidentsCanReview": "Hodnotit mohou jen lidé, kteří spolu bydlí"
-    ,"noReviewsYet": "Zatím bez hodnocení"
-    ,"nearbyServices": "Blízké služby"
-    ,"nearestBusStop": "Nejbližší autobusová zastávka"
-    ,"nearestShop": "Nejbližší obchod"
-    ,"nearestHospital": "Nejbližší nemocnice"
-    ,"reportListing": "Nahlásit inzerát"
-    ,"sendReport": "Odeslat hlášení"
-    ,"reportReasonFraud": "Podvod"
-    ,"reportReasonSpam": "Spam"
-    ,"reportReasonFake": "Falešný inzerát"
-    ,"reportReasonInappropriate": "Nevhodný obsah"
-    ,"reportReasonOther": "Jiné"
-    ,"reportDetailsPlaceholder": "Popište problém (volitelné)"
-    ,"reportSuccess": "Hlášení odesláno"
-    ,"reportFailed": "Hlášení se nepodařilo odeslat"
+    "invalidPrice": "Neplatná cena",
+    "deactivated": "Deaktivováno",
+    "removeFromHome": "Odebrat z domova",
+    "removeFromHomeConfirm": "Odebrat tohoto člověka z domova?",
+    "removedFromHomeSuccess": "Uživatel byl odebrán z domova",
+    "ratingAndReviews": "Hodnocení a komentáře",
+    "yourRating": "Vaše hodnocení",
+    "selectRating": "Vyberte hodnocení od 1 do 5",
+    "commentPlaceholder": "Napište komentář...",
+    "submitReview": "Uložit hodnocení",
+    "updateReview": "Aktualizovat hodnocení",
+    "reviewFailed": "Nepodařilo se uložit hodnocení",
+    "alreadyReviewed": "Hodnocení jste už odeslali",
+    "onlyCoResidentsCanReview": "Hodnotit mohou jen lidé, kteří spolu bydlí",
+    "noReviewsYet": "Zatím bez hodnocení",
+    "nearbyServices": "Blízké služby",
+    "nearestBusStop": "Nejbližší autobusová zastávka",
+    "nearestShop": "Nejbližší obchod",
+    "nearestHospital": "Nejbližší nemocnice",
+    "reportListing": "Nahlásit inzerát",
+    "sendReport": "Odeslat hlášení",
+    "reportReasonFraud": "Podvod",
+    "reportReasonSpam": "Spam",
+    "reportReasonFake": "Falešný inzerát",
+    "reportReasonInappropriate": "Nevhodný obsah",
+    "reportReasonOther": "Jiné",
+    "reportDetailsPlaceholder": "Popište problém (volitelné)",
+    "reportSuccess": "Hlášení odesláno",
+    "reportFailed": "Hlášení se nepodařilo odeslat"
   },
   "pagination": {
     "next": "Další"
@@ -625,7 +632,8 @@
     "roomRent": "Pronájem bytu pokoje",
     "apartmentRent": "Pronájem bytu",
     "utilitiesPayments": "platby za energie"
-  },  "badges": {
+  },
+  "badges": {
     "verified": "Ověřeno",
     "lookingForHousing": "Hledám bydlení",
     "withChildren": "S dětmi",
@@ -646,7 +654,8 @@
     "pets": "Zvířata",
     "gamer": "Hráč",
     "workFromHome": "Práce z domova"
-  },  "auth": {
+  },
+  "auth": {
     "login": "Přihlásit se",
     "register": "Registrovat se",
     "loginTitle": "Vítejte zpět",
@@ -683,7 +692,14 @@
     "authError": "Ověření se nezdařilo. Zkuste to prosím znovu.",
     "processing": "Zpracovávání...",
     "sendResetLink": "Odeslat odkaz",
-    "backToLogin": "Zpět na přihlášení"
+    "backToLogin": "Zpět na přihlášení",
+    "registrationCheckEmailPrompt": "Zkontrolujte e-mail: poslali jsme vám ověřovací odkaz.",
+    "resendVerificationEmail": "Poslat ověřovací e-mail znovu",
+    "verificationEmailResent": "Ověřovací e-mail byl odeslán znovu.",
+    "verificationEmailResendFailed": "Ověřovací e-mail se nepodařilo odeslat.",
+    "verificationRateLimited": "Příliš mnoho požadavků. Zkuste to později.",
+    "emailVerifiedSuccess": "E-mail byl úspěšně ověřen. Nyní se můžete přihlásit.",
+    "emailVerificationInvalidOrExpired": "Ověřovací odkaz je neplatný nebo vypršel."
   },
   "resetPassword": {
     "title": "Obnovení hesla",

@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Link } from "react-router-dom";
 import qrcode from "../../assets/michalkrechler.png";
+import logoDesktop from "../../assets/logo-mobile.png";
 
 const iconSize = 32;
 
@@ -25,10 +26,12 @@ export default function Footer() {
       >
         {/* Бренд + соцсети + копирайт (только десктоп) */}
         <div className="flex min-w-0 flex-col gap-2.5 max-[770px]:items-center max-[770px]:text-center min-[770px]:gap-3">
-          <Link to="/">
-            <span className="cursor-pointer text-[42px] font-bold leading-none text-white transition-colors duration-300 hover:text-[#C505EB]">
-              FlatFly
-            </span>
+          <Link to="/" className="inline-flex w-fit">
+            <img
+              src={logoDesktop}
+              alt="FlatFly"
+              className="h-[44px] w-auto object-contain invert"
+            />
           </Link>
 
           <div className="flex items-center justify-center gap-5 min-[770px]:justify-start">

@@ -51,6 +51,7 @@ export default function ApartmentsPage() {
     priceTo: "",
     currency: "CZK",
     preferredGender: "",
+    ownerVerified: "",
     sortBy: "price_asc",
     rooms: "",
     hasRoommates: "",
@@ -190,7 +191,7 @@ export default function ApartmentsPage() {
             priceHistogram={priceHistogram}
           />
 
-          <div className="mt-4 w-full text-sm font-semibold text-[#666666] dark:text-gray-300 min-[771px]:mt-3">
+          <div className="mt-4 w-full text-sm font-semibold text-[#666666] dark:text-gray-300 min-[771px]:mx-auto min-[771px]:mt-3 min-[771px]:max-w-[1120px]">
             {t("filter.foundListingsCount")}: {totalCount}
           </div>
 
@@ -202,7 +203,7 @@ export default function ApartmentsPage() {
               {t("No listings found")}
             </div>
           ) : (
-            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mx-auto min-[771px]:mt-8 min-[771px]:max-w-[1120px] min-[771px]:grid-cols-4 min-[771px]:justify-items-stretch min-[771px]:gap-4 sm:min-[771px]:mt-12 lg:min-[771px]:gap-5 md:min-[771px]:mt-[50px]">
+            <div className="mt-6 grid w-full grid-cols-1 justify-items-stretch gap-3 min-[771px]:mx-auto min-[771px]:mt-8 min-[771px]:max-w-[1120px] min-[771px]:grid-cols-4 min-[771px]:justify-items-stretch min-[771px]:gap-4 sm:min-[771px]:mt-12 lg:min-[771px]:gap-5 md:min-[771px]:mt-[14px]">
               {listings.map((listing) => (
                 <SaleCard
                   key={listing.id}

@@ -20,6 +20,8 @@ export default function AuthPage() {
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitCode, setSubmitCode] = useState<string | null>(null);
+    const [isResendingVerification, setIsResendingVerification] = useState(false);
     type AuthMode = "login" | "register" | "forgot";
     const [mode, setMode] = useState<AuthMode>("login");
 
@@ -30,6 +32,22 @@ export default function AuthPage() {
             router(redirectTo);
         }
     }, [isAuthenticated, router, searchParams]);
+
+    useEffect(() => {
+      const verified = searchParams.get("emailVerified");
+      const verifyError = searchParams.get("emailVerifyError");
+      if (verified === "1") {
+        setMode("login");
+        setSubmitCode("email_verified");
+        setErrors({ submit: t("auth.emailVerifiedSuccess") });
+        return;
+      }
+      if (verifyError) {
+        setMode("login");
+        setSubmitCode("email_verify_error");
+        setErrors({ submit: t("auth.emailVerificationInvalidOrExpired") });
+      }
+    }, [searchParams, t]);
 
     const validateEmail = (email: string) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,6 +96,7 @@ export default function AuthPage() {
 
       setIsSubmitting(true);
       setErrors({});
+      setSubmitCode(null);
 
       try {
         // === FORGOT PASSWORD ===
@@ -97,6 +116,7 @@ export default function AuthPage() {
           }
 
           setMode("login");
+          setSubmitCode("password_reset_sent");
           setErrors({
             submit: t("auth.resetPasswordSuccess"),
           });
@@ -134,7 +154,16 @@ export default function AuthPage() {
         const data = await res.json();
 
         if (!res.ok) {
+          setSubmitCode(typeof data?.code === "string" ? data.code : null);
           setErrors({ submit: data.detail || data.error || t("auth.authenticationFailed") });
+          return;
+        }
+
+        if (mode === "register" && data?.requires_email_verification) {
+          setMode("login");
+          setSubmitCode("registration_email_verification_required");
+          setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+          setErrors({ submit: t("auth.registrationCheckEmailPrompt") });
           return;
         }
 
@@ -155,6 +184,41 @@ export default function AuthPage() {
         setErrors({ submit: t("auth.serverError") });
       } finally {
         setIsSubmitting(false);
+      }
+    };
+
+    const handleResendVerification = async () => {
+      const email = String(formData.email || "").trim().toLowerCase();
+      if (!email || !validateEmail(email) || isResendingVerification) {
+        return;
+      }
+      setIsResendingVerification(true);
+      setSubmitCode(null);
+      try {
+        const res = await fetch("/api/auth/email/resend-verification/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setSubmitCode("verification_resent");
+          setErrors({ submit: t("auth.verificationEmailResent") });
+          return;
+        }
+        if (res.status === 429) {
+          setSubmitCode(typeof payload?.code === "string" ? payload.code : "verification_rate_limited");
+          setErrors({ submit: t("auth.verificationRateLimited") });
+          return;
+        }
+        setSubmitCode("verification_resend_failed");
+        setErrors({ submit: t("auth.verificationEmailResendFailed") });
+      } catch {
+        setSubmitCode("verification_resend_failed");
+        setErrors({ submit: t("auth.verificationEmailResendFailed") });
+      } finally {
+        setIsResendingVerification(false);
       }
     };
 
@@ -440,6 +504,18 @@ export default function AuthPage() {
                                         {errors.submit}
                                     </span>
                                 </div>
+                            )}
+                            {(submitCode === "email_not_verified" || submitCode === "registration_email_verification_required") && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleResendVerification();
+                                }}
+                                disabled={isResendingVerification || !validateEmail(String(formData.email || "").trim())}
+                                className="w-full rounded-xl border border-[#C505EB] px-4 py-2 text-sm font-semibold text-[#C505EB] transition hover:bg-[#C505EB]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isResendingVerification ? t("auth.processing") : t("auth.resendVerificationEmail")}
+                              </button>
                             )}
 
                             <button
