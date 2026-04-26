@@ -626,6 +626,12 @@
     "about": "About",
     "blog": "Blog",
     "contact": "Contact",
+    "legalLine1": "info@flatfly.eu",
+    "legalLine2": "Phone: 736 103 242",
+    "legalLine3": "Company ID (IČO): 24911267",
+    "legalLine4": "Data box: xxccnaq",
+    "legalLine5": "Registered office: Teplická 679/72, 419 01 Duchcov",
+    "legalLine6": "Commercial register: file C 55736, Regional Court in Ústí nad Labem",
     "copyright": "© 2025 FlatFly. All rights reserved."
   },
   "saleCard": {
