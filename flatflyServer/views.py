@@ -1548,6 +1548,12 @@ Message:
     )
 
     return JsonResponse({"detail": "Message sent successfully"})
+
+
+def _password_reset_expose_status() -> bool:
+    return bool(getattr(settings, "DEBUG", False) or getattr(settings, "PASSWORD_RESET_EXPOSE_MAIL_STATUS", False))
+
+
 @csrf_exempt
 def password_reset_request(request):
     if request.method != "POST":
@@ -1558,12 +1564,16 @@ def password_reset_request(request):
     # Нельзя использовать .get(email=...): в БД иногда бывают дубликаты email → MultipleObjectsReturned.
     candidates = list(User.objects.filter(email__iexact=email).order_by("id")[:2])
     if not candidates:
-        # В целях безопасности не говорим, что пользователя нет
-        return JsonResponse({
-            "detail": "If an account with this email exists, a reset link was sent."
-        })
+        log.info("[password_reset] NOT_ATTEMPTED no_matching_user email=%s", email)
+        body: dict = {
+            "detail": "If an account with this email exists, a reset link was sent.",
+        }
+        if _password_reset_expose_status():
+            body["mailed"] = False
+            body["reason"] = "no_matching_user"
+        return JsonResponse(body)
     if len(candidates) > 1:
-        log.warning(
+        log.info(
             "password_reset_request: duplicate User rows for email=%s (ids=%s); using oldest id=%s",
             email,
             [u.pk for u in candidates],
@@ -1585,16 +1595,24 @@ def password_reset_request(request):
         )
     except Exception:
         log.exception("password_reset_request: send_mail failed for user_id=%s email=%s", user.pk, email)
-        return JsonResponse(
-            {
-                "detail": "Could not send email. Check SMTP settings (FLATFLY_SMTP_* / EMAIL_*).",
-                "code": "email_send_failed",
-            },
-            status=503,
-        )
-    return JsonResponse({
-        "detail": "Password reset email sent"
-    })
+        err_body: dict = {
+            "detail": "Could not send email. Check SMTP settings (FLATFLY_SMTP_* / EMAIL_*).",
+            "code": "email_send_failed",
+        }
+        if _password_reset_expose_status():
+            err_body["mailed"] = False
+            err_body["reason"] = "smtp_error"
+        return JsonResponse(err_body, status=503)
+    log.info(
+        "[password_reset] SMTP_ACCEPTED user_id=%s to=%s (inbox delivery: check provider / spam)",
+        user.pk,
+        email,
+    )
+    ok_body: dict = {"detail": "Password reset email sent"}
+    if _password_reset_expose_status():
+        ok_body["mailed"] = True
+        ok_body["reason"] = "smtp_accepted"
+    return JsonResponse(ok_body)
 def get_frontend_url(request):
     origin = request.headers.get("Origin")
     if origin:

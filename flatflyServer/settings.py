@@ -79,6 +79,9 @@ EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_T
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60"))
 EMAIL_VERIFICATION_DAILY_LIMIT = int(os.getenv("EMAIL_VERIFICATION_DAILY_LIMIT", "10"))
 
+# If true, /api/auth/password-reset/ JSON includes mailed/reason (reveals whether email exists — use only if acceptable).
+PASSWORD_RESET_EXPOSE_MAIL_STATUS = os.getenv("PASSWORD_RESET_EXPOSE_MAIL_STATUS", "").lower() in ("1", "true", "yes")
+
 SITE_ID = 1
 
 AUTHENTICATION_BACKENDS = [
