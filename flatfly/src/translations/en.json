@@ -699,7 +699,9 @@
     "verificationEmailResendFailed": "Failed to resend verification email.",
     "verificationRateLimited": "Too many requests. Please try again later.",
     "emailVerifiedSuccess": "Email verified successfully. You can now sign in.",
-    "emailVerificationInvalidOrExpired": "Verification link is invalid or expired."
+    "emailVerificationInvalidOrExpired": "Verification link is invalid or expired.",
+    "googleLoginRequired": "This account was created with Google. Please sign in using the Google button below.",
+    "emailNotVerifiedMessage": "Your email is not verified yet. Open the link we sent you to confirm it before signing in."
   },
   "resetPassword": {
     "title": "Reset Password",
@@ -707,6 +709,7 @@
     "sendLinkError": "Could not send the reset link. Please try again.",
     "notifyLinkSent": "We've sent a password reset link to your email. Check your inbox and spam folder.",
     "notifyNoAccount": "There is no account for this email. Try another address or sign up.",
+    "notifyGoogleAccount": "This email is linked to a Google account. Password reset by email is not available — please sign in with Google.",
     "notifyUnknownOutcome": "Request processed. If you have an account, check your email including spam.",
     "subtitle": "Enter a new password for your account",
     "resetButton": "Reset Password",

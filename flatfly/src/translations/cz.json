@@ -699,7 +699,9 @@
     "verificationEmailResendFailed": "Ověřovací e-mail se nepodařilo odeslat.",
     "verificationRateLimited": "Příliš mnoho požadavků. Zkuste to později.",
     "emailVerifiedSuccess": "E-mail byl úspěšně ověřen. Nyní se můžete přihlásit.",
-    "emailVerificationInvalidOrExpired": "Ověřovací odkaz je neplatný nebo vypršel."
+    "emailVerificationInvalidOrExpired": "Ověřovací odkaz je neplatný nebo vypršel.",
+    "googleLoginRequired": "Tento účet byl vytvořen přes Google. Přihlaste se prosím pomocí tlačítka Google níže.",
+    "emailNotVerifiedMessage": "E-mail ještě není ověřen. Nejdřív potvrďte odkaz v e-mailu, který jsme vám poslali."
   },
   "resetPassword": {
     "title": "Obnovení hesla",
@@ -707,6 +709,7 @@
     "sendLinkError": "Odeslání odkazu se nezdařilo. Zkuste to prosím znovu.",
     "notifyLinkSent": "Na váš e-mail jsme odeslali odkaz k obnovení hesla. Zkontrolujte doručenou poštu i složku Spam.",
     "notifyNoAccount": "Pod tímto e-mailem u nás není žádný účet. Zkuste jinou adresu nebo se zaregistrujte.",
+    "notifyGoogleAccount": "Tento e-mail patří k účtu přes Google. Odkaz na obnovení hesla nelze použít — přihlaste se prosím přes Google.",
     "notifyUnknownOutcome": "Požadavek byl zpracován. Pokud u nás účet máte, zkontrolujte e-mail včetně spamu.",
     "subtitle": "Zadejte nové heslo pro svůj účet",
     "resetButton": "Obnovit heslo",

@@ -168,6 +168,10 @@ class Profile(models.Model):
     verified = models.BooleanField(default=False)
     email_verified = models.BooleanField(default=False)
     email_verified_at = models.DateTimeField(null=True, blank=True)
+    email_verification_required = models.BooleanField(
+        default=False,
+        help_text="If True, login is blocked until email is verified. Set only for new email signups.",
+    )
     looking_for_housing = models.BooleanField(default=True)
     with_children = models.BooleanField(default=False)
     with_disability = models.BooleanField(default=False)

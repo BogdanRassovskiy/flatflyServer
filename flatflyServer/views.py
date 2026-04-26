@@ -1581,6 +1581,17 @@ def password_reset_request(request):
             candidates[0].pk,
         )
     user = candidates[0]
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "auth_provider", None) == "google":
+        log.info("[password_reset] NOT_ATTEMPTED oauth_google user_id=%s email=%s", user.pk, email)
+        oauth_body: dict = {
+            "detail": "This account uses Google sign-in. Use Google to log in.",
+            "dispatch": "oauth_google",
+        }
+        if _password_reset_expose_status():
+            oauth_body["mailed"] = False
+            oauth_body["reason"] = "oauth_google"
+        return JsonResponse(oauth_body)
     # Генерация токена
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
@@ -1756,9 +1767,13 @@ def register_view(request):
         profile = getattr(existing_user, "profile", None)
 
         if profile and profile.auth_provider == "google":
-            return JsonResponse({
-                "error": "This account was created using Google. Please log in with Google."
-            }, status=400)
+            return JsonResponse(
+                {
+                    "error": "This account was created using Google. Please log in with Google.",
+                    "code": "auth_provider_google",
+                },
+                status=400,
+            )
 
         return JsonResponse({
             "error": "User with this email already exists. Please log in."
@@ -1778,6 +1793,7 @@ def register_view(request):
     profile.auth_provider = "email"
     profile.email_verified = False
     profile.email_verified_at = None
+    profile.email_verification_required = True
     profile.save()
 
     try:
@@ -1823,16 +1839,27 @@ def login_view(request):
 
     # Если аккаунт Google
     if profile.auth_provider == "google":
-        return JsonResponse({
-            "error": "This account was created via Google. Please login with Google."
-        }, status=400)
+        return JsonResponse(
+            {
+                "error": "This account was created via Google. Please login with Google.",
+                "code": "auth_provider_google",
+            },
+            status=400,
+        )
 
-    if profile.auth_provider == "email" and not profile.email_verified:
-        return JsonResponse({
-            "error": "Email is not verified. Please confirm your email first.",
-            "code": "email_not_verified",
-            "email": user.email,
-        }, status=403)
+    if (
+        profile.auth_provider == "email"
+        and profile.email_verification_required
+        and not profile.email_verified
+    ):
+        return JsonResponse(
+            {
+                "error": "Email is not verified. Please confirm your email first.",
+                "code": "email_not_verified",
+                "email": user.email,
+            },
+            status=403,
+        )
 
     # Проверяем пароль
     if not user.check_password(password):
@@ -1871,6 +1898,9 @@ def resend_verification_email(request):
 
     profile = getattr(user, "profile", None)
     if not profile or profile.auth_provider != "email":
+        return JsonResponse({"status": "ok"})
+
+    if not profile.email_verification_required:
         return JsonResponse({"status": "ok"})
 
     if profile.email_verified:
@@ -1920,7 +1950,10 @@ def confirm_email(request, token):
     profile = verification.user.profile
     profile.email_verified = True
     profile.email_verified_at = timezone.now()
-    profile.save(update_fields=["email_verified", "email_verified_at"])
+    profile.email_verification_required = False
+    profile.save(
+        update_fields=["email_verified", "email_verified_at", "email_verification_required"]
+    )
     verification.consumed_at = timezone.now()
     verification.save(update_fields=["consumed_at"])
 
@@ -3105,6 +3138,7 @@ def apple_callback(request):
             profile.auth_provider = "apple"
         profile.email_verified = True
         profile.email_verified_at = profile.email_verified_at or timezone.now()
+        profile.email_verification_required = False
         profile.save()
     else:
         user = User.objects.create_user(
@@ -3231,6 +3265,7 @@ def google_callback(request):
         profile.auth_provider = "google"
         profile.email_verified = True
         profile.email_verified_at = profile.email_verified_at or timezone.now()
+        profile.email_verification_required = False
         profile.save()
 
     else:

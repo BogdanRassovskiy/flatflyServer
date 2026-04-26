@@ -121,6 +121,12 @@ export default function AuthPage() {
             return;
           }
 
+          if (resetPayload?.dispatch === "oauth_google") {
+            setSubmitCode("password_reset_oauth_google");
+            setErrors({ submit: t("resetPassword.notifyGoogleAccount") });
+            return;
+          }
+
           if (resetPayload?.dispatch === "sent") {
             setMode("login");
             setSubmitCode("password_reset_sent_ok");
@@ -171,8 +177,15 @@ export default function AuthPage() {
         const data = await res.json();
 
         if (!res.ok) {
-          setSubmitCode(typeof data?.code === "string" ? data.code : null);
-          setErrors({ submit: data.detail || data.error || t("auth.authError") });
+          const errCode = typeof data?.code === "string" ? data.code : null;
+          setSubmitCode(errCode);
+          const submitMsg =
+            errCode === "auth_provider_google"
+              ? t("auth.googleLoginRequired")
+              : errCode === "email_not_verified"
+                ? t("auth.emailNotVerifiedMessage")
+                : data.detail || data.error || t("auth.authError");
+          setErrors({ submit: submitMsg });
           return;
         }
 
@@ -512,18 +525,26 @@ export default function AuthPage() {
                             {errors.submit && (
                                 <div
                                     className={`w-full rounded-xl ${
-                                        submitCode === "password_reset_sent_ok"
+                                        submitCode === "password_reset_sent_ok" ||
+                                        submitCode === "registration_email_verification_required"
                                           ? "border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                                          : submitCode === "password_reset_no_user"
+                                          : submitCode === "password_reset_no_user" ||
+                                              submitCode === "password_reset_oauth_google" ||
+                                              submitCode === "auth_provider_google" ||
+                                              submitCode === "email_not_verified"
                                             ? "border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/25"
                                             : "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
                                     } ${isLogin ? "p-4 sm:p-5" : "p-3.5"}`}
                                 >
                                     <span
                                         className={`${
-                                            submitCode === "password_reset_sent_ok"
+                                            submitCode === "password_reset_sent_ok" ||
+                                            submitCode === "registration_email_verification_required"
                                               ? "text-emerald-800 dark:text-emerald-200"
-                                              : submitCode === "password_reset_no_user"
+                                              : submitCode === "password_reset_no_user" ||
+                                                  submitCode === "password_reset_oauth_google" ||
+                                                  submitCode === "auth_provider_google" ||
+                                                  submitCode === "email_not_verified"
                                                 ? "text-amber-900 dark:text-amber-100"
                                                 : "text-red-600 dark:text-red-400"
                                         } ${isLogin ? "text-sm sm:text-base" : "text-sm"}`}
