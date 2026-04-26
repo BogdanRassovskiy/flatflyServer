@@ -1,20 +1,21 @@
 import fLogo from "../../assets/flatfly-f-logo.svg";
+import headerFLogo from "../../assets/flatfly-header-f-logo.svg";
 
 const headerImgClass =
   "object-contain [filter:brightness(0)] dark:invert transition-[filter] duration-300";
 
-/** F mark from `faviconF.PNG` as `flatfly-f-logo.svg` (PNG embedded in SVG for crisp edges at any size). */
+/** Header mark from `favFF.PNG` as `flatfly-header-f-logo.svg` (PNG in SVG). */
 export function FlatFlyFLogoHeader() {
   return (
     <>
-      <img
-        src={fLogo}
+    <img
+        src={headerFLogo}
         alt=""
         aria-hidden
         className={`hidden min-[771px]:block h-[60px] w-[60px] ${headerImgClass}`}
       />
       <img
-        src={fLogo}
+        src={headerFLogo}
         alt=""
         aria-hidden
         className={`block min-[771px]:hidden h-[50px] w-[50px] translate-x-1 ${headerImgClass}`}
