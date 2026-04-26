@@ -1552,16 +1552,24 @@ Message:
 def password_reset_request(request):
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
-    email = request.POST.get("email")
+    email = (request.POST.get("email") or "").strip().lower()
     if not email:
         return JsonResponse({"detail": "Email is required"}, status=400)
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
+    # Нельзя использовать .get(email=...): в БД иногда бывают дубликаты email → MultipleObjectsReturned.
+    candidates = list(User.objects.filter(email__iexact=email).order_by("id")[:2])
+    if not candidates:
         # В целях безопасности не говорим, что пользователя нет
         return JsonResponse({
             "detail": "If an account with this email exists, a reset link was sent."
         })
+    if len(candidates) > 1:
+        log.warning(
+            "password_reset_request: duplicate User rows for email=%s (ids=%s); using oldest id=%s",
+            email,
+            [u.pk for u in candidates],
+            candidates[0].pk,
+        )
+    user = candidates[0]
     # Генерация токена
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
