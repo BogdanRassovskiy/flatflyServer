@@ -1,7 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Link } from "react-router-dom";
-import { FlatFlyFMark } from "../brand/FlatFlyFMark";
+import logoDesktop from "../../assets/logo-mobile.png";
 
 const iconSize = 32;
 
@@ -32,17 +32,11 @@ export default function Footer() {
       <div className="flex w-full max-w-[1440px] flex-col gap-4 px-4 max-[1439px]:px-5 min-[1440px]:px-[88px]">
         <div className="flex w-full flex-col items-stretch justify-between gap-4 min-[770px]:min-h-0 min-[770px]:flex-row min-[770px]:items-start min-[770px]:gap-10">
           <div className="flex min-w-0 flex-col gap-2.5 max-[770px]:items-center max-[770px]:text-center min-[770px]:gap-3">
-            <Link
-              to="/"
-              className="inline-flex w-fit text-white max-[770px]:mx-auto"
-              aria-label="FlatFly"
-            >
-              <FlatFlyFMark
-                variant="mark"
-                className="h-11 w-11"
-                lightOnDark
-                aria-hidden={false}
-                title="FlatFly"
+            <Link to="/" className="inline-flex w-fit max-[770px]:mx-auto">
+              <img
+                src={logoDesktop}
+                alt="FlatFly"
+                className="h-[44px] w-auto object-contain invert"
               />
             </Link>
 

@@ -1,6 +1,6 @@
 import HeroCard from "../../components/HeroCard/HeroCard";
 import TeamSection from "../../components/TeamSection/TeamSection";
-import { FlatFlyFMark } from "../../components/brand/FlatFlyFMark";
+import logo from "../../assets/logo.png";
 import { useLanguage } from "../../contexts/LanguageContext";
 import furniture from "../../assets/furniture.jpg";
 import wall from "../../assets/wallpaint.jpg";
@@ -108,16 +108,11 @@ export default function HomePage() {
           <div
             className={`flex max-[770px]:w-full min-[770px]:w-1/2 items-center justify-center self-center `}
           >
-            <div
-              className="overflow-hidden rounded-[2rem] shadow-[0_20px_60px_-20px_rgba(197,5,235,0.45)]"
-              aria-hidden
-            >
-              <FlatFlyFMark
-                variant="tile"
-                className="h-[200px] w-[200px] min-[770px]:h-[394px] min-[770px]:w-[394px]"
-                aria-hidden
-              />
-            </div>
+            <img
+              className={`max-[770px]:h-[200px] max-[770px]:w-[200px] min-[770px]:h-[394px] min-[770px]:w-[394px] object-contain`}
+              src={logo}
+              alt="FlatFly Logo"
+            />
           </div>
         </div>
 

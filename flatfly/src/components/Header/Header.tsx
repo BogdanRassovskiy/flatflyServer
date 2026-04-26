@@ -5,7 +5,8 @@ import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { getImageUrl } from "../../utils/defaultImage";
-import { FlatFlyFMark } from "../brand/FlatFlyFMark";
+import logoDesktop from "../../assets/logo-desktop.png";
+import logoMobile from "../../assets/logo-mobile.png";
 
 
 
@@ -249,18 +250,16 @@ export default function Header() {
             
 
             <div className="grid h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
-                <Link
-                    to="/"
-                    className="flex shrink-0 items-center justify-center text-zinc-900 dark:text-zinc-100"
-                    aria-label="FlatFly"
-                >
-                    <FlatFlyFMark
-                        variant="mark"
-                        className="hidden h-[60px] w-[60px] min-[771px]:block"
+                <Link to="/" className="flex shrink-0 items-center justify-center" aria-label="FlatFly">
+                    <img
+                        src={logoMobile}
+                        alt="FlatFly"
+                        className="hidden min-[771px]:block h-[60px] w-auto object-contain transition-[filter] duration-300 dark:invert"
                     />
-                    <FlatFlyFMark
-                        variant="mark"
-                        className="block h-[50px] w-[50px] min-[771px]:hidden translate-x-1"
+                    <img
+                        src={logoDesktop}
+                        alt="FlatFly"
+                        className="block min-[771px]:hidden h-[50px] translate-x-5 w-auto object-contain transition-[filter] duration-300 dark:invert"
                     />
                 </Link>
 

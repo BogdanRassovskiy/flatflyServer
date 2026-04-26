@@ -70,34 +70,6 @@ urlpatterns = [
     re_path(r'^fonts/(?P<path>.*)$', serve, {
         'document_root': os.path.join(settings.BASE_DIR, 'static/fonts')
     }),
-    re_path(
-        r"^favicon\.svg$",
-        serve,
-        {
-            "document_root": os.path.join(settings.BASE_DIR, "static"),
-            "path": "favicon.svg",
-        },
-    ),
-    re_path(
-        r"^favicon-32\.png$",
-        serve,
-        {
-            "document_root": os.path.join(settings.BASE_DIR, "static"),
-            "path": "favicon-32.png",
-        },
-    ),
-    path(
-        "favicon.ico",
-        RedirectView.as_view(url="/favicon-32.png", permanent=False),
-    ),
-    re_path(
-        r"^flatfly-f-mark\.png$",
-        serve,
-        {
-            "document_root": os.path.join(settings.BASE_DIR, "static"),
-            "path": "flatfly-f-mark.png",
-        },
-    ),
 
     # SPA — ТОЛЬКО для страниц
     re_path(
