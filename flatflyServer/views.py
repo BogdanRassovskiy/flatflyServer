@@ -1606,9 +1606,10 @@ def password_reset_request(request):
             err_body["reason"] = "smtp_error"
         return JsonResponse(err_body, status=503)
     log.info(
-        "[password_reset] SMTP_ACCEPTED user_id=%s to=%s (inbox delivery: check provider / spam)",
+        "[password_reset] SMTP_ACCEPTED user_id=%s to=%s from_email=%s (inbox: check Brevo logs + spam; link not logged for security)",
         user.pk,
         email,
+        getattr(settings, "DEFAULT_FROM_EMAIL", ""),
     )
     ok_body: dict = {
         "detail": "Password reset email sent",
