@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
@@ -7,6 +8,23 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
+
+
+def _normalize_default_from_email(raw: str) -> str:
+    """
+    SMTP MAIL FROM must be a valid mailbox (user@domain). Brevo returns
+    501 if only a domain was set (e.g. intime-studio.cz) without local part.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return "FlatFly <no-reply@flatfly.eu>"
+    if "@" in s:
+        return s
+    # Bare domain / hostname only
+    if re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$", s):
+        return f"FlatFly <no-reply@{s}>"
+    return s
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -73,7 +91,9 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
 # Prefer FlatFly-specific names so a shared server .env does not collide with other apps.
 EMAIL_HOST_USER = os.getenv("FLATFLY_SMTP_USER", "") or os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("FLATFLY_SMTP_PASSWORD", "") or os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FlatFly <no-reply@flatfly.local>")
+DEFAULT_FROM_EMAIL = _normalize_default_from_email(
+    os.getenv("DEFAULT_FROM_EMAIL", "FlatFly <no-reply@flatfly.eu>"),
+)
 
 EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_TTL_MINUTES", "60"))
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60"))
