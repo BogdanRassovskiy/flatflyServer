@@ -110,16 +110,33 @@ export default function AuthPage() {
             body: form,
           });
 
+          const resetPayload = (await res.json().catch(() => ({}))) as {
+            dispatch?: string;
+            detail?: string;
+          };
+
           if (!res.ok) {
+            setSubmitCode(null);
             setErrors({ submit: t("resetPassword.sendLinkError") });
+            return;
+          }
+
+          if (resetPayload?.dispatch === "sent") {
+            setMode("login");
+            setSubmitCode("password_reset_sent_ok");
+            setErrors({ submit: t("resetPassword.notifyLinkSent") });
+            return;
+          }
+
+          if (resetPayload?.dispatch === "none") {
+            setSubmitCode("password_reset_no_user");
+            setErrors({ submit: t("resetPassword.notifyNoAccount") });
             return;
           }
 
           setMode("login");
           setSubmitCode("password_reset_sent");
-          setErrors({
-            submit: t("resetPassword.sendLinkSuccess"),
-          });
+          setErrors({ submit: t("resetPassword.notifyUnknownOutcome") });
           return;
         }
 
@@ -494,12 +511,22 @@ export default function AuthPage() {
 
                             {errors.submit && (
                                 <div
-                                    className={`w-full rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 ${
-                                        isLogin ? "p-4 sm:p-5" : "p-3.5"
-                                    }`}
+                                    className={`w-full rounded-xl ${
+                                        submitCode === "password_reset_sent_ok"
+                                          ? "border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                                          : submitCode === "password_reset_no_user"
+                                            ? "border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/25"
+                                            : "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                                    } ${isLogin ? "p-4 sm:p-5" : "p-3.5"}`}
                                 >
                                     <span
-                                        className={`text-red-600 dark:text-red-400 ${isLogin ? "text-sm sm:text-base" : "text-sm"}`}
+                                        className={`${
+                                            submitCode === "password_reset_sent_ok"
+                                              ? "text-emerald-800 dark:text-emerald-200"
+                                              : submitCode === "password_reset_no_user"
+                                                ? "text-amber-900 dark:text-amber-100"
+                                                : "text-red-600 dark:text-red-400"
+                                        } ${isLogin ? "text-sm sm:text-base" : "text-sm"}`}
                                     >
                                         {errors.submit}
                                     </span>

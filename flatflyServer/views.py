@@ -1566,7 +1566,8 @@ def password_reset_request(request):
     if not candidates:
         log.info("[password_reset] NOT_ATTEMPTED no_matching_user email=%s", email)
         body: dict = {
-            "detail": "If an account with this email exists, a reset link was sent.",
+            "detail": "No account registered for this email.",
+            "dispatch": "none",
         }
         if _password_reset_expose_status():
             body["mailed"] = False
@@ -1598,6 +1599,7 @@ def password_reset_request(request):
         err_body: dict = {
             "detail": "Could not send email. Check SMTP settings (FLATFLY_SMTP_* / EMAIL_*).",
             "code": "email_send_failed",
+            "dispatch": "smtp_failed",
         }
         if _password_reset_expose_status():
             err_body["mailed"] = False
@@ -1608,7 +1610,10 @@ def password_reset_request(request):
         user.pk,
         email,
     )
-    ok_body: dict = {"detail": "Password reset email sent"}
+    ok_body: dict = {
+        "detail": "Password reset email sent",
+        "dispatch": "sent",
+    }
     if _password_reset_expose_status():
         ok_body["mailed"] = True
         ok_body["reason"] = "smtp_accepted"
