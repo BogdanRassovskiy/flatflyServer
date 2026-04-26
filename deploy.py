@@ -22,6 +22,8 @@ def deploy_frontend():
     index_dst = TEMPLATES_DIR / "index.html"
     vite_svg_src = FRONTEND_DIST / "vite.svg"
     vite_svg_dst = STATIC_DIR / "vite.svg"
+    f_logo_src = FRONTEND_DIST / "flatfly-f-logo.svg"
+    f_logo_dst = STATIC_DIR / "flatfly-f-logo.svg"
 
     # 1. assets
     if assets_dst.exists():
@@ -39,16 +41,20 @@ def deploy_frontend():
     # 3. index.html
     shutil.copy2(index_src, index_dst)
 
-    # 4. vite.svg
+    # 4. root static files (vite.svg, favicon SVG, …)
     if vite_svg_src.exists():
         shutil.copy2(vite_svg_src, vite_svg_dst)
         print("✅ vite.svg copied")
+    if f_logo_src.exists():
+        shutil.copy2(f_logo_src, f_logo_dst)
+        print("✅ flatfly-f-logo.svg copied")
 
     # 5. rewrite frontend asset paths for Django static serving
     index_html = index_dst.read_text(encoding="utf-8")
     index_html = index_html.replace('src="/assets/', 'src="/static/assets/')
     index_html = index_html.replace('href="/assets/', 'href="/static/assets/')
     index_html = index_html.replace('href="/vite.svg"', 'href="/static/vite.svg"')
+    index_html = index_html.replace('href="/flatfly-f-logo.svg"', 'href="/static/flatfly-f-logo.svg"')
     index_dst.write_text(index_html, encoding="utf-8")
     print("✅ index.html static paths normalized")
     print("✅ index.html copied")
