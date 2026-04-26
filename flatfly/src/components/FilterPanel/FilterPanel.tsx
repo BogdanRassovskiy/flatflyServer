@@ -788,11 +788,11 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         return (
           <div key={key} className={shellClass}>
             <button type="button" onClick={() => togglePinnedKey(key)} className={triggerClass} aria-expanded={isOpen}>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <span className="block w-full text-center text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 {pinnedTitle(key)}
               </span>
               <span
-                className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                className={`line-clamp-2 w-full text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                   pinnedHasValue(key) ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"
                 }`}
               >
@@ -830,7 +830,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
       const triggerClass = [
-        "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+        "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 pl-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
         segmentBg,
         isOpen
           ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
@@ -845,11 +845,11 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       return (
         <div key={key} className={priceShellClass}>
           <button type="button" onClick={() => togglePinnedKey("price")} className={triggerClass}>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <span className="block w-full text-center text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               {pinnedTitle(key)}
             </span>
             <span
-              className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+              className={`line-clamp-2 w-full text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                 pinnedHasValue(key)
                   ? "text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-400 dark:text-zinc-500"
@@ -900,7 +900,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                   className="relative flex min-h-[58px] shrink-0 items-center justify-center gap-2 rounded-r-full bg-white px-5 pl-4 text-[#C505EB] transition-[background-color,box-shadow,color] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.08] hover:to-[#08E2BE]/[0.06] hover:shadow-[inset_0_0_0_1px_rgba(197,5,235,0.15)] dark:bg-zinc-900 dark:hover:from-[#C505EB]/15 dark:hover:to-[#08E2BE]/10"
                 >
                   <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
-                  <span className="line-clamp-2 max-w-[min(220px,32vw)] text-left text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
+                  <span className="line-clamp-2 max-w-[min(220px,32vw)] text-center text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
                     {t("filter.filters")}
                   </span>
                   {extraFiltersCount > 0 ? (

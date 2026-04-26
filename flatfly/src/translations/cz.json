@@ -91,6 +91,7 @@
     "editPlaceholder": "Upravte zprávu...",
     "editError": "Změny zprávy se nepodařilo uložit",
     "editExpiredError": "Zprávu lze upravit pouze do 5 minut po odeslání",
+    "messageEdited": "Upraveno",
     "replyJumpToOriginal": "Přejít na původní zprávu",
     "replyJumpNotFound": "Zpráva není v tomto zobrazení — zkuste načíst starší zprávy.",
     "cancel": "Zrušit",

@@ -63,6 +63,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender",
             "text",
             "created_at",
+            "edited_at",
             "is_read",
             "message_kind",
             "listing_id",

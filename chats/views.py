@@ -745,7 +745,8 @@ class MessageViewSet(viewsets.ModelViewSet):
             )
 
         message.text = next_text
-        message.save(update_fields=['text'])
+        message.edited_at = timezone.now()
+        message.save(update_fields=["text", "edited_at"])
         return Response(MessageSerializer(message, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='listing-reaction')

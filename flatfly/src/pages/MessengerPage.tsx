@@ -100,6 +100,7 @@ interface Message {
   listing_ratings?: ListingRatingsPayload | null;
   reply_preview?: MessageReplyPreview | null;
   can_edit?: boolean;
+  edited_at?: string | null;
 }
 
 function buildReplyPreviewFromMessage(
@@ -2970,7 +2971,28 @@ export default function MessengerPage() {
                             </span>
                           </div>
                         </div>
-                        <div className={isOutgoingText ? "text-white" : ""}>{message.text}</div>
+                        <div
+                          className={`whitespace-pre-wrap break-words ${isOutgoingText ? "text-white" : ""}`}
+                        >
+                          {message.text}
+                        </div>
+                        {message.edited_at ? (
+                          <div
+                            className={`mt-1.5 flex w-full ${
+                              isOutgoingText ? "justify-end" : "justify-start"
+                            }`}
+                          >
+                            <span
+                              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-wide ${
+                                isOutgoingText
+                                  ? "bg-white/20 text-white/95 ring-1 ring-inset ring-white/25"
+                                  : "bg-amber-100/90 text-amber-900 ring-1 ring-inset ring-amber-200/80 dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-400/35"
+                              }`}
+                            >
+                              {t("messenger.messageEdited")}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="mt-1 flex items-center gap-1">
                           {message.sender.id === currentUserId && (
                             <span className={`text-[10px] ${isOutgoingText ? "text-white/55" : "text-gray-400"}`}>

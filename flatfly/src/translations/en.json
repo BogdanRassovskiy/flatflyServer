@@ -91,6 +91,7 @@
     "editPlaceholder": "Edit message...",
     "editError": "Failed to save message changes",
     "editExpiredError": "A message can only be edited within 5 minutes after sending",
+    "messageEdited": "Edited",
     "replyJumpToOriginal": "Go to original message",
     "replyJumpNotFound": "Message is not loaded here — try scrolling up to load older messages.",
     "cancel": "Cancel",
