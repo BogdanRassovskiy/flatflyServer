@@ -773,7 +773,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         const isOpen = pinnedOpen === key;
         const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
         const triggerClass = [
-          "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+          "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 pl-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
           segmentBg,
           isOpen
             ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
