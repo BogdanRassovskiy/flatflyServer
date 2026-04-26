@@ -1,71 +1,52 @@
-import { useId } from "react";
-
-const F_PATH = "M9 7.5h3.2v17H9V7.5zm3.2 0H24v3.1H12.2V7.5zm0 6.6h8.3v3.1H12.2v-3.1z";
+import markPng from "../../assets/flatfly-f-mark.png";
 
 type Props = {
-  /** F only, uses currentColor (header / inline use). */
+  /** "mark" = только знак. "tile" = градиентный квадрат с F по центру. */
   variant?: "mark" | "tile";
   className?: string;
   title?: string;
   "aria-hidden"?: boolean;
+  /** Белая F на тёмном фоне (шапка/футер с #333) — в любом system theme. */
+  lightOnDark?: boolean;
 };
 
 /**
- * FlatFly mark: only the letter F (no wordmark). Use `variant="tile"` for
- * gradient square with white F (home hero, favicon-style).
+ * Официальный знак FlatFly: буква F из макета (без wordmark).
+ * По умолчанию: на светлом фоне — чёрный силуэт, в тёмной теме — белая F.
+ * `lightOnDark` — всегда белая F (тёмные хедер/футер).
  */
 export function FlatFlyFMark({
   variant = "mark",
   className = "",
   title = "FlatFly",
   "aria-hidden": ariaHidden = true,
+  lightOnDark = false,
 }: Props) {
-  const gradId = useId().replace(/:/g, "");
+  const markFilter = lightOnDark
+    ? "h-full w-full object-contain"
+    : "h-full w-full object-contain [filter:brightness(0)] dark:filter-none";
+
+  const imgClass = variant === "mark" ? markFilter : "h-[min(70%,7rem)] w-[min(70%,7rem)] object-contain";
 
   if (variant === "tile") {
     return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 32 32"
-        className={className}
+      <div
+        className={`flex items-center justify-center overflow-hidden rounded-[1.1rem] bg-gradient-to-br from-[#C505EB] to-[#08D3E2] ${className}`}
         role="img"
+        aria-label={title}
         aria-hidden={ariaHidden}
-        aria-label={ariaHidden ? undefined : title}
       >
-        <title>{title}</title>
-        <defs>
-          <linearGradient
-            id={gradId}
-            x1="0"
-            y1="0"
-            x2="32"
-            y2="32"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stopColor="#C505EB" />
-            <stop offset="1" stopColor="#08D3E2" />
-          </linearGradient>
-        </defs>
-        <rect width="32" height="32" rx="7" fill={`url(#${gradId})`} />
-        <path fill="#fff" d={F_PATH} />
-      </svg>
+        <img src={markPng} alt="" className={imgClass} />
+      </div>
     );
   }
 
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 32 32"
-      className={className}
-      fill="currentColor"
-      role="img"
+    <img
+      src={markPng}
+      alt={ariaHidden ? "" : title}
+      className={`${imgClass} ${className}`.trim()}
       aria-hidden={ariaHidden}
-      aria-label={ariaHidden ? undefined : title}
-    >
-      <title>{title}</title>
-      <path d={F_PATH} />
-    </svg>
+    />
   );
 }
-
-export { F_PATH };

@@ -37,7 +37,13 @@ export default function Footer() {
               className="inline-flex w-fit text-white max-[770px]:mx-auto"
               aria-label="FlatFly"
             >
-              <FlatFlyFMark variant="mark" className="h-11 w-11" aria-hidden={false} title="FlatFly" />
+              <FlatFlyFMark
+                variant="mark"
+                className="h-11 w-11"
+                lightOnDark
+                aria-hidden={false}
+                title="FlatFly"
+              />
             </Link>
 
             <div className="flex items-center justify-center gap-5 min-[770px]:justify-start">
