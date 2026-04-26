@@ -23,18 +23,14 @@ export function FlatFlyFLogoHeader() {
   );
 }
 
-/** “About” section: F on brand gradient (white glyph via `invert` on the dark raster). */
+/** “About” section: large F, same look as the header (no background card). */
 export function FlatFlyFLogoHero({ className = "" }: { className?: string }) {
   return (
-    <div
-      className={`flex items-center justify-center overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#C505EB] to-[#08D3E2] p-5 shadow-[0_20px_60px_-20px_rgba(197,5,235,0.45)] min-[770px]:p-8 ${className}`}
-    >
-      <img
-        src={fLogo}
-        alt=""
-        aria-hidden
-        className="h-[min(200px,55vw)] w-auto min-[770px]:h-[min(360px,36vw)] invert"
-      />
-    </div>
+    <img
+      src={fLogo}
+      alt=""
+      aria-hidden
+      className={`object-contain max-[770px]:h-[200px] max-[770px]:w-[200px] min-[770px]:h-[394px] min-[770px]:w-[394px] ${headerImgClass} ${className}`}
+    />
   );
 }
