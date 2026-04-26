@@ -111,14 +111,14 @@ export default function AuthPage() {
           });
 
           if (!res.ok) {
-            setErrors({ submit: t("auth.resetPasswordError") });
+            setErrors({ submit: t("resetPassword.sendLinkError") });
             return;
           }
 
           setMode("login");
           setSubmitCode("password_reset_sent");
           setErrors({
-            submit: t("auth.resetPasswordSuccess"),
+            submit: t("resetPassword.sendLinkSuccess"),
           });
           return;
         }
@@ -155,7 +155,7 @@ export default function AuthPage() {
 
         if (!res.ok) {
           setSubmitCode(typeof data?.code === "string" ? data.code : null);
-          setErrors({ submit: data.detail || data.error || t("auth.authenticationFailed") });
+          setErrors({ submit: data.detail || data.error || t("auth.authError") });
           return;
         }
 
@@ -475,7 +475,7 @@ export default function AuthPage() {
                             {mode === "forgot" && (
                               <div className="w-full mb-4 p-3.5 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
                                 <p className="text-sm text-purple-700 dark:text-purple-300 leading-snug">
-                                  {t("auth.resetPasswordPrompt")}
+                                  {t("resetPassword.forgotPrompt")}
                                 </p>
                               </div>
                             )}

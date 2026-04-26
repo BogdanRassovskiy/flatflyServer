@@ -1,6 +1,7 @@
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
+import logging
 import re
 import uuid
 import math
@@ -48,6 +49,8 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.core.files.base import ContentFile
+
+log = logging.getLogger(__name__)
 from .image_moderation import moderate_image, apply_moderation_strike_and_notify
 from .telegram_channel import publish_listing_to_channel, delete_listing_from_channel
 User = get_user_model()
@@ -1564,13 +1567,23 @@ def password_reset_request(request):
     token = default_token_generator.make_token(user)
     frontend_url = get_frontend_url(request)
     reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
-    send_mail(
-        subject="Password reset",
-        message=f"Click the link to reset your password:\n\n{reset_link}",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject="Password reset",
+            message=f"Click the link to reset your password:\n\n{reset_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception:
+        log.exception("password_reset_request: send_mail failed for user_id=%s email=%s", user.pk, email)
+        return JsonResponse(
+            {
+                "detail": "Could not send email. Check SMTP settings (FLATFLY_SMTP_* / EMAIL_*).",
+                "code": "email_send_failed",
+            },
+            status=503,
+        )
     return JsonResponse({
         "detail": "Password reset email sent"
     })

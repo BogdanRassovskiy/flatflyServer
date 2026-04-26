@@ -703,6 +703,9 @@
   },
   "resetPassword": {
     "title": "Obnovení hesla",
+    "forgotPrompt": "Zadejte e-mail účtu. Pošleme vám odkaz pro obnovení hesla.",
+    "sendLinkError": "Odeslání odkazu se nezdařilo. Zkuste to prosím znovu.",
+    "sendLinkSuccess": "Pokud účet s tímto e-mailem existuje, byl odeslán odkaz pro obnovení hesla.",
     "subtitle": "Zadejte nové heslo pro svůj účet",
     "resetButton": "Obnovit heslo",
     "backToLogin": "Zpět na přihlášení",

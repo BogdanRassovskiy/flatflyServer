@@ -703,6 +703,9 @@
   },
   "resetPassword": {
     "title": "Reset Password",
+    "forgotPrompt": "Enter the email for your account. We'll send you a link to reset your password.",
+    "sendLinkError": "Could not send the reset link. Please try again.",
+    "sendLinkSuccess": "If an account exists for this email, a reset link has been sent.",
     "subtitle": "Enter a new password for your account",
     "resetButton": "Reset Password",
     "backToLogin": "Back to login",
