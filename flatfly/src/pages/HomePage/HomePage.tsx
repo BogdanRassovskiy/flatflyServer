@@ -1,7 +1,7 @@
 import HeroCard from "../../components/HeroCard/HeroCard";
 import TeamSection from "../../components/TeamSection/TeamSection";
-import logo from "../../assets/logo.png";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { FlatFlyFLogoHero } from "../../components/brand/FlatFlyFLogo";
 import furniture from "../../assets/furniture.jpg";
 import wall from "../../assets/wallpaint.jpg";
 import keys from "../../assets/holdingkeys.jpg";
@@ -108,11 +108,7 @@ export default function HomePage() {
           <div
             className={`flex max-[770px]:w-full min-[770px]:w-1/2 items-center justify-center self-center `}
           >
-            <img
-              className={`max-[770px]:h-[200px] max-[770px]:w-[200px] min-[770px]:h-[394px] min-[770px]:w-[394px] object-contain`}
-              src={logo}
-              alt="FlatFly Logo"
-            />
+            <FlatFlyFLogoHero />
           </div>
         </div>
 

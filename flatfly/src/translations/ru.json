@@ -83,8 +83,15 @@
     "sendError": "Не удалось отправить сообщение",
     "deleteError": "Не удалось удалить чат",
     "reply": "Ответить",
+    "edit": "Редактировать",
     "replyingTo": "Ответ для:",
     "cancelReply": "Отменить ответ",
+    "editingMessage": "Редактирование сообщения",
+    "cancelEdit": "Отменить редактирование",
+    "editPlaceholder": "Измените сообщение...",
+    "editError": "Не удалось сохранить изменения сообщения",
+    "editExpiredError": "Сообщение можно редактировать только в течение 5 минут после отправки",
+    "messageEdited": "Изменено",
     "replyJumpToOriginal": "Перейти к исходному сообщению",
     "replyJumpNotFound": "Сообщение не загружено — прокрутите вверх, чтобы подгрузить историю.",
     "cancel": "Отмена",
@@ -256,6 +263,9 @@
     "preferredGenderMale": "Мужской",
     "preferredGenderFemale": "Женский",
     "preferredGenderAny": "Не важно",
+    "ownerVerified": "Статус верификации владельца",
+    "ownerVerifiedYes": "Верифицированный пользователь",
+    "ownerVerifiedNo": "Не верифицированный пользователь",
     "secondarySort": "Сортировка (2-3 уровень)",
     "sortPriceAsc": "Сначала самые дешевые",
     "sortPriceDesc": "Сначала самые дорогие",
@@ -288,6 +298,9 @@
     "neighbourAgeFrom": "От",
     "neighbourAgeTo": "До",
     "neighbourMinRating": "Минимальная оценка",
+    "neighbourVerifiedStatus": "Статус верификации",
+    "neighbourVerifiedYes": "Верифицирован",
+    "neighbourVerifiedNo": "Не верифицирован",
     "neighbourAgePlaceholder": "Введите возраст",
     "neighbourGender": "Пол",
     "neighbourGenderMale": "Мужской",
@@ -431,35 +444,35 @@
     "editTitlePrompt": "Введите новое название объявления",
     "editDescriptionPrompt": "Введите новое описание объявления",
     "editPricePrompt": "Введите новую цену",
-    "invalidPrice": "Некорректная цена"
-    ,"deactivated": "Деактивировано"
-    ,"removeFromHome": "Удалить из дома"
-    ,"removeFromHomeConfirm": "Удалить этого человека из дома?"
-    ,"removedFromHomeSuccess": "Пользователь удалён из дома"
-    ,"ratingAndReviews": "Рейтинг и комментарии"
-    ,"yourRating": "Ваша оценка"
-    ,"selectRating": "Выберите оценку от 1 до 5"
-    ,"commentPlaceholder": "Оставьте комментарий..."
-    ,"submitReview": "Сохранить отзыв"
-    ,"updateReview": "Обновить отзыв"
-    ,"reviewFailed": "Не удалось сохранить отзыв"
-    ,"alreadyReviewed": "Вы уже оставили отзыв"
-    ,"onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе"
-    ,"noReviewsYet": "Пока нет отзывов"
-    ,"nearbyServices": "Рядом находится"
-    ,"nearestBusStop": "Ближайшая автобусная остановка"
-    ,"nearestShop": "Ближайший магазин"
-    ,"nearestHospital": "Ближайшая больница"
-    ,"reportListing": "Пожаловаться на объявление"
-    ,"sendReport": "Отправить жалобу"
-    ,"reportReasonFraud": "Мошенничество"
-    ,"reportReasonSpam": "Спам"
-    ,"reportReasonFake": "Фейковое объявление"
-    ,"reportReasonInappropriate": "Неприемлемый контент"
-    ,"reportReasonOther": "Другое"
-    ,"reportDetailsPlaceholder": "Опишите проблему (необязательно)"
-    ,"reportSuccess": "Жалоба отправлена"
-    ,"reportFailed": "Не удалось отправить жалобу"
+    "invalidPrice": "Некорректная цена",
+    "deactivated": "Деактивировано",
+    "removeFromHome": "Удалить из дома",
+    "removeFromHomeConfirm": "Удалить этого человека из дома?",
+    "removedFromHomeSuccess": "Пользователь удалён из дома",
+    "ratingAndReviews": "Рейтинг и комментарии",
+    "yourRating": "Ваша оценка",
+    "selectRating": "Выберите оценку от 1 до 5",
+    "commentPlaceholder": "Оставьте комментарий...",
+    "submitReview": "Сохранить отзыв",
+    "updateReview": "Обновить отзыв",
+    "reviewFailed": "Не удалось сохранить отзыв",
+    "alreadyReviewed": "Вы уже оставили отзыв",
+    "onlyCoResidentsCanReview": "Оставлять оценку могут только те, кто живёт вместе",
+    "noReviewsYet": "Пока нет отзывов",
+    "nearbyServices": "Рядом находится",
+    "nearestBusStop": "Ближайшая автобусная остановка",
+    "nearestShop": "Ближайший магазин",
+    "nearestHospital": "Ближайшая больница",
+    "reportListing": "Пожаловаться на объявление",
+    "sendReport": "Отправить жалобу",
+    "reportReasonFraud": "Мошенничество",
+    "reportReasonSpam": "Спам",
+    "reportReasonFake": "Фейковое объявление",
+    "reportReasonInappropriate": "Неприемлемый контент",
+    "reportReasonOther": "Другое",
+    "reportDetailsPlaceholder": "Опишите проблему (необязательно)",
+    "reportSuccess": "Жалоба отправлена",
+    "reportFailed": "Не удалось отправить жалобу"
   },
   "pagination": {
     "next": "Далее"
@@ -613,6 +626,12 @@
     "about": "О нас",
     "blog": "Блог",
     "contact": "Контакты",
+    "legalLine1": "info@flatfly.eu",
+    "legalLine2": "Телефон: 736 103 242",
+    "legalLine3": "IČO: 24911267",
+    "legalLine4": "Datová schránka: xxccnaq",
+    "legalLine5": "Адрес: Teplická 679/72, 419 01 Duchcov",
+    "legalLine6": "Реестр: C 55736, Краевой суд Ústí nad Labem",
     "copyright": "© 2025 FlatFly. Все права защищены."
   },
   "saleCard": {
@@ -680,10 +699,25 @@
     "authError": "Ошибка аутентификации. Попробуйте еще раз.",
     "processing": "Обработка...",
     "sendResetLink": "Отправить ссылку",
-    "backToLogin": "Вернуться к входу"
+    "backToLogin": "Вернуться к входу",
+    "registrationCheckEmailPrompt": "Проверьте почту: мы отправили ссылку для подтверждения email.",
+    "resendVerificationEmail": "Отправить письмо повторно",
+    "verificationEmailResent": "Письмо с подтверждением отправлено повторно.",
+    "verificationEmailResendFailed": "Не удалось отправить письмо повторно.",
+    "verificationRateLimited": "Слишком частые запросы. Попробуйте позже.",
+    "emailVerifiedSuccess": "Email успешно подтвержден. Теперь можно войти.",
+    "emailVerificationInvalidOrExpired": "Ссылка подтверждения недействительна или истекла.",
+    "googleLoginRequired": "Этот аккаунт создан через Google. Войдите, пожалуйста, через кнопку Google ниже.",
+    "emailNotVerifiedMessage": "E-mail ещё не подтверждён. Сначала откройте ссылку из письма, которое мы вам отправили."
   },
   "resetPassword": {
     "title": "Восстановление пароля",
+    "forgotPrompt": "Укажите email аккаунта — мы отправим ссылку для сброса пароля.",
+    "sendLinkError": "Не удалось отправить ссылку. Попробуйте ещё раз.",
+    "notifyLinkSent": "Мы отправили на ваш email ссылку для сброса пароля. Проверьте входящие и папку «Спам».",
+    "notifyNoAccount": "Аккаунта с таким email у нас нет. Попробуйте другой адрес или зарегистрируйтесь.",
+    "notifyGoogleAccount": "Этот email привязан к аккаунту Google. Сброс пароля по почте недоступен — войдите через Google.",
+    "notifyUnknownOutcome": "Запрос обработан. Если аккаунт есть, проверьте почту, включая спам.",
     "subtitle": "Введите новый пароль для вашего аккаунта",
     "resetButton": "Сбросить пароль",
     "backToLogin": "Вернуться к входу",

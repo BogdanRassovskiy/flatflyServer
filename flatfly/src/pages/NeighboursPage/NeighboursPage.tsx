@@ -39,6 +39,7 @@ interface NeighbourFilterState {
   ageFrom: string;
   ageTo: string;
   ratingMin: string;
+  verified: string;
   gender: string;
   smoking: string;
   alcohol: string;
@@ -143,6 +144,7 @@ export default function NeighboursPage() {
     ageFrom: "",
     ageTo: "",
     ratingMin: "0",
+    verified: "",
     gender: "",
     smoking: "",
     alcohol: "",

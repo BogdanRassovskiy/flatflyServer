@@ -12,6 +12,7 @@ export interface FilterState {
       priceTo: string;
       currency: string;
   preferredGender: string;
+  ownerVerified: string;
   sortBy: string;
       rooms: string;
       hasRoommates: string;
@@ -360,6 +361,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         onRemove: () => clearSingleFilter("infrastructure", infra),
       })),
     ].filter(Boolean) as { id: string; title: string; subTitle: string; onRemove: () => void }[];
+    const extraFiltersCount = RoomsCategories.length;
 
     const propertyTypes = [
       {value: "ROOM", label: t("filter.propertyTypeRoom")},
@@ -433,6 +435,11 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       { value: "", label: "-" },
       { value: "male", label: t("filter.preferredGenderMale") },
       { value: "female", label: t("filter.preferredGenderFemale") },
+    ];
+    const ownerVerifiedOptions = [
+      { value: "", label: "-" },
+      { value: "yes", label: t("filter.ownerVerifiedYes") },
+      { value: "no", label: t("filter.ownerVerifiedNo") },
     ];
 
     const infrastructureOptions = [
@@ -527,6 +534,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         priceTo: "",
         currency: "CZK",
         preferredGender: "",
+        ownerVerified: "",
         sortBy: "price_asc",
         rooms: "",
         hasRoommates: "",
@@ -765,7 +773,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         const isOpen = pinnedOpen === key;
         const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
         const triggerClass = [
-          "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+          "filter-panel-segment-trigger relative z-[2] flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 pl-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
           segmentBg,
           isOpen
             ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
@@ -780,11 +788,11 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         return (
           <div key={key} className={shellClass}>
             <button type="button" onClick={() => togglePinnedKey(key)} className={triggerClass} aria-expanded={isOpen}>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <span className="block w-full text-center text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 {pinnedTitle(key)}
               </span>
               <span
-                className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+                className={`line-clamp-2 w-full text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                   pinnedHasValue(key) ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"
                 }`}
               >
@@ -822,7 +830,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       const triggerRing = isOpen ? "ring-1 ring-inset ring-[#C505EB]/20 dark:ring-[#C505EB]/30" : "";
 
       const triggerClass = [
-        "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-start justify-center gap-0.5 py-2.5 pl-3.5 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-out",
+        "filter-panel-segment-trigger flex h-full min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5 pl-3.5 text-center outline-none transition-[background-color,box-shadow] duration-200 ease-out",
         segmentBg,
         isOpen
           ? "bg-[#C505EB]/[0.07] dark:bg-[#C505EB]/12"
@@ -837,11 +845,11 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
       return (
         <div key={key} className={priceShellClass}>
           <button type="button" onClick={() => togglePinnedKey("price")} className={triggerClass}>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <span className="block w-full text-center text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               {pinnedTitle(key)}
             </span>
             <span
-              className={`line-clamp-2 text-left text-[13px] font-semibold leading-snug transition-colors duration-200 ${
+              className={`line-clamp-2 w-full text-center text-[13px] font-semibold leading-snug transition-colors duration-200 ${
                 pinnedHasValue(key)
                   ? "text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-400 dark:text-zinc-500"
@@ -881,7 +889,7 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
         <div ref={pinnedBarRef} className={`interFont flex w-full flex-col gap-2.5`}>
 
             {/* Десктоп: «пилюля» из сегментов (hairline через gap-px, без border на hover) */}
-            <div className="hidden min-[771px]:flex w-full flex-col gap-2.5">
+            <div className="hidden min-[771px]:mx-auto min-[771px]:flex min-[771px]:max-w-[1120px] w-full flex-col gap-2.5">
               <div className="flex min-h-[60px] w-full items-stretch rounded-full bg-zinc-200/75 p-px shadow-[0_4px_24px_-8px_rgba(0,0,0,0.12)] ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.45)]">
                 <div className="flex min-h-[58px] min-w-0 flex-1 gap-px rounded-l-full bg-zinc-200/75 dark:bg-zinc-700/80">
                   {pinnedOrder.map((k, i) => renderPinnedCell(k, i))}
@@ -889,35 +897,19 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                 <button
                   type="button"
                   onClick={openConfigureModal}
-                  className="flex min-h-[58px] shrink-0 items-center justify-center gap-2 rounded-r-full bg-white px-5 pl-4 text-[#C505EB] transition-[background-color,box-shadow,color] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.08] hover:to-[#08E2BE]/[0.06] hover:shadow-[inset_0_0_0_1px_rgba(197,5,235,0.15)] dark:bg-zinc-900 dark:hover:from-[#C505EB]/15 dark:hover:to-[#08E2BE]/10"
+                  className="relative flex min-h-[58px] shrink-0 items-center justify-center gap-2 rounded-r-full bg-white px-5 pl-4 text-[#C505EB] transition-[background-color,box-shadow,color] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.08] hover:to-[#08E2BE]/[0.06] hover:shadow-[inset_0_0_0_1px_rgba(197,5,235,0.15)] dark:bg-zinc-900 dark:hover:from-[#C505EB]/15 dark:hover:to-[#08E2BE]/10"
                 >
                   <Icon icon="mage:filter" className="h-7 w-7 shrink-0" style={{ color: "#08E2BE" }} />
-                  <span className="line-clamp-2 max-w-[min(220px,32vw)] text-left text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
+                  <span className="line-clamp-2 max-w-[min(220px,32vw)] text-center text-sm font-bold leading-tight tracking-tight sm:max-w-[280px] sm:text-base">
                     {t("filter.filters")}
                   </span>
+                  {extraFiltersCount > 0 ? (
+                    <span className="absolute right-2.5 top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-extrabold leading-none text-white">
+                      {extraFiltersCount > 99 ? "99+" : extraFiltersCount}
+                    </span>
+                  ) : null}
                 </button>
               </div>
-
-              {RoomsCategories.length > 0 ? (
-                <div className="flex h-[50px] w-full items-stretch gap-px overflow-x-auto overflow-y-hidden scroll-smooth rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.03] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                  {RoomsCategories.map((value, index) => (
-                    <button
-                      key={value.id}
-                      type="button"
-                      onClick={value.onRemove}
-                      className={`filter-panel-chip flex h-full shrink-0 items-center justify-center gap-3 bg-white px-5 text-left dark:bg-zinc-900 ${
-                        index === 0 ? "rounded-l-full pl-5" : ""
-                      } ${index === RoomsCategories.length - 1 ? "rounded-r-full pr-5" : ""}`}
-                    >
-                      <div className="flex flex-col items-start">
-                        <span className="whitespace-nowrap text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{value.title}</span>
-                        <span className="whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
-                      </div>
-                      <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
 
             {/* Мобильная: только кнопка «Все фильтры» — быстрые 4 сегмента в модалке */}
@@ -927,32 +919,16 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                 onClick={openConfigureModal}
                 className="flex w-full items-center justify-center gap-2.5 rounded-full bg-zinc-200/75 p-px shadow-sm ring-1 ring-zinc-900/[0.04] transition-transform duration-200 ease-out active:scale-[0.99] dark:bg-zinc-700/80 dark:ring-white/[0.06]"
               >
-                <span className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
+                <span className="relative flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-[#C505EB] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-gradient-to-br hover:from-[#C505EB]/[0.06] hover:to-[#08E2BE]/[0.05] dark:bg-zinc-900 dark:hover:from-[#C505EB]/12 dark:hover:to-[#08E2BE]/8">
                   <Icon icon="mage:filter" className="h-6 w-6 shrink-0" style={{ color: "#08E2BE" }} />
                   <span className="text-base font-bold tracking-tight">{t("filter.filters")}</span>
+                  {extraFiltersCount > 0 ? (
+                    <span className="absolute right-3 top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#C505EB] px-1.5 text-[11px] font-extrabold leading-none text-white">
+                      {extraFiltersCount > 99 ? "99+" : extraFiltersCount}
+                    </span>
+                  ) : null}
                 </span>
               </button>
-
-              {RoomsCategories.length > 0 ? (
-                <div className="overflow-hidden rounded-2xl bg-zinc-200/75 p-px ring-1 ring-zinc-900/[0.04] dark:bg-zinc-700/80 dark:ring-white/[0.05]">
-                  <div className="grid grid-cols-2 gap-px bg-zinc-200/75 dark:bg-zinc-700/80">
-                    {RoomsCategories.map((value) => (
-                      <button
-                        key={value.id}
-                        type="button"
-                        onClick={value.onRemove}
-                        className="filter-panel-chip flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-2.5 py-1.5 text-left dark:bg-zinc-900"
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="text-[12px] font-bold leading-tight text-zinc-900 dark:text-zinc-100">{value.title}</span>
-                          <span className="text-[10px] font-semibold leading-tight text-zinc-500 dark:text-zinc-400">{value.subTitle}</span>
-                        </div>
-                        <X size={12} strokeWidth={2.5} className="shrink-0 text-zinc-400 dark:text-zinc-500" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             {/* Модальное окно фильтров */}
@@ -1143,6 +1119,20 @@ export default function FilterPanel({ filters, onChange, priceHistogram }: Filte
                                         className={listingModalSelectClass}
                                       >
                                         {preferredGenderOptions.map((option) => (
+                                          <option key={option.value || "none"} value={option.value}>{option.label}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {/* Верифицированный владелец */}
+                                    <div className={`flex flex-col gap-2`}>
+                                      <label className={`text-sm font-semibold text-black dark:text-white`}>{t("filter.ownerVerified")}</label>
+                                      <select
+                                        value={filters.ownerVerified || ""}
+                                        onChange={(e) => handleFilterChange("ownerVerified", e.target.value)}
+                                        className={listingModalSelectClass}
+                                      >
+                                        {ownerVerifiedOptions.map((option) => (
                                           <option key={option.value || "none"} value={option.value}>{option.label}</option>
                                         ))}
                                       </select>

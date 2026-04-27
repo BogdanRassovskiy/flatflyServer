@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
 
 from .models import Chat, Message, ChatBlock, ListingCardReaction
 from django.contrib.auth import get_user_model
@@ -51,6 +53,7 @@ class MessageSerializer(serializers.ModelSerializer):
     listing_id = serializers.SerializerMethodField()
     listing_ratings = serializers.SerializerMethodField()
     reply_preview = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -60,6 +63,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender",
             "text",
             "created_at",
+            "edited_at",
             "is_read",
             "message_kind",
             "listing_id",
@@ -67,6 +71,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "display_text",
             "listing_ratings",
             "reply_preview",
+            "can_edit",
         )
 
     def get_listing_id(self, obj):
@@ -152,6 +157,16 @@ class MessageSerializer(serializers.ModelSerializer):
         else:
             out["text_snippet"] = ((ref.text or "").strip())[:280]
         return out
+
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        if obj.sender_id != request.user.id:
+            return False
+        if obj.message_kind != Message.KIND_TEXT:
+            return False
+        return obj.created_at >= timezone.now() - timedelta(minutes=5)
 
 
 class ChatSerializer(serializers.ModelSerializer):

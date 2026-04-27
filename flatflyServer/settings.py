@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
@@ -7,6 +8,23 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
+
+
+def _normalize_default_from_email(raw: str) -> str:
+    """
+    SMTP MAIL FROM must be a valid mailbox (user@domain). Brevo returns
+    501 if only a domain was set (e.g. intime-studio.cz) without local part.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return "FlatFly <no-reply@flatfly.eu>"
+    if "@" in s:
+        return s
+    # Bare domain / hostname only
+    if re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$", s):
+        return f"FlatFly <no-reply@{s}>"
+    return s
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -53,6 +71,7 @@ TELEGRAM_CHAT_BOT_USERNAME = os.getenv("TELEGRAM_CHAT_BOT_USERNAME", "")
 TELEGRAM_LINK_SECRET = os.getenv("LINK_SECRET", SECRET_KEY or "")
 TELEGRAM_CHANNEL_CHAT_ID = os.getenv("TELEGRAM_CHANNEL_CHAT_ID", "-1003759647230")
 LISTING_PUBLIC_BASE_URL = os.getenv("LISTING_PUBLIC_BASE_URL", "https://flatfly.eu")
+AUTH_REDIRECT_BASE_URL = os.getenv("AUTH_REDIRECT_BASE_URL", "")
 
 # Google OAuth redirect URI (по умолчанию на прод-домен)
 GOOGLE_REDIRECT_URI = os.getenv(
@@ -64,14 +83,24 @@ if not DEBUG and "localhost" in GOOGLE_REDIRECT_URI:
     GOOGLE_REDIRECT_URI = "https://flatfly.eu/api/google_callback/"
 
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "rassovskiybogdan@gmail.com"
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp-relay.brevo.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+# Prefer FlatFly-specific names so a shared server .env does not collide with other apps.
+EMAIL_HOST_USER = os.getenv("FLATFLY_SMTP_USER", "") or os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("FLATFLY_SMTP_PASSWORD", "") or os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = _normalize_default_from_email(
+    os.getenv("DEFAULT_FROM_EMAIL", "FlatFly <no-reply@flatfly.eu>"),
+)
 
-DEFAULT_FROM_EMAIL = "FlatFly <rassovskiybogdan@gmail.com>"
+EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_TTL_MINUTES", "60"))
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60"))
+EMAIL_VERIFICATION_DAILY_LIMIT = int(os.getenv("EMAIL_VERIFICATION_DAILY_LIMIT", "10"))
+
+# If true, /api/auth/password-reset/ JSON includes mailed/reason (reveals whether email exists — use only if acceptable).
+PASSWORD_RESET_EXPOSE_MAIL_STATUS = os.getenv("PASSWORD_RESET_EXPOSE_MAIL_STATUS", "").lower() in ("1", "true", "yes")
 
 SITE_ID = 1
 
@@ -218,3 +247,29 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
+
+# Иначе log.info из приложения (например [password_reset] в views) не попадает в консоль runserver:
+# у корневого логгера по умолчанию уровень WARNING.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "brief": {
+            "format": "{levelname} {asctime} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "brief",
+        },
+    },
+    "loggers": {
+        "flatflyServer.views": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

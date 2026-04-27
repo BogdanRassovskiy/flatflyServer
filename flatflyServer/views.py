@@ -1,6 +1,7 @@
 from django.shortcuts import render,redirect,get_object_or_404
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 import json
+import logging
 import re
 import uuid
 import math
@@ -18,7 +19,18 @@ from django.views.decorators.http import require_POST,require_http_methods
 from django.db import close_old_connections
 from django.db.models import Q, Avg, Count, Max, Prefetch
 from django.utils import timezone
-from users.models import Profile, ProfileCompletionWeight, ProfileGalleryPhoto, ProfileRankingConfig, ProfileReview, TeamMember, University, UniversityFaculty
+from django.utils.crypto import get_random_string
+from users.models import (
+    Profile,
+    ProfileCompletionWeight,
+    ProfileGalleryPhoto,
+    ProfileRankingConfig,
+    ProfileReview,
+    TeamMember,
+    University,
+    UniversityFaculty,
+    EmailVerificationToken,
+)
 from chats.models import ChatBlock
 from users.neighbour_ranking import (
     apply_neighbour_hard_filters,
@@ -37,6 +49,8 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.core.files.base import ContentFile
+
+log = logging.getLogger(__name__)
 from .image_moderation import moderate_image, apply_moderation_strike_and_notify
 from .telegram_channel import publish_listing_to_channel, delete_listing_from_channel
 User = get_user_model()
@@ -658,6 +672,7 @@ def _build_requested_listing_filters(request):
         "price_to": _parse_float_safe(request.GET.get("priceTo")),
         "currency": request.GET.get("currency") or None,
         "preferred_gender": preferred_gender,
+        "owner_verified": _parse_bool_choice(request.GET.get("ownerVerified")),
         "sort_by": request.GET.get("sortBy") or "price_asc",
         "rooms": _normalize_rooms_filter(request.GET.get("rooms")),
         "has_roommates": _parse_bool_choice(request.GET.get("hasRoommates")),
@@ -724,6 +739,11 @@ def _listing_filter_match_ratio(listing, code, expected_value):
 
     if code == "preferred_gender":
         return 1.0 if str(listing.preferred_gender or "").lower() == str(expected_value).lower() else 0.0
+
+    if code == "owner_verified":
+        owner_profile = getattr(getattr(listing, "owner", None), "profile", None)
+        owner_verified = bool(getattr(owner_profile, "verified", False))
+        return 1.0 if owner_verified == bool(expected_value) else 0.0
 
     if code == "rooms":
         return 1.0 if _rooms_match(listing.rooms, expected_value) else 0.0
@@ -822,6 +842,9 @@ def _apply_hard_filters(qs, requested_filters, config_by_code, option_configs_by
 
         elif code == "preferred_gender":
             qs = qs.filter(preferred_gender=str(expected_value).lower())
+
+        elif code == "owner_verified":
+            qs = qs.filter(owner__profile__verified=bool(expected_value))
 
         elif code == "rooms":
             if expected_value.get("mode") == "gte":
@@ -1028,6 +1051,7 @@ def me(request):
         "last_name": user.last_name,
         "name": display_name,
         "avatar": avatar_url,
+        "email_verified": bool(profile.email_verified) if profile else False,
     })
 def neighbours_list(request):
     qs = Profile.objects.all().annotate(
@@ -1053,6 +1077,8 @@ def neighbours_list(request):
         )
 
     neighbour_filters = parse_neighbour_filters(request)
+    if neighbour_filters.get("verified") is not None:
+        qs = qs.filter(verified=bool(neighbour_filters["verified"]))
     ranking_configs = normalize_neighbour_ranking_configs(
         list(ProfileRankingConfig.objects.filter(is_active=True).order_by("id"))
     )
@@ -1522,35 +1548,88 @@ Message:
     )
 
     return JsonResponse({"detail": "Message sent successfully"})
+
+
+def _password_reset_expose_status() -> bool:
+    return bool(getattr(settings, "DEBUG", False) or getattr(settings, "PASSWORD_RESET_EXPOSE_MAIL_STATUS", False))
+
+
 @csrf_exempt
 def password_reset_request(request):
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
-    email = request.POST.get("email")
+    email = (request.POST.get("email") or "").strip().lower()
     if not email:
         return JsonResponse({"detail": "Email is required"}, status=400)
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        # В целях безопасности не говорим, что пользователя нет
-        return JsonResponse({
-            "detail": "If an account with this email exists, a reset link was sent."
-        })
+    # Нельзя использовать .get(email=...): в БД иногда бывают дубликаты email → MultipleObjectsReturned.
+    candidates = list(User.objects.filter(email__iexact=email).order_by("id")[:2])
+    if not candidates:
+        log.info("[password_reset] NOT_ATTEMPTED no_matching_user email=%s", email)
+        body: dict = {
+            "detail": "No account registered for this email.",
+            "dispatch": "none",
+        }
+        if _password_reset_expose_status():
+            body["mailed"] = False
+            body["reason"] = "no_matching_user"
+        return JsonResponse(body)
+    if len(candidates) > 1:
+        log.info(
+            "password_reset_request: duplicate User rows for email=%s (ids=%s); using oldest id=%s",
+            email,
+            [u.pk for u in candidates],
+            candidates[0].pk,
+        )
+    user = candidates[0]
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "auth_provider", None) == "google":
+        log.info("[password_reset] NOT_ATTEMPTED oauth_google user_id=%s email=%s", user.pk, email)
+        oauth_body: dict = {
+            "detail": "This account uses Google sign-in. Use Google to log in.",
+            "dispatch": "oauth_google",
+        }
+        if _password_reset_expose_status():
+            oauth_body["mailed"] = False
+            oauth_body["reason"] = "oauth_google"
+        return JsonResponse(oauth_body)
     # Генерация токена
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     frontend_url = get_frontend_url(request)
     reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
-    send_mail(
-        subject="Password reset",
-        message=f"Click the link to reset your password:\n\n{reset_link}",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-        fail_silently=False,
+    try:
+        send_mail(
+            subject="Password reset",
+            message=f"Click the link to reset your password:\n\n{reset_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception:
+        log.exception("password_reset_request: send_mail failed for user_id=%s email=%s", user.pk, email)
+        err_body: dict = {
+            "detail": "Could not send email. Check SMTP settings (FLATFLY_SMTP_* / EMAIL_*).",
+            "code": "email_send_failed",
+            "dispatch": "smtp_failed",
+        }
+        if _password_reset_expose_status():
+            err_body["mailed"] = False
+            err_body["reason"] = "smtp_error"
+        return JsonResponse(err_body, status=503)
+    log.info(
+        "[password_reset] SMTP_ACCEPTED user_id=%s to=%s from_email=%s (inbox: check Brevo logs + spam; link not logged for security)",
+        user.pk,
+        email,
+        getattr(settings, "DEFAULT_FROM_EMAIL", ""),
     )
-    return JsonResponse({
-        "detail": "Password reset email sent"
-    })
+    ok_body: dict = {
+        "detail": "Password reset email sent",
+        "dispatch": "sent",
+    }
+    if _password_reset_expose_status():
+        ok_body["mailed"] = True
+        ok_body["reason"] = "smtp_accepted"
+    return JsonResponse(ok_body)
 def get_frontend_url(request):
     origin = request.headers.get("Origin")
     if origin:
@@ -1560,6 +1639,90 @@ def get_frontend_url(request):
     scheme = "https" if request.is_secure() else "http"
     host = request.get_host()
     return f"{scheme}://{host}"
+
+
+def get_public_frontend_url():
+    return (getattr(settings, "LISTING_PUBLIC_BASE_URL", "") or "").rstrip("/") or "http://localhost:5173"
+
+
+def _build_auth_redirect_url(request, path_suffix):
+    if not path_suffix.startswith("/"):
+        path_suffix = f"/{path_suffix}"
+    override_base = (getattr(settings, "AUTH_REDIRECT_BASE_URL", "") or "").rstrip("/")
+    if override_base:
+        return f"{override_base}{path_suffix}"
+    # In local/dev environments this prevents localhost/127 host mismatch
+    # and keeps session cookies on the same host that handled confirmation.
+    if getattr(settings, "DEBUG", False):
+        return _build_api_absolute_url(request, path_suffix)
+    frontend = get_public_frontend_url()
+    return f"{frontend}{path_suffix}"
+
+
+def _verification_ttl():
+    return max(5, int(getattr(settings, "EMAIL_VERIFICATION_TOKEN_TTL_MINUTES", 60)))
+
+
+def _verification_resend_cooldown():
+    return max(15, int(getattr(settings, "EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", 60)))
+
+
+def _verification_daily_limit():
+    return max(3, int(getattr(settings, "EMAIL_VERIFICATION_DAILY_LIMIT", 10)))
+
+
+def _build_api_absolute_url(request, path_suffix):
+    if not path_suffix.startswith("/"):
+        path_suffix = f"/{path_suffix}"
+    scheme = "https" if request.is_secure() else "http"
+    return f"{scheme}://{request.get_host()}{path_suffix}"
+
+
+def _send_verification_email(user, request):
+    profile = getattr(user, "profile", None)
+    if not profile:
+        return False, "Profile is missing"
+
+    now = timezone.now()
+    latest = EmailVerificationToken.objects.filter(user=user).order_by("-created_at").first()
+    if latest and (now - latest.created_at).total_seconds() < _verification_resend_cooldown():
+        retry_after = _verification_resend_cooldown() - int((now - latest.created_at).total_seconds())
+        return False, {"code": "cooldown", "retry_after": max(1, retry_after)}
+
+    recent_day_count = EmailVerificationToken.objects.filter(
+        user=user,
+        created_at__gte=now - timedelta(hours=24),
+    ).count()
+    if recent_day_count >= _verification_daily_limit():
+        return False, {"code": "daily_limit"}
+
+    EmailVerificationToken.objects.filter(user=user, consumed_at__isnull=True).delete()
+
+    token_value = get_random_string(48)
+    expiry = now + timedelta(minutes=_verification_ttl())
+    token = EmailVerificationToken.objects.create(
+        user=user,
+        token=token_value,
+        expires_at=expiry,
+    )
+    confirm_url = _build_api_absolute_url(request, f"/api/auth/email-confirm/{token.token}/")
+
+    ttl_minutes = _verification_ttl()
+    subject = "Confirm your FlatFly email"
+    message = (
+        "Welcome to FlatFly!\n\n"
+        "Please confirm your email address by opening this link:\n"
+        f"{confirm_url}\n\n"
+        f"The link is valid for {ttl_minutes} minutes."
+    )
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return True, None
 @csrf_exempt
 def password_reset_confirm(request, uidb64, token):
     if request.method != "POST":
@@ -1587,7 +1750,10 @@ def register_view(request):
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
 
     name = data.get("name", "").strip()
     email = data.get("email", "").lower().strip()
@@ -1601,9 +1767,13 @@ def register_view(request):
         profile = getattr(existing_user, "profile", None)
 
         if profile and profile.auth_provider == "google":
-            return JsonResponse({
-                "error": "This account was created using Google. Please log in with Google."
-            }, status=400)
+            return JsonResponse(
+                {
+                    "error": "This account was created using Google. Please log in with Google.",
+                    "code": "auth_provider_google",
+                },
+                status=400,
+            )
 
         return JsonResponse({
             "error": "User with this email already exists. Please log in."
@@ -1621,19 +1791,29 @@ def register_view(request):
     profile = user.profile
     profile.name = name
     profile.auth_provider = "email"
+    profile.email_verified = False
+    profile.email_verified_at = None
+    profile.email_verification_required = True
     profile.save()
 
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    try:
+        sent, error_data = _send_verification_email(user, request)
+    except Exception:
+        sent, error_data = False, {"code": "send_failed"}
 
     return JsonResponse({
         "status": "registered",
+        "requires_email_verification": True,
+        "verification_email_sent": bool(sent),
+        "verification_error": error_data if error_data else None,
         "user": {
             "id": user.id,
             "email": user.email,
             "name": profile.name,
             "auth_provider": profile.auth_provider,
+            "email_verified": bool(profile.email_verified),
         }
-    })
+    }, status=201)
 @csrf_exempt
 def login_view(request):
     if request.method != "POST":
@@ -1659,9 +1839,27 @@ def login_view(request):
 
     # Если аккаунт Google
     if profile.auth_provider == "google":
-        return JsonResponse({
-            "error": "This account was created via Google. Please login with Google."
-        }, status=400)
+        return JsonResponse(
+            {
+                "error": "This account was created via Google. Please login with Google.",
+                "code": "auth_provider_google",
+            },
+            status=400,
+        )
+
+    if (
+        profile.auth_provider == "email"
+        and profile.email_verification_required
+        and not profile.email_verified
+    ):
+        return JsonResponse(
+            {
+                "error": "Email is not verified. Please confirm your email first.",
+                "code": "email_not_verified",
+                "email": user.email,
+            },
+            status=403,
+        )
 
     # Проверяем пароль
     if not user.check_password(password):
@@ -1677,8 +1875,92 @@ def login_view(request):
             "email": user.email,
             "name": profile.name or user.first_name,
             "auth_provider": profile.auth_provider,
+            "email_verified": bool(profile.email_verified),
         }
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def resend_verification_email(request):
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    email = str(data.get("email") or "").strip().lower()
+    if not email:
+        return JsonResponse({"detail": "Email is required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return JsonResponse({"status": "ok"})
+
+    profile = getattr(user, "profile", None)
+    if not profile or profile.auth_provider != "email":
+        return JsonResponse({"status": "ok"})
+
+    if not profile.email_verification_required:
+        return JsonResponse({"status": "ok"})
+
+    if profile.email_verified:
+        return JsonResponse({"status": "already_verified"})
+
+    try:
+        sent, error_data = _send_verification_email(user, request)
+    except Exception:
+        sent, error_data = False, {"code": "send_failed"}
+
+    if sent:
+        return JsonResponse({"status": "sent"})
+
+    if isinstance(error_data, dict) and error_data.get("code") == "cooldown":
+        return JsonResponse({
+            "status": "cooldown",
+            "retry_after": int(error_data.get("retry_after") or _verification_resend_cooldown()),
+            "code": "verification_cooldown",
+        }, status=429)
+
+    if isinstance(error_data, dict) and error_data.get("code") == "daily_limit":
+        return JsonResponse({
+            "status": "daily_limit",
+            "code": "verification_daily_limit",
+        }, status=429)
+
+    return JsonResponse({"detail": "Failed to send verification email"}, status=500)
+
+
+@require_http_methods(["GET"])
+def confirm_email(request, token):
+    verification = (
+        EmailVerificationToken.objects
+        .filter(token=token)
+        .select_related("user__profile")
+        .first()
+    )
+    if not verification:
+        return redirect(_build_auth_redirect_url(request, "/auth?emailVerifyError=invalid"))
+
+    if verification.consumed_at:
+        return redirect(_build_auth_redirect_url(request, "/auth?emailVerifyError=already-used"))
+
+    if verification.expires_at <= timezone.now():
+        return redirect(_build_auth_redirect_url(request, "/auth?emailVerifyError=expired"))
+
+    profile = verification.user.profile
+    profile.email_verified = True
+    profile.email_verified_at = timezone.now()
+    profile.email_verification_required = False
+    profile.save(
+        update_fields=["email_verified", "email_verified_at", "email_verification_required"]
+    )
+    verification.consumed_at = timezone.now()
+    verification.save(update_fields=["consumed_at"])
+
+    if verification.user.is_active:
+        login(request, verification.user, backend="django.contrib.auth.backends.ModelBackend")
+
+    return redirect(_build_auth_redirect_url(request, "/auth?emailVerified=1"))
 
 @csrf_exempt
 @require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
@@ -2124,6 +2406,9 @@ def listings_view(request):
         option_configs_by_parent.setdefault(parent_code, {})[option_cfg.option_key] = option_cfg
 
     requested_filters = _build_requested_listing_filters(request)
+    owner_verified_filter = requested_filters.get("owner_verified")
+    if owner_verified_filter is not None:
+        qs = qs.filter(owner__profile__verified=bool(owner_verified_filter))
 
     # Получаем фильтры
     search = request.GET.get("search")
@@ -2851,7 +3136,10 @@ def apple_callback(request):
         # Если раньше был email, апгрейдим
         if profile.auth_provider == "email":
             profile.auth_provider = "apple"
-            profile.save()
+        profile.email_verified = True
+        profile.email_verified_at = profile.email_verified_at or timezone.now()
+        profile.email_verification_required = False
+        profile.save()
     else:
         user = User.objects.create_user(
             username=f"apple_{apple_id}",
@@ -2863,7 +3151,9 @@ def apple_callback(request):
         profile = Profile.objects.create(
             user=user,
             auth_provider="apple",
-            name=f"{first_name} {last_name}".strip()
+            name=f"{first_name} {last_name}".strip(),
+            email_verified=True,
+            email_verified_at=timezone.now(),
         )
 
     if not user.is_active:
@@ -2973,6 +3263,9 @@ def google_callback(request):
 
         # Обновляем provider
         profile.auth_provider = "google"
+        profile.email_verified = True
+        profile.email_verified_at = profile.email_verified_at or timezone.now()
+        profile.email_verification_required = False
         profile.save()
 
     else:
@@ -2987,7 +3280,9 @@ def google_callback(request):
         profile = Profile.objects.create(
             user=user,
             auth_provider="google",
-            name=f"{first_name} {last_name}".strip()
+            name=f"{first_name} {last_name}".strip(),
+            email_verified=True,
+            email_verified_at=timezone.now(),
         )
         _try_apply_google_avatar_photo(profile, picture_url)
 

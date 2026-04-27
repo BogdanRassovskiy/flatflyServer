@@ -5,6 +5,7 @@ import {useLanguage} from "../../contexts/LanguageContext";
 import {useAuth} from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { getImageUrl } from "../../utils/defaultImage";
+import { FlatFlyFLogoHeader } from "../brand/FlatFlyFLogo";
 
 
 
@@ -248,10 +249,8 @@ export default function Header() {
             
 
             <div className="grid h-[100px] w-full max-w-[1440px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-[1440px]:px-[110px] max-[1440px]:px-5 max-[770px]:px-2">
-                <Link to="/" className="flex shrink-0 items-center justify-center">
-                    <span className="max-[770px]:text-[32px] min-[770px]:text-[52px] cursor-pointer font-extrabold bg-gradient-to-r from-[#BA00F8] to-[#08D3E2] bg-clip-text text-transparent">
-                        FlatFly
-                    </span>
+                <Link to="/" className="flex shrink-0 items-center justify-center" aria-label="FlatFly">
+                    <FlatFlyFLogoHeader />
                 </Link>
 
                 <div className="hidden min-[771px]:flex min-w-0 items-center justify-center px-2" />
@@ -430,9 +429,9 @@ export default function Header() {
 
                                 <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
                                     <div className="flex flex-col divide-y divide-gray-200/90 dark:divide-zinc-600">
-                                        {menuItemsColumn1.map((item, index) => (
+                                        {menuItemsColumn2.map((item, index) => (
                                             <Link
-                                                key={`nav-${index}`}
+                                                key={`cat-${index}`}
                                                 to={item.path}
                                                 className={`block px-4 py-2.5 text-left text-[15px] font-semibold transition-colors hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-100 ${
                                                     pathname === item.path ? "text-[#C505EB]" : "text-[#333333]"
@@ -447,9 +446,9 @@ export default function Header() {
 
                                 <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-900/60">
                                     <div className="flex flex-col divide-y divide-gray-200/90 dark:divide-zinc-600">
-                                        {menuItemsColumn2.map((item, index) => (
+                                        {menuItemsColumn1.map((item, index) => (
                                             <Link
-                                                key={`cat-${index}`}
+                                                key={`nav-${index}`}
                                                 to={item.path}
                                                 className={`block px-4 py-2.5 text-left text-[15px] font-semibold transition-colors hover:bg-[#C505EB]/10 hover:text-[#C505EB] dark:text-gray-100 ${
                                                     pathname === item.path ? "text-[#C505EB]" : "text-[#333333]"

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 import unicodedata
 
 
@@ -165,6 +166,12 @@ class Profile(models.Model):
 
     # === STATUS ===
     verified = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    email_verification_required = models.BooleanField(
+        default=False,
+        help_text="If True, login is blocked until email is verified. Set only for new email signups.",
+    )
     looking_for_housing = models.BooleanField(default=True)
     with_children = models.BooleanField(default=False)
     with_disability = models.BooleanField(default=False)
@@ -188,6 +195,30 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_verification_tokens",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    @property
+    def is_active(self):
+        if self.consumed_at:
+            return False
+        return self.expires_at > timezone.now()
+
+    def __str__(self):
+        return f"EmailVerificationToken(user={self.user_id}, token={self.token[:8]}...)"
 
 
 class ProfileGalleryPhoto(models.Model):

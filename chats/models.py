@@ -38,6 +38,7 @@ class Message(models.Model):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='messages', on_delete=models.CASCADE)
     text = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
     is_read = models.BooleanField(default=False)
     message_kind = models.CharField(max_length=32, choices=KIND_CHOICES, default=KIND_TEXT, db_index=True)
     listing = models.ForeignKey(

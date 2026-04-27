@@ -20,6 +20,8 @@ export default function AuthPage() {
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitCode, setSubmitCode] = useState<string | null>(null);
+    const [isResendingVerification, setIsResendingVerification] = useState(false);
     type AuthMode = "login" | "register" | "forgot";
     const [mode, setMode] = useState<AuthMode>("login");
 
@@ -30,6 +32,22 @@ export default function AuthPage() {
             router(redirectTo);
         }
     }, [isAuthenticated, router, searchParams]);
+
+    useEffect(() => {
+      const verified = searchParams.get("emailVerified");
+      const verifyError = searchParams.get("emailVerifyError");
+      if (verified === "1") {
+        setMode("login");
+        setSubmitCode("email_verified");
+        setErrors({ submit: t("auth.emailVerifiedSuccess") });
+        return;
+      }
+      if (verifyError) {
+        setMode("login");
+        setSubmitCode("email_verify_error");
+        setErrors({ submit: t("auth.emailVerificationInvalidOrExpired") });
+      }
+    }, [searchParams, t]);
 
     const validateEmail = (email: string) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,6 +96,7 @@ export default function AuthPage() {
 
       setIsSubmitting(true);
       setErrors({});
+      setSubmitCode(null);
 
       try {
         // === FORGOT PASSWORD ===
@@ -91,15 +110,39 @@ export default function AuthPage() {
             body: form,
           });
 
+          const resetPayload = (await res.json().catch(() => ({}))) as {
+            dispatch?: string;
+            detail?: string;
+          };
+
           if (!res.ok) {
-            setErrors({ submit: t("auth.resetPasswordError") });
+            setSubmitCode(null);
+            setErrors({ submit: t("resetPassword.sendLinkError") });
+            return;
+          }
+
+          if (resetPayload?.dispatch === "oauth_google") {
+            setSubmitCode("password_reset_oauth_google");
+            setErrors({ submit: t("resetPassword.notifyGoogleAccount") });
+            return;
+          }
+
+          if (resetPayload?.dispatch === "sent") {
+            setMode("login");
+            setSubmitCode("password_reset_sent_ok");
+            setErrors({ submit: t("resetPassword.notifyLinkSent") });
+            return;
+          }
+
+          if (resetPayload?.dispatch === "none") {
+            setSubmitCode("password_reset_no_user");
+            setErrors({ submit: t("resetPassword.notifyNoAccount") });
             return;
           }
 
           setMode("login");
-          setErrors({
-            submit: t("auth.resetPasswordSuccess"),
-          });
+          setSubmitCode("password_reset_sent");
+          setErrors({ submit: t("resetPassword.notifyUnknownOutcome") });
           return;
         }
 
@@ -134,7 +177,23 @@ export default function AuthPage() {
         const data = await res.json();
 
         if (!res.ok) {
-          setErrors({ submit: data.detail || data.error || t("auth.authenticationFailed") });
+          const errCode = typeof data?.code === "string" ? data.code : null;
+          setSubmitCode(errCode);
+          const submitMsg =
+            errCode === "auth_provider_google"
+              ? t("auth.googleLoginRequired")
+              : errCode === "email_not_verified"
+                ? t("auth.emailNotVerifiedMessage")
+                : data.detail || data.error || t("auth.authError");
+          setErrors({ submit: submitMsg });
+          return;
+        }
+
+        if (mode === "register" && data?.requires_email_verification) {
+          setMode("login");
+          setSubmitCode("registration_email_verification_required");
+          setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+          setErrors({ submit: t("auth.registrationCheckEmailPrompt") });
           return;
         }
 
@@ -155,6 +214,41 @@ export default function AuthPage() {
         setErrors({ submit: t("auth.serverError") });
       } finally {
         setIsSubmitting(false);
+      }
+    };
+
+    const handleResendVerification = async () => {
+      const email = String(formData.email || "").trim().toLowerCase();
+      if (!email || !validateEmail(email) || isResendingVerification) {
+        return;
+      }
+      setIsResendingVerification(true);
+      setSubmitCode(null);
+      try {
+        const res = await fetch("/api/auth/email/resend-verification/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setSubmitCode("verification_resent");
+          setErrors({ submit: t("auth.verificationEmailResent") });
+          return;
+        }
+        if (res.status === 429) {
+          setSubmitCode(typeof payload?.code === "string" ? payload.code : "verification_rate_limited");
+          setErrors({ submit: t("auth.verificationRateLimited") });
+          return;
+        }
+        setSubmitCode("verification_resend_failed");
+        setErrors({ submit: t("auth.verificationEmailResendFailed") });
+      } catch {
+        setSubmitCode("verification_resend_failed");
+        setErrors({ submit: t("auth.verificationEmailResendFailed") });
+      } finally {
+        setIsResendingVerification(false);
       }
     };
 
@@ -411,7 +505,7 @@ export default function AuthPage() {
                             {mode === "forgot" && (
                               <div className="w-full mb-4 p-3.5 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
                                 <p className="text-sm text-purple-700 dark:text-purple-300 leading-snug">
-                                  {t("auth.resetPasswordPrompt")}
+                                  {t("resetPassword.forgotPrompt")}
                                 </p>
                               </div>
                             )}
@@ -430,16 +524,46 @@ export default function AuthPage() {
 
                             {errors.submit && (
                                 <div
-                                    className={`w-full rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 ${
-                                        isLogin ? "p-4 sm:p-5" : "p-3.5"
-                                    }`}
+                                    className={`w-full rounded-xl ${
+                                        submitCode === "password_reset_sent_ok" ||
+                                        submitCode === "registration_email_verification_required"
+                                          ? "border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                                          : submitCode === "password_reset_no_user" ||
+                                              submitCode === "password_reset_oauth_google" ||
+                                              submitCode === "auth_provider_google" ||
+                                              submitCode === "email_not_verified"
+                                            ? "border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/25"
+                                            : "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                                    } ${isLogin ? "p-4 sm:p-5" : "p-3.5"}`}
                                 >
                                     <span
-                                        className={`text-red-600 dark:text-red-400 ${isLogin ? "text-sm sm:text-base" : "text-sm"}`}
+                                        className={`${
+                                            submitCode === "password_reset_sent_ok" ||
+                                            submitCode === "registration_email_verification_required"
+                                              ? "text-emerald-800 dark:text-emerald-200"
+                                              : submitCode === "password_reset_no_user" ||
+                                                  submitCode === "password_reset_oauth_google" ||
+                                                  submitCode === "auth_provider_google" ||
+                                                  submitCode === "email_not_verified"
+                                                ? "text-amber-900 dark:text-amber-100"
+                                                : "text-red-600 dark:text-red-400"
+                                        } ${isLogin ? "text-sm sm:text-base" : "text-sm"}`}
                                     >
                                         {errors.submit}
                                     </span>
                                 </div>
+                            )}
+                            {(submitCode === "email_not_verified" || submitCode === "registration_email_verification_required") && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleResendVerification();
+                                }}
+                                disabled={isResendingVerification || !validateEmail(String(formData.email || "").trim())}
+                                className="w-full rounded-xl border border-[#C505EB] px-4 py-2 text-sm font-semibold text-[#C505EB] transition hover:bg-[#C505EB]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isResendingVerification ? t("auth.processing") : t("auth.resendVerificationEmail")}
+                              </button>
                             )}
 
                             <button
