@@ -8,6 +8,7 @@ import {
   type MouseEvent,
   type MutableRefObject,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import { Icon } from "@iconify/react";
 import { getCsrfToken } from "../utils/csrf";
@@ -37,6 +38,7 @@ const DELETE_CHAT_CONFIRMATION_KEY = "flatfly.skipDeleteChatConfirmation";
 const MESSAGE_CACHE_KEY = "flatfly.messageCache.v1";
 const MESSAGES_PAGE_SIZE = 10;
 const FLATFLY_SUPPORT_EMAIL = "support@flatfly.local";
+const URL_IN_TEXT_RE = /((?:https?:\/\/|www\.)[^\s]+)/gi;
 interface User {
   id: number;
   email: string;
@@ -132,6 +134,57 @@ function buildReplyPreviewFromMessage(
     text_snippet: (message.text || "").slice(0, 280),
     listing_thumb: null,
   };
+}
+
+function renderMessageTextWithLinks(text: string, outgoing: boolean): ReactNode[] {
+  const linkClass = outgoing
+    ? "underline decoration-white/60 underline-offset-2 hover:text-white"
+    : "text-[#8b0bd5] underline decoration-[#8b0bd5]/45 underline-offset-2 hover:text-[#6f08aa] dark:text-[#d58bff] dark:decoration-[#d58bff]/50 dark:hover:text-[#ebbfff]";
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+
+  for (const match of text.matchAll(URL_IN_TEXT_RE)) {
+    const raw = match[0];
+    const start = match.index ?? -1;
+    if (start < 0 || start < cursor) continue;
+
+    if (start > cursor) {
+      parts.push(text.slice(cursor, start));
+    }
+
+    let linkText = raw;
+    let trailing = "";
+    while (/[),.!?:;]$/.test(linkText)) {
+      trailing = linkText.slice(-1) + trailing;
+      linkText = linkText.slice(0, -1);
+    }
+
+    const href = /^https?:\/\//i.test(linkText) ? linkText : `https://${linkText}`;
+    parts.push(
+      <a
+        key={`msg-link-${key++}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClass}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {linkText}
+      </a>,
+    );
+    if (trailing) {
+      parts.push(trailing);
+    }
+
+    cursor = start + raw.length;
+  }
+
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+
+  return parts.length > 0 ? parts : [text];
 }
 
 function MessageReplyQuote({
@@ -2974,7 +3027,7 @@ export default function MessengerPage() {
                         <div
                           className={`whitespace-pre-wrap break-words ${isOutgoingText ? "text-white" : ""}`}
                         >
-                          {message.text}
+                          {renderMessageTextWithLinks(message.text || "", isOutgoingText)}
                         </div>
                         {message.edited_at ? (
                           <div
